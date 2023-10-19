@@ -26,7 +26,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
   examples.
 
 ### Minimum Viable Product
-The MVP will implement most of the git commands that can run locally. The list of commands are following:
+The MVP will implement most of the git commands that can run locally. For feasibllity, we will implement the git commands without the flags options. The list of commands that will be implmented are following:
 
 Command list
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
@@ -157,8 +157,8 @@ We need specific data structures to represent a data unit in the Git database. W
 A blob object is compressed binary data of a content file, representing the file data in a specific state.
 
 ```haskell
--- Blob = (file content in binary, hash of (header + new content))
-type Blob = (ByteString, ByteString)
+-- Blob = (file content in binary, hash of (header + new content), filename)
+type Blob = (ByteString, ByteString, ByteString)
 ```
 
 2. Tree Object
@@ -201,23 +201,77 @@ type Index = Tree
 (TODO: Make sure you make function signatures)
 1. Argument Parsing (Chen)
 
-2. TODO: (Jack - git hash-object and git cat-file, read, write)
+2. Hashing Git Objects
    
-   Following the design patter of git, HaskGit will also store git objects in .git/objects.
+   In Git, the path of git objects are determined by using hash function. This will make tracking the git object easy and fast. 
+   
+   We will need to implement a function that takes a git object and return a hash value. We would also need a flag that indicates whether or not the git object we are hashing will be stored in the path. If the 
+   Following the design patter of git, HaskGit will also store git objects in .git/objects. 
 
-   ```haskell
-   type gitObject = Tree | Commit | Blob
-   -- (Git object, flag to indicate store object in repository)
-   hashObject :: gitObject -> Int -> ByteString
-   ```
+    To store the git object, we take first two characters of hash value, then a directory delimiter /, then the remaining part. For example,
 
-   Git cat file
+    ```
+    -- hash value: e673d1b7eaa0aa01b5bc2442d570a765bdaae751
+    -- it will be stored at:
+    -- .git/objects/e6/73d1b7eaa0aa01b5bc2442d570a765bdaae751
+    ```
+    To implment hashObject function, we create a new data with all of our git objects which are Tree, Commit, and Blob. The function will then use the data in gitObject to get the hash value. The function will also take gitObject and a boolean value to indicate if git objects should be stored in .git/objects. 
+    ```haskell
+    Data GitObject = Tree | Commit | Blob
+    -- (Git object, flag to indicate store object in repository)
+    hashObject :: GitObject -> Bool -> ByteString
+    ```
+
+    For hash, the plan is to use Crypto.Hash.SHA1.hash function. This function takes ByteString as input and return hash value as ByteString. We would also use Data.ByteString.Char8 module to convert string to ByteString.
+
+    ```
+    import qualified Crypto.Hash.SHA1 as SHA1
+
+    -- apply hash function
+    sha1Hash = SHA1.hash SomeByteString
+    ```
+
+3. Git cat file
+  
+  We would need to implement a function that gets the content of git objects.
+
+  ```
+  getCatFile :: GitObject -> [String]
+  ```
+
+  Based on type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib and converted to string. Based on type of GitObject, it will return the following String:
+
+  - For Blob, it will return the actual content. (There will be only one String in a list)
+  - For Tree, it will return the list of String representing each elements by "Git Object type, hash value, and file name" (actual git includes the file mode but we will not include this for project scope)
+
+  ```Console
+  ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
+   "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
+   "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
+  ```
+  - For Commit, it will return the list of String representing "Tree , parent (if not initial commit), author, committer, and commit message". For example:
+
+    ```
+    tree a906cb2a4a904a152e80877d4088654daad0c8599
+    parent 8f94139338f9404f26296befa88755fc2598c2893
+    author Someone1 
+    committer Someone2
+
+    Initial commit
+    ```
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
 We need to hash different things to implement Git.
 2. zlib: https://hackage.haskell.org/package/zlib
 Git uses zlib to compress the new content and store files efficiently.
+  ```Haskell
+   import qualified Data.ByteString.Char8 as C8
+
+  -- convert string to ByteString
+  dataToHash :: ByteString
+  dataToHash = C8.pack "Hello, world!"
+  ```
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
 Since we are interacting with command line, we need to parse arguments.
 4. Other libraries: Data.ByteString module, System.IO, etc.
