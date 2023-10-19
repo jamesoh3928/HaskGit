@@ -73,12 +73,39 @@ Commands that will be implemented:
   - revert: Given one or more existing commits, revert the changes that the related patches introduce, and record some new commits that record them.
 
 ### Code Structure
-- TODO: explain that we will follow "Functional core and imperative shell" design pattern (James)
-- A sketch of intended components (key functions, key data structures, separate
-  modules).  To satisfy the "multiple Haskell modules" requirement, it may
-  suffice to separate an application into a "model-controller" module and a
-  "view" module (e.g., a "text view" module that could be replaced by a "GUI
-  view" module).
+HaskGit will follow the 'Functional core and imperative shell' design pattern, meaning that we will separate pure functions from impure functions with side effects (those that interact with the outside world, such as I/O). The basic structure will follow the Model-View-Controller (MVC) pattern, where `HaskGit.hs` will represent the controller, all other files in the Core directory will represent the Model, and `Main.hs` will represent the View. The code structure will look like the following:
+
+```
+src/
+│   |-- Core/
+|   |------ GitObjects.hs -- types and functions related to Git objects
+|   |------ Refs.hs -- types and functions related to References
+|   |------ Index.hs -- types and functions related to Index
+│   │------ HaskGit.hs -- functions for all git commands
+│   |-- Shell/
+│   │   |-- Main.hs -- main function that does I/O and other impure operations
+|
+|
+|test/
+│   |-- Core/
+|   |------ GitObjectsSpec.hs
+|   |------ RefsSpec.hs
+|   |------ IndexSpec.hs
+│   │------ HaskGitSpec.hs
+│   |-- Shell/
+|   |------ Main.hs
+```
+
+The above structure may change throughout the project if it appears overly complicated or needs further modularization. This is just a basic idea of how we can divide pure components and impure components. The test files can also be merged into one file if necessary.
+
+The main function in `HaskGit.hs` will receive input from the user and call pure functions. Its structure will be as follows:
+
+```haskell
+case get_command of
+	init -> runInit
+	add->runAdd
+  ...
+```
 
 ### Key Data Structures
 
@@ -140,7 +167,9 @@ type Index = Tree
 We need to hash different things to implement Git.
 2. zlib: https://hackage.haskell.org/package/zlib
 Git uses zlib to compress the new content and store files efficiently.
-3. Other libraries: Data.ByteString module, System.IO, etc.
+3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
+Since we are interacting with command line, we need to parse arguments.
+4. Other libraries: Data.ByteString module, System.IO, etc.
 
 - TODO: (James, Jack, Chen) - add all the libraries that will be used
 
