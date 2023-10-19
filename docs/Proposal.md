@@ -36,16 +36,49 @@ TODO: (Jack)
 Commands that will be implemented:
 
 - Creating projects
-  - init: Creates an empty Git repository or reinitialize an existing one 
+  - init: Creates an empty Git repository or reinitialize an existing one
+   ```
+   git init
+   ```
 - Basic Snapshotting.
-  - add: Add file contents to the index. The "index" holds a snapshot of the content of the working tree, and it is this snapshot that is taken as the contents of the next commit.  
-  - status: Displays paths that have differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
-  - commit: Create a new commit containing the current contents of the index and the given log message describing the changes.
-  - restore: Restore specified paths in the working tree with some contents from a restore source. If a path is tracked but does not exist in the restore source, it will be removed to match the source.
+  - add: Add file contents to the index (which means move to staging area).
+    ```
+    git add filename
+    ```
+  - status: Displays differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
+    ```
+    git status
+    ```
+  - commit: Create a new commit containing the current contents of the index.
+    ```
+    -- this will create commit for current staging area
+    git commit
+    ```
+  - restore: Restore a file from the last commit to the working directory. (you can also unstage by using --staged but that would be stretch goal)
+    ```
+    git restore <file>
+    ```
   - reset: Reset current HEAD to the specified state.
-  - rm: Remove files matching pathspec from the index.
+    ```
+    -- this will unstage all changes
+    git reset
+
+    -- Move the branch pointer to specific commit
+    git reset commit-hash
+    ```
+  - rm: Remove files from the index.
+    ```
+    git rm file
+    ```
 - Branching and Merging
   - branch: List, create, or delete branches.
+    ```
+    -- list the branch
+    git branch
+
+    -- create new branch
+    git branch branch_name
+    ```
   - checkout: Switch branches or restore working tree files.
     ```console
     git checkout branch-name
@@ -62,7 +95,13 @@ Commands that will be implemented:
     git show  
     ```
   - log: Show commit logs
-  - diff: Show changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk.
+    ```
+    git log
+    ```
+  - diff: Show changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk (this command might be challenging to implement).
+    ```
+    git diff
+    ```
 
 - Patching
   - rebase: Reapply commits on top of another base tip
@@ -70,8 +109,10 @@ Commands that will be implemented:
     -- upstream can be branch or commit reference
     git rebase <upstream>
     ```
-  - revert: Given one or more existing commits, revert the changes that the related patches introduce, and record some new commits that record them.
-
+  - revert: Revert some existing commits
+    ```
+    git revert commit-hash
+    ```
 ### Code Structure
 HaskGit will follow the 'Functional core and imperative shell' design pattern, meaning that we will separate pure functions from impure functions with side effects (those that interact with the outside world, such as I/O). The basic structure will follow the Model-View-Controller (MVC) pattern, where `HaskGit.hs` will represent the controller, all other files in the Core directory will represent the Model, and `Main.hs` will represent the View. The code structure will look like the following:
 
