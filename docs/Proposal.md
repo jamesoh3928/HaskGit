@@ -94,7 +94,7 @@ Git uses zlib to compress the new content and store files efficiently.
   suffice to separate an application into a "model-controller" module and a
   "view" module (e.g., a "text view" module that could be replaced by a "GUI
   view" module).
-- TODO (Jack)
+- TODO (Chen: I have a summary on google doc so you can just add some explanation to it)
 
 ### References
 - https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
