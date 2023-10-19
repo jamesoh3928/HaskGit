@@ -1,5 +1,7 @@
 # HaskGit
 
+![Git Image](../assets/git-logo.svg)
+
 Team members:
 
 - James Oh
@@ -11,13 +13,9 @@ Team members:
 HaskGit is a Git implementation using Haskell. The goal of the project is to implement core git commands with Haskell.
 
 ### Why Haskell to implement Git?
-
-- Strong type system and functional paradigm help us to ensure the correctness of Git protocol
-- There are multiple advantages of implementing CLI application with Haskell. Check out: https://github.com/Gabriella439/post-rfc/blob/main/sotu.md#scripting--command-line-applications
-- TODO: James Oh
-
-### Quick Overview of Git Internal
-- TODO: James Oh
+- Strong type system and functional paradigm help us to ensure the correctness of Git protocol.
+- Pure functions are useful to keep data integrity in Git.
+- Haskell can be compiled to run on various platforms which is suitable for software like Git.
 
 ## Additional Details
 
@@ -58,13 +56,60 @@ Commands that will be implemented:
   - revert
 
 ### Code Structure
-- TODO: explain that we will follow "Functional core and imperative shell" design pattern (Jack)
+- TODO: explain that we will follow "Functional core and imperative shell" design pattern (James)
+- A sketch of intended components (key functions, key data structures, separate
+  modules).  To satisfy the "multiple Haskell modules" requirement, it may
+  suffice to separate an application into a "model-controller" module and a
+  "view" module (e.g., a "text view" module that could be replaced by a "GUI
+  view" module).
 
 ### Key Data Structures
-- TODO: (James)
+
+#### Git Objects
+We need specific data structures to represent a data unit in the Git database. We will refer to this as a 'Git object' from now on. There are four types of Git objects: BLOB (Binary Large Object), Tree, Commit, and Tag. For the scope of this project, our MVP will not include Tag. For more information about Git objects, please check out: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects.
+
+1. BLOB Object
+A blob object is compressed binary data of a content file, representing the file data in a specific state.
 
 ```haskell
+-- Blob = (file content in binary, hash of (header + new content))
+type Blob = (ByteString, ByteString)
+```
 
+2. Tree Object
+A tree object represents a directory in a file structure. A tree consists of blobs (files in the directory) and subtrees (subdirectories).
+
+```haskell
+-- Tree = (list of files and subdirectories, hash of blobs and subtrees)
+type Tree = ([Tree | Blob], ByteString)
+```
+
+3. Commit Object
+A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
+
+```haskell
+-- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message)
+type Commit = Maybe(Tree, Commit, String, String, String)
+```
+
+#### References
+In Git, references are labels that point to specific Git objects. For example, when we check out a new branch, there will be a reference pointing to the corresponding Commit object, with the branch name serving as a label. We are going to implement two new types, Ref and Refs, to represent this.
+
+```haskell
+-- Ref = list of (name of pointer - (HEAD, branch name, etc), commit object)
+type Ref = (String, Commit)
+```
+
+```haskell
+-- Refs = list of Ref
+type Refs = [Ref]
+```
+
+#### Index
+In Git, the index acts as an intermediate step between the working directory and the Git repository, serving as a staging area. When we read data from the index file, we need a representation of the 'staged changes' to add them to the commit tree when 'git commit' is called. Since the index represents all the changed files, we can alias the `Index` type as `Tree` and use this data to create a Commit object later.
+
+```haskell
+type Index = Tree
 ```
 
 ### Key Functions
@@ -78,6 +123,7 @@ Commands that will be implemented:
 We need to hash different things to implement Git.
 2. zlib: https://hackage.haskell.org/package/zlib
 Git uses zlib to compress the new content and store files efficiently.
+3. Other libraries: Data.ByteString module, System.IO, etc.
 
 - TODO: (James, Jack, Chen) - add all the libraries that will be used
 
@@ -91,11 +137,6 @@ Git uses zlib to compress the new content and store files efficiently.
 - TODO: Expected functionality to be completed at the Checkpoint (Jack).
 
 ### Stretch Goals
-- A sketch of intended components (key functions, key data structures, separate
-  modules).  To satisfy the "multiple Haskell modules" requirement, it may
-  suffice to separate an application into a "model-controller" module and a
-  "view" module (e.g., a "text view" module that could be replaced by a "GUI
-  view" module).
 - TODO (Chen: I have a summary on google doc so you can just add some explanation to it)
 
 ### References
@@ -104,7 +145,8 @@ Git uses zlib to compress the new content and store files efficiently.
 - TODO: add more (James, Jack, Chen)
 
 Other TODO List (James, Jack, Chen)
-- Check if we missed anything from proposal rubric and final project rubric
+- Check if we missed anything from proposal rubric
+- Check if we missed anything from final project rubric
 - Double check writings
 
 <!-- Proposal Rubric (we also need to check final project rubric as well) -->
