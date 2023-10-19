@@ -14,12 +14,15 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 - Strong type system and functional paradigm help us to ensure the correctness of Git protocol
 - There are multiple advantages of implementing CLI application with Haskell. Check out: https://github.com/Gabriella439/post-rfc/blob/main/sotu.md#scripting--command-line-applications
-- TODO: add more
+- TODO: James Oh
+
+### Quick Overview of Git Internal
+- TODO: James Oh
 
 ## Additional Details
 
-### Why Haskell to implement Git?
-- TODO (probably just explain how we will interact with CLI)
+### Use Case
+- TODO (Chen)
 - One or more typical "use cases". These might include "storyboards" explaining
   how a user would interact with the program or some interesting "input/output"
   examples.
@@ -30,7 +33,7 @@ The MVP will implement most of the git commands that can run locally. The list o
 Command list
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
 
-TODO: add short explanation of each command so we know what we are doing
+TODO: (Jack)
 
 - Creating projects:
   - init
@@ -41,6 +44,9 @@ TODO: add short explanation of each command so we know what we are doing
   - restore
   - reset
   - rm
+- Branching and Merging
+  - branch
+  - checkout
 - Inspection and Comparison
   - show
   - log
@@ -50,25 +56,37 @@ TODO: add short explanation of each command so we know what we are doing
   - revert
 
 ### Code Structure
-- TODO: explain that we will follow "Functional core and imperative shell" design pattern
+- TODO: explain that we will follow "Functional core and imperative shell" design pattern (Jack)
 
 ### Key Data Structures
-- TODO
+- TODO: (James)
+
+```haskell
+
+```
 
 ### Key Functions
-- TODO
+(TODO: Make sure you make function signatures)
+1. Argument Parsing (Chen)
+
+2. TODO: (Jack - git hash-object and git cat-file, read, write, if we need more James will help)
 
 ### Libraries
-- TODO: add all the libraries we are planning to use
+1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
+We need to hash different things to implement Git.
+2. zlib: https://hackage.haskell.org/package/zlib
+Git uses zlib to compress the new content and store files efficiently.
+
+- TODO: (James, Jack, Chen) - add all the libraries that will be used
 
 ### Testing
-- TODO: https://hackage.haskell.org/package/HUnit
+- TODO: https://hackage.haskell.org/package/HUnit (Chen)
 - Thoughts on testing. These might include critical functions or data structures
   that will be given
   [`tasty`](https://hackage.haskell.org/package/tasty) tests.
 
 ### Checkpoint
-- TODO: Expected functionality to be completed at the Checkpoint.
+- TODO: Expected functionality to be completed at the Checkpoint (Jack).
 
 ### Stretch Goals
 - A sketch of intended components (key functions, key data structures, separate
@@ -76,13 +94,14 @@ TODO: add short explanation of each command so we know what we are doing
   suffice to separate an application into a "model-controller" module and a
   "view" module (e.g., a "text view" module that could be replaced by a "GUI
   view" module).
+- TODO (Jack)
 
 ### References
+- https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
 - Write yourself a Git: https://wyag.thb.lt/
-- TODO: add more
+- TODO: add more (James, Jack, Chen)
 
-
-Other TODO List
+Other TODO List (James, Jack, Chen)
 - Check if we missed anything from proposal rubric and final project rubric
 - Double check writings
 
