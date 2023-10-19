@@ -202,6 +202,16 @@ type Index = Tree
 1. Argument Parsing (Chen)
 
 2. TODO: (Jack - git hash-object and git cat-file, read, write)
+   
+   Following the design patter of git, HaskGit will also store git objects in .git/objects.
+
+   ```haskell
+   type gitObject = Tree | Commit | Blob
+   -- (Git object, flag to indicate store object in repository)
+   hashObject :: gitObject -> Int -> ByteString
+   ```
+
+   Git cat file
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
