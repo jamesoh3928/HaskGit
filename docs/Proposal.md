@@ -141,7 +141,7 @@ type Index = Tree
 (TODO: Make sure you make function signatures)
 1. Argument Parsing (Chen)
 
-2. TODO: (Jack - git hash-object and git cat-file, read, write, if we need more James will help)
+2. TODO: (Jack - git hash-object and git cat-file, read, write)
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
@@ -152,7 +152,7 @@ Git uses zlib to compress the new content and store files efficiently.
 Since we are interacting with command line, we need to parse arguments.
 4. Other libraries: Data.ByteString module, System.IO, etc.
 
-- TODO: (James, Jack, Chen) - add all the libraries that will be used
+- TODO: (Jack, Chen) - add more if needed
 
 ### Testing
 - TODO: https://hackage.haskell.org/package/HUnit (Chen)
@@ -166,10 +166,14 @@ Since we are interacting with command line, we need to parse arguments.
 ### Stretch Goals
 - TODO (Chen: I have a summary on google doc so you can just add some explanation to it)
 
+### Areas for Feedback
+- We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
+- Do you have any feedback on our data structures and code structure?
+
 ### References
-- https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
+- Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
 - Write yourself a Git: https://wyag.thb.lt/
-- TODO: add more (James, Jack, Chen)
+- TODO: add more if needed (Jack, Chen)
 
 Other TODO List (James, Jack, Chen)
 - Check if we missed anything from proposal rubric
