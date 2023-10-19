@@ -35,15 +35,17 @@ Full list of git commands (not part of MVP): https://git-scm.com/docs
 
 TODO: (Jack)
 
-- Creating projects:
-  - init
-- Basic Snapshotting:
-  - add
-  - status
-  - commit
-  - restore
-  - reset
-  - rm
+Commands that will be implemented:
+
+- Creating projects
+  - init: Creates an empty Git repository or reinitialize an existing one 
+- Basic Snapshotting.
+  - add: Add file contents to the index. The "index" holds a snapshot of the content of the working tree, and it is this snapshot that is taken as the contents of the next commit.  
+  - status: Displays paths that have differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
+  - commit: Create a new commit containing the current contents of the index and the given log message describing the changes.
+  - restore: Restore specified paths in the working tree with some contents from a restore source. If a path is tracked but does not exist in the restore source, it will be removed to match the source.
+  - reset: Reset current HEAD to the specified state.
+  - rm: 
 - Branching and Merging
   - branch
   - checkout
