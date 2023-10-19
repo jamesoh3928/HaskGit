@@ -43,17 +43,34 @@ Commands that will be implemented:
   - commit: Create a new commit containing the current contents of the index and the given log message describing the changes.
   - restore: Restore specified paths in the working tree with some contents from a restore source. If a path is tracked but does not exist in the restore source, it will be removed to match the source.
   - reset: Reset current HEAD to the specified state.
-  - rm: 
+  - rm: Remove files matching pathspec from the index.
 - Branching and Merging
-  - branch
-  - checkout
+  - branch: List, create, or delete branches.
+  - checkout: Switch branches or restore working tree files.
+    ```console
+    git checkout branch-name
+
+    git checkout commit-hash  
+    ```
+
 - Inspection and Comparison
-  - show
-  - log
-  - diff
+  - show: Shows one or more git objects.
+     ```console
+    git show hash_value
+
+    -- show latest commit
+    git show  
+    ```
+  - log: Show commit logs
+  - diff: Show changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk.
+
 - Patching
-  - rebase
-  - revert
+  - rebase: Reapply commits on top of another base tip
+    ```console
+    -- upstream can be branch or commit reference
+    git rebase <upstream>
+    ```
+  - revert: Given one or more existing commits, revert the changes that the related patches introduce, and record some new commits that record them.
 
 ### Code Structure
 - TODO: explain that we will follow "Functional core and imperative shell" design pattern (James)
