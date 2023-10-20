@@ -262,7 +262,19 @@ type Index = Tree
 (TODO: Make sure you make function signatures)
 1. Argument Parsing (Chen)
 
-   Basically it is a Command-Line-Interface Application, 
+    The command-line interface consists of command and infomation such as path. To reduce the complexity, there is no option for each command.
+
+    We use `<library>` ...
+
+    FIXEME: sample code of `ArgParser` doesn't work. \
+      Report error: "fail to parse 'pos1' : missing arg".
+    
+    I also looked [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs)
+      which is the most downloaded one in hackage.
+    It also has some problems on type class "Data" resolving.
+
+    TODO: try to find workable approach and give a demo with "git help"
+
 2. Hashing Git Objects
    
    In Git, the path of git objects are determined by using hash function. This will make tracking the git object easy and fast. 
@@ -342,6 +354,7 @@ Git uses zlib to compress the new content and store files efficiently.
   ```
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
 Since we are interacting with command line, we need to parse arguments.
+FIXME: the demo code doesn't work.
 4. Other libraries: Data.ByteString module, System.IO, etc.
 
 - TODO: (Jack, Chen) - add more if needed
@@ -350,7 +363,26 @@ Since we are interacting with command line, we need to parse arguments.
 - TODO: https://hackage.haskell.org/package/HUnit (Chen)
 - Thoughts on testing. These might include critical functions or data structures
   that will be given
-  [`tasty`](https://hackage.haskell.org/package/tasty) tests.
+  - [`tasty`](https://hackage.haskell.org/package/tasty) tests.
+  - [HUnit: A unit testing framework for Haskell](https://hackage.haskell.org/package/HUnit)
+
+  1. Command-Line Interface
+    - use HUnit to assert equal by string (actual and expected output)
+  2. GitObject (Hash for tree and blob)
+    - generate files and directories
+    - assert equal by hash value
+    - Git utility tools of "hash-object", "cat-file", and "read/write/commit-tree"
+        maybe helpful as a guide.
+  3. CommitObject
+    - generate commits and store info used for generatation
+    - assert equal by hash value
+    - FIXME: if there is no feature to make a commit with a custom datetime,
+      it may be compared by info decoded by the hash
+  4. Git Core functionality (git init, git add, git commit, any command that changes direcotry `.git`.
+  5. Test Management (as there are different aspects of the database, i.e., CLI, Data structure, Core functionality, and possible extendable features )
+    - [Nicolas Mattia – Automatically generated directories for individual tasty tests](https://www.nmattia.com/posts/2018-04-30-tasty-test-names/)
+  6. Format of test: [Writing tests with Hspec - Hspec: A Testing Framework for Haskell](https://hspec.github.io/writing-specs.html)
+
 
 ### Checkpoint
 - TODO: Expected functionality to be completed at the Checkpoint (Jack).
@@ -365,7 +397,9 @@ Since we are interacting with command line, we need to parse arguments.
   Defining data types would be straight forward as this was already discussed in this proposal. We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the first checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
-- TODO (Chen: I have a summary on google doc so you can just add some explanation to it)
+
+Git is a system for distributed version control. 
+  Besides the core features for basic Git usage, it offers a
 
 ### Areas for Feedback
 - We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
@@ -374,12 +408,17 @@ Since we are interacting with command line, we need to parse arguments.
 ### References
 - Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
 - Write yourself a Git: https://wyag.thb.lt/
+- Git Community Book: https://shafiul.github.io/gitbook/index.html
 - TODO: add more if needed (Jack, Chen)
 
 Other TODO List (James, Jack, Chen)
 - Check if we missed anything from proposal rubric
 - Check if we missed anything from final project rubric
 - Double check writings
+
+Missing
+- separate modules
+  - Hunit
 
 <!-- Proposal Rubric (we also need to check final project rubric as well) -->
 <!-- 
