@@ -87,22 +87,20 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 
 ### Minimum Viable Product
-The MVP will implement most of the git commands that can run locally. For feasibllity, we will implement the git commands without the flags options. The list of commands that will be implmented are following:
+The MVP will implement most of the Git commands that can run locally. For feasibility, we will implement the Git commands without any flag options, except for '-m' in the case of commit. Most commands will follow the default options. The list of commands to be implemented is as follows:
 
 Command list
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
 
-TODO: (Jack)
-
 Commands that will be implemented:
 
 - Creating projects
-  - init: Creates an empty Git repository or reinitialize an existing one
+  - init: Creates an empty Git repository or reinitialize an existing one.
    ```
    git init
    ```
 - Basic Snapshotting.
-  - add: Add file contents to the index (which means move to staging area).
+  - add: Adds file contents to the index (which means move to staging area).
     ```
     git add filename
     ```
@@ -110,16 +108,18 @@ Commands that will be implemented:
     ```
     git status
     ```
-  - commit: Create a new commit containing the current contents of the index.
+  - commit: Creates a new commit containing the current contents of the index.
     ```
     -- this will create commit for current staging area
     git commit
+
+    git commit -m "Some commit message"
     ```
-  - restore: Restore a file from the last commit to the working directory. (you can also unstage by using --staged but that would be stretch goal)
+  - restore: Restores a file from the last commit to the working directory. (You can also unstage by using --staged, but that would be a stretch goal).
     ```
     git restore <file>
     ```
-  - reset: Reset current HEAD to the specified state.
+  - reset: Resets the current HEAD to the specified state.
     ```
     -- this will unstage all changes
     git reset
@@ -132,7 +132,7 @@ Commands that will be implemented:
     git rm file
     ```
 - Branching and Merging
-  - branch: List, create, or delete branches.
+  - branch: Lists, creates, or deletes branches.
     ```
     -- list the branch
     git branch
@@ -140,7 +140,7 @@ Commands that will be implemented:
     -- create new branch
     git branch branch_name
     ```
-  - checkout: Switch branches or restore working tree files.
+  - checkout: Switches branches or restores working tree files.
     ```console
     git checkout branch-name
 
@@ -159,18 +159,18 @@ Commands that will be implemented:
     ```
     git log
     ```
-  - diff: Show changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk (this command might be challenging to implement).
+  - diff: Shows changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk (this command might be challenging to implement).
     ```
     git diff
     ```
 
 - Patching
-  - rebase: Reapply commits on top of another base tip
+  - rebase: Reapplies commits on top of another base tip. 
     ```console
     -- upstream can be branch or commit reference
     git rebase <upstream>
     ```
-  - revert: Revert some existing commits
+  - revert: Reverts some existing commits
     ```
     git revert commit-hash
     ```
@@ -212,37 +212,48 @@ case get_command of
 ### Key Data Structures
 
 #### Git Objects
-We need specific data structures to represent a data unit in the Git database. We will refer to this as a 'Git object' from now on. There are four types of Git objects: BLOB (Binary Large Object), Tree, Commit, and Tag. For the scope of this project, our MVP will not include Tag. For more information about Git objects, please check out: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects.
+We need specific data structures to represent a data unit in the Git database. We will refer to this as a 'Git object' from now on. There are four types of Git objects: Blob (Binary Large Object), Tree, Commit, and Tag. For the scope of this project, our MVP will not include Tag. For more information about Git objects, please check out: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects.
 
-1. BLOB Object
-A blob object is compressed binary data of a content file, representing the file data in a specific state.
+1. Blob Object
+
+    A blob object is compressed binary data of a content file, representing the file data in a specific state.
 
 ```haskell
--- Blob = (file content in binary, hash of (header + new content), filename)
-type Blob = (ByteString, ByteString, ByteString)
+-- Blob = (file content in binary, filename)
+type Blob = (ByteString, String)
 ```
 
 2. Tree Object
-A tree object represents a directory in a file structure. A tree consists of blobs (files in the directory) and subtrees (subdirectories).
+
+    A tree object represents a directory in a file structure. A tree consists of Blobs (files in the directory) and subtrees (subdirectories).
 
 ```haskell
--- Tree = (list of files and subdirectories, hash of blobs and subtrees)
-type Tree = ([Tree | Blob], ByteString)
+-- Tree = list of files and subdirectories
+type Tree = [Tree | Blob]
 ```
 
 3. Commit Object
-A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
+
+    A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
 
 ```haskell
--- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message)
-type Commit = Maybe(Tree, Commit, String, String, String)
+-- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message, creationg time)
+type Commit = Maybe((Tree, Commit, String, String, String, UTCTime))
+```
+
+It will be useful to have some sort of enum that will represent all Git objects, and we would like to store with hash value as well. Therefore, we will also create following types:
+
+```haskell
+Data GitObject = Tree | Commit | Blob
+
+Data GitObjectHash = (GitObject, ByteString)
 ```
 
 #### References
 In Git, references are labels that point to specific Git objects. For example, when we check out a new branch, there will be a reference pointing to the corresponding Commit object, with the branch name serving as a label. We are going to implement two new types, Ref and Refs, to represent this.
 
 ```haskell
--- Ref = list of (name of pointer - (HEAD, branch name, etc), commit object)
+-- Ref = (name of pointer - (HEAD, branch name, etc), commit object)
 type Ref = (String, Commit)
 ```
 
@@ -277,26 +288,26 @@ type Index = Tree
 
 2. Hashing Git Objects
    
-   In Git, the path of git objects are determined by using hash function. This will make tracking the git object easy and fast. 
+   In Git, the paths of Git objects are determined by using a hash function. This makes tracking Git objects easy and fast.
    
-   We will need to implement a function that takes a git object and return a hash value. We would also need a flag that indicates whether or not the git object we are hashing will be stored in the path. If the 
-   Following the design patter of git, HaskGit will also store git objects in .git/objects. 
+   To accomplish this, we need to implement a function that takes a Git object and returns a hash value. We will also require a flag that indicates whether or not the Git object being hashed will be stored in the path. Following the design pattern of Git, HaskGit will also store Git objects in the .git/objects directory.
 
-    To store the git object, we take first two characters of hash value, then a directory delimiter /, then the remaining part. For example,
+    To store a Git object, we take the first two characters of the hash value, then a directory delimiter '/', followed by the remaining part. For example:
 
     ```
     -- hash value: e673d1b7eaa0aa01b5bc2442d570a765bdaae751
     -- it will be stored at:
     -- .git/objects/e6/73d1b7eaa0aa01b5bc2442d570a765bdaae751
     ```
-    To implment hashObject function, we create a new data with all of our git objects which are Tree, Commit, and Blob. The function will then use the data in gitObject to get the hash value. The function will also take gitObject and a boolean value to indicate if git objects should be stored in .git/objects. 
+
+    The function will use this data in GitObject to compute the hash value. The function will also take GitObject and a boolean value to indicate whether Git objects should be stored in .git/objects.
+
     ```haskell
-    Data GitObject = Tree | Commit | Blob
-    -- (Git object, flag to indicate store object in repository)
+    -- Git object > flag to indicate store object in the repository
     hashObject :: GitObject -> Bool -> ByteString
     ```
 
-    For hash, the plan is to use Crypto.Hash.SHA1.hash function. This function takes ByteString as input and return hash value as ByteString. We would also use Data.ByteString.Char8 module to convert string to ByteString.
+   For the hash computation, the plan is to use Crypto.Hash.SHA1.hash function. This function takes ByteString as input and returns the hash value as ByteString. We will also use the Data.ByteString.Char8 module to convert strings to ByteString. Here's how you can use it:
 
     ```
     import qualified Crypto.Hash.SHA1 as SHA1
@@ -305,31 +316,31 @@ type Index = Tree
     sha1Hash = SHA1.hash SomeByteString
     ```
 
-    The current plan for getting hash value for each object type:
-    
-    - Blob: Just run hash function on the content
-    - Tree: Concatenate hash value of blobs and subtrees and hash the concatenated value
-    - Commit: Concatenate hash value of tree of root directory, parent commit, author, commiter, and commit message. Return the hash value of concatenated value.
+    The current plan for obtaining the hash value for each object type is as follows:
 
-3. Git cat file
+    - For Blob: Hash of (header + new content). Note that header = "Blob #{content.bytesize}\0"
+    - For Tree: Hash of the concatenation of Blobs and subtrees within Tree
+    - For Commit: Hash of concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
+
+3. Implementing cat function
   
-  We would need to implement a function that gets the content of git objects.
+  We need to implement a function that retrieves the content of Git objects. 
 
   ```
   getCatFile :: GitObject -> [String]
   ```
 
-  Based on type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib and converted to string. Based on type of GitObject, it will return the following String:
+  Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
 
-  - For Blob, it will return the actual content. (There will be only one String in a list)
-  - For Tree, it will return the list of String representing each elements by "Git Object type, hash value, and file name" (actual git includes the file mode but we will not include this for project scope)
+  - For Blob, it will return the actual content. (There will be only one string in the list)
+  - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
 
   ```Console
   ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
   ```
-  - For Commit, it will return the list of String representing "Tree , parent (if not initial commit), author, committer, and commit message". For example:
+  - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
 
     ```
     tree a906cb2a4a904a152e80877d4088654daad0c8599
@@ -355,7 +366,7 @@ Git uses zlib to compress the new content and store files efficiently.
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
 Since we are interacting with command line, we need to parse arguments.
 FIXME: the demo code doesn't work.
-4. Other libraries: Data.ByteString module, System.IO, etc.
+4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
 - TODO: (Jack, Chen) - add more if needed
 
