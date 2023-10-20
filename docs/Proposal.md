@@ -26,12 +26,10 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
   examples.
 
 ### Minimum Viable Product
-The MVP will implement most of the git commands that can run locally. For feasibllity, we will implement the git commands without the flags options. The list of commands that will be implmented are following:
+The MVP will implement most of the git commands that can run locally. For feasibllity, we will implement the git commands without any flag options (most commands will just follow default options). The list of commands that will be implmented are following:
 
 Command list
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
-
-TODO: (Jack)
 
 Commands that will be implemented:
 
@@ -154,27 +152,38 @@ case get_command of
 We need specific data structures to represent a data unit in the Git database. We will refer to this as a 'Git object' from now on. There are four types of Git objects: BLOB (Binary Large Object), Tree, Commit, and Tag. For the scope of this project, our MVP will not include Tag. For more information about Git objects, please check out: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects.
 
 1. BLOB Object
-A blob object is compressed binary data of a content file, representing the file data in a specific state.
+
+    A blob object is compressed binary data of a content file, representing the file data in a specific state.
 
 ```haskell
--- Blob = (file content in binary, hash of (header + new content), filename)
-type Blob = (ByteString, ByteString, ByteString)
+-- Blob = (file content in binary, filename)
+type Blob = (ByteString, String)
 ```
 
 2. Tree Object
-A tree object represents a directory in a file structure. A tree consists of blobs (files in the directory) and subtrees (subdirectories).
+
+    A tree object represents a directory in a file structure. A tree consists of blobs (files in the directory) and subtrees (subdirectories).
 
 ```haskell
--- Tree = (list of files and subdirectories, hash of blobs and subtrees)
-type Tree = ([Tree | Blob], ByteString)
+-- Tree = list of files and subdirectories
+type Tree = [Tree | Blob]
 ```
 
 3. Commit Object
-A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
+
+    A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
 
 ```haskell
--- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message)
-type Commit = Maybe(Tree, Commit, String, String, String)
+-- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message, creationg time)
+type Commit = Maybe((Tree, Commit, String, String, String, UTCTime))
+```
+
+It will be useful to have some sort of enum that will represent all Git objects, and we would like to store with hash value as well. Therefore, we will also create following types:
+
+```haskell
+Data GitObject = Tree | Commit | Blob
+
+Data GitObjectHash = (GitObject, ByteString)
 ```
 
 #### References
@@ -217,8 +226,7 @@ type Index = Tree
     ```
     To implment hashObject function, we create a new data with all of our git objects which are Tree, Commit, and Blob. The function will then use the data in gitObject to get the hash value. The function will also take gitObject and a boolean value to indicate if git objects should be stored in .git/objects. 
     ```haskell
-    Data GitObject = Tree | Commit | Blob
-    -- (Git object, flag to indicate store object in repository)
+    -- Git object > flag to indicate store object in the repository
     hashObject :: GitObject -> Bool -> ByteString
     ```
 
@@ -233,9 +241,9 @@ type Index = Tree
 
     The current plan for getting hash value for each object type:
     
-    - Blob: Just run hash function on the content
-    - Tree: Concatenate hash value of blobs and subtrees and hash the concatenated value
-    - Commit: Concatenate hash value of tree of root directory, parent commit, author, commiter, and commit message. Return the hash value of concatenated value.
+    - For Blob: hash of (header + new content)
+    - For Tree: hash of concatentation of blobs and subtrees
+    - For Commit: hash concatenation of concatenate Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
 
 3. Git cat file
   
@@ -280,7 +288,7 @@ Git uses zlib to compress the new content and store files efficiently.
   ```
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
 Since we are interacting with command line, we need to parse arguments.
-4. Other libraries: Data.ByteString module, System.IO, etc.
+4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
 - TODO: (Jack, Chen) - add more if needed
 
