@@ -20,10 +20,71 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 ## Additional Details
 
 ### Use Case
-- TODO (Chen)
+<!-- - TODO (Chen)
 - One or more typical "use cases". These might include "storyboards" explaining
   how a user would interact with the program or some interesting "input/output"
-  examples.
+  examples. -->
+  HaskGit is a CLI application, all I/O interactions with users happen on command line.
+
+-
+  ```bash
+  git help
+  ```
+  Output: All available HaskGit commands, with a brief description of each command
+  ```
+  Example:
+  init    Create an empty Git repository
+  add     Add file contents to the index
+  commit  Record changes to the repository
+  ```
+
+-
+  ```bash
+  git init <path>
+  ```
+  Output: "Initialized empty Git repository in <path>/.git/"
+
+-
+  ```bash
+  git add <path>
+  ```
+  Output:
+  - no path provided: "Nothing specified, nothing added."
+  - the path exists: "add <path>"
+  - the path does not exist: "error: path <path> did not match any files"
+
+-
+  ```bash
+  git commit <msg>
+  ```
+  Output:
+  - `msg` is provided:
+    ```
+     [<branch> <hash>] <msg>
+     <#> file(s) changed, <#> insertions(+), <#> deletions(-)
+     <create/delete> mode <file permission> <path>
+     -- repeat the above message if more path is added
+    ```
+  - `msg` is not provied:
+    call an editor with comment on the header
+    ```
+    # On branch <branch>
+    # Changes to be committed:
+    #   new file: <path>
+    #   modified: <path>
+    #
+    <msg>
+    ```
+    when the user saves it and exit, 
+    display the same output as the above case.
+  - others:
+    - "nothing to commit, working tree clean"
+    ```
+    On branch <branch>
+    Changes not staged for commit: OR  Untracked files:
+    modified: OR  untracked: <path>
+    ```
+
 
 ### Minimum Viable Product
 The MVP will implement most of the git commands that can run locally. For feasibllity, we will implement the git commands without the flags options. The list of commands that will be implmented are following:
@@ -201,6 +262,7 @@ type Index = Tree
 (TODO: Make sure you make function signatures)
 1. Argument Parsing (Chen)
 
+   Basically it is a Command-Line-Interface Application, 
 2. Hashing Git Objects
    
    In Git, the path of git objects are determined by using hash function. This will make tracking the git object easy and fast. 
