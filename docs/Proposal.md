@@ -231,6 +231,12 @@ type Index = Tree
     sha1Hash = SHA1.hash SomeByteString
     ```
 
+    The current plan for getting hash value for each object type:
+    
+    - Blob: Just run hash function on the content
+    - Tree: Concatenate hash value of blobs and subtrees and hash the concatenated value
+    - Commit: Concatenate hash value of tree of root directory, parent commit, author, commiter, and commit message. Return the hash value of concatenated value.
+
 3. Git cat file
   
   We would need to implement a function that gets the content of git objects.
@@ -286,6 +292,15 @@ Since we are interacting with command line, we need to parse arguments.
 
 ### Checkpoint
 - TODO: Expected functionality to be completed at the Checkpoint (Jack).
+  By the first checkpoint, we hope to complete following tasks:
+  
+  - Defining data types for Git Objects, Ref, and Index
+  - Argument parser function
+  - Git Object hash function
+  - Git Object cat function
+  - Unit test for above functions
+
+  Defining data types would be straight forward as this was already discussed in this proposal. We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the first checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 - TODO (Chen: I have a summary on google doc so you can just add some explanation to it)
