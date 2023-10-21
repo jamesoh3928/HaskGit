@@ -28,7 +28,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 -
   ```bash
-  git help
+  haskgit help
   ```
   Output: All available HaskGit commands, with a brief description of each command
   ```
@@ -40,13 +40,13 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 -
   ```bash
-  git init <path>
+  haskgit init <path>
   ```
   Output: "Initialized empty Git repository in <path>/.git/"
 
 -
   ```bash
-  git add <path>
+  haskgit add <path>
   ```
   Output:
   - no path provided: "Nothing specified, nothing added."
@@ -55,7 +55,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 -
   ```bash
-  git commit <msg>
+  haskgit commit <msg>
   ```
   Output:
   - `msg` is provided:
@@ -97,82 +97,78 @@ Commands that will be implemented:
 - Creating projects
   - init: Creates an empty Git repository or reinitialize an existing one.
    ```
-   git init
+   haskgit init
    ```
 - Basic Snapshotting.
   - add: Adds file contents to the index (which means move to staging area).
     ```
-    git add filename
+    haskgit add filename
     ```
   - status: Displays differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
     ```
-    git status
+    haskgit status
     ```
   - commit: Creates a new commit containing the current contents of the index.
     ```
     -- this will create commit for current staging area
-    git commit
+    haskgit commit
 
-    git commit -m "Some commit message"
+    haskgit commit -m "Some commit message"
     ```
   - restore: Restores a file from the last commit to the working directory. (You can also unstage by using --staged, but that would be a stretch goal).
     ```
-    git restore <file>
+    haskgit restore <file>
     ```
   - reset: Resets the current HEAD to the specified state.
     ```
     -- this will unstage all changes
-    git reset
+    haskgit reset
 
     -- Move the branch pointer to specific commit
-    git reset commit-hash
+    haskgit reset commit-hash
     ```
   - rm: Remove files from the index.
     ```
-    git rm file
+    haskgit rm file
     ```
 - Branching and Merging
   - branch: Lists, creates, or deletes branches.
     ```
     -- list the branch
-    git branch
+    haskgit branch
 
     -- create new branch
-    git branch branch_name
+    haskgit branch branch_name
     ```
   - checkout: Switches branches or restores working tree files.
     ```console
-    git checkout branch-name
+    haskgit checkout branch-name
 
-    git checkout commit-hash  
+    haskgit checkout commit-hash  
     ```
 
 - Inspection and Comparison
   - show: Shows one or more git objects.
      ```console
-    git show hash_value
+    haskgit show hash_value
 
     -- show latest commit
-    git show  
+    haskgit show  
     ```
   - log: Show commit logs
     ```
-    git log
-    ```
-  - diff: Shows changes between the working tree and the index or a tree, changes between the index and a tree, changes between two trees, changes resulting from a merge, changes between two blob objects, or changes between two files on disk (this command might be challenging to implement).
-    ```
-    git diff
+    haskgit log
     ```
 
 - Patching
   - rebase: Reapplies commits on top of another base tip. 
     ```console
     -- upstream can be branch or commit reference
-    git rebase <upstream>
+    haskgit rebase <upstream>
     ```
   - revert: Reverts some existing commits
     ```
-    git revert commit-hash
+    haskgit revert commit-hash
     ```
 ### Code Structure
 HaskGit will follow the 'Functional core and imperative shell' design pattern, meaning that we will separate pure functions from impure functions with side effects (those that interact with the outside world, such as I/O). The basic structure will follow the Model-View-Controller (MVC) pattern, where `HaskGit.hs` will represent the controller, all other files in the Core directory will represent the Model, and `Main.hs` will represent the View. The code structure will look like the following:
@@ -379,20 +375,15 @@ FIXME: the demo code doesn't work.
 
   1. Command-Line Interface
     - use HUnit to assert equal by string (actual and expected output)
-  2. GitObject (Hash for tree and blob)
-    - generate files and directories
+  2. GitObject (tree, blob, and commit objects)
+    - use test files and directories
+    - generate commits and store info used for generatation
     - assert equal by hash value
     - Git utility tools of "hash-object", "cat-file", and "read/write/commit-tree"
         maybe helpful as a guide.
-  3. CommitObject
-    - generate commits and store info used for generatation
-    - assert equal by hash value
     - FIXME: if there is no feature to make a commit with a custom datetime,
-      it may be compared by info decoded by the hash
-  4. Git Core functionality (git init, git add, git commit, any command that changes direcotry `.git`.
-  5. Test Management (as there are different aspects of the database, i.e., CLI, Data structure, Core functionality, and possible extendable features )
-    - [Nicolas Mattia – Automatically generated directories for individual tasty tests](https://www.nmattia.com/posts/2018-04-30-tasty-test-names/)
-  6. Format of test: [Writing tests with Hspec - Hspec: A Testing Framework for Haskell](https://hspec.github.io/writing-specs.html)
+      it may be compared by info decoded by the hash - (TODO: delete - message from James - there may be a way to set specified time in testing environment but good to mention in the proposal)
+  4. Tests for helper functions for each command (e.g. `runInit` - refer to "Code Structure" section)
 
 
 ### Checkpoint
@@ -404,11 +395,13 @@ FIXME: the demo code doesn't work.
   - Git Object hash function
   - Git Object cat function
   - Unit test for above functions
+  - `git init`, `git add`, and `git status` commands
 
-  Defining data types would be straight forward as this was already discussed in this proposal. We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the first checkpoint, the git commands in the MVP scope will be split for each member to implment.
+  We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the first checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 
+TODO: Chen - you can refer to things I wrote in google docs
 Git is a system for distributed version control. 
   Besides the core features for basic Git usage, it offers a
 
