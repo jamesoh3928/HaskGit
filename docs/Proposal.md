@@ -269,18 +269,29 @@ type Index = Tree
 (TODO: Make sure you make function signatures)
 1. Argument Parsing (Chen)
 
-    The command-line interface consists of command and infomation such as path. To reduce the complexity, there is no option for each command.
+    The command-line interface consists of command and infomation such as path.
+      To reduce the complexity, there is no option for each command.
 
-    We use `<library>` ...
-
-    FIXEME: sample code of `ArgParser` doesn't work. \
-      Report error: "fail to parse 'pos1' : missing arg".
+    <!-- We use library [ArgParser](https://hackage.haskell.org/package/argparser)
+      to handle the parsing of command-line arguments and the formating of outputs.
     
+    Here is an example for `haskgit help`
+    ```haskell
+    data HaskGit =
+      HaskGit String
+      deriving (Show)
+    
+    cmdParser :: ParserSpec HaskGit
+    cmdParser = HaskGit
+
+    main = withParseResult cmdParser print
+    ```
+
     I also looked [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs)
       which is the most downloaded one in hackage.
     It also has some problems on type class "Data" resolving.
 
-    TODO: try to find workable approach and give a demo with "git help"
+    TODO: consider if it is better to use CmdArgs instead of ArgParser-->
 
 2. Hashing Git Objects
    
@@ -361,13 +372,13 @@ Git uses zlib to compress the new content and store files efficiently.
   ```
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
 Since we are interacting with command line, we need to parse arguments.
-FIXME: the demo code doesn't work.
+
 4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
 - TODO: (Jack, Chen) - add more if needed
 
 ### Testing
-- TODO: https://hackage.haskell.org/package/HUnit (Chen)
+<!-- - TODO: https://hackage.haskell.org/package/HUnit (Chen)
 - Thoughts on testing. These might include critical functions or data structures
   that will be given
   - [`tasty`](https://hackage.haskell.org/package/tasty) tests.
@@ -383,8 +394,27 @@ FIXME: the demo code doesn't work.
         maybe helpful as a guide.
     - FIXME: if there is no feature to make a commit with a custom datetime,
       it may be compared by info decoded by the hash - (TODO: delete - message from James - there may be a way to set specified time in testing environment but good to mention in the proposal)
-  4. Tests for helper functions for each command (e.g. `runInit` - refer to "Code Structure" section)
+  4. Tests for helper functions for each command (e.g. `runInit` - refer to "Code Structure" section) -->
 
+  Our testing strategy is based on unit testing,
+    implemented through the tasty testing framework.
+  One aspect of our testing approach involves string assertion tests that compare expected and actual results.
+  This is particularly useful for verifying the behavior of the CLI console application
+    before we proceed with the integration of functionalities based on Git Objects' operations.
+
+  In the context of Git Objects, 
+    tests may involve the comparison of hash values and directory structures.
+  There are Git plumbing commands that provide details about the inner processes of a simple Git command.
+    For example, the git hash-object command calculates the SHA-1 hash value for data used in creating a Git Object,
+      which is stored under .git/objects.
+    Similarly, the git cat-file command is utilized to inspect Git objects, confirming their type and content.
+  Our approach entails using such commands to generate expected results and
+    then asserting these results against our actual output during the development of Git Objects.
+
+  To streamline and make the testing environment more practical,
+    we will employ a template directory (with sub-directories and files)
+    and executing commands within specified datetime.
+  In addition, the helper functions that make up the commands will also be involved in the unit tests in order to improve reliability and facilitate debugging.
 
 ### Checkpoint
 - TODO: Expected functionality to be completed at the Checkpoint (Jack).
@@ -401,9 +431,13 @@ FIXME: the demo code doesn't work.
 
 ### Stretch Goals
 
-TODO: Chen - you can refer to things I wrote in google docs
-Git is a system for distributed version control. 
-  Besides the core features for basic Git usage, it offers a
+<!-- TODO: Chen - you can refer to things I wrote in google docs -->
+Git is a distributed version control system. In addition to its core features for basic usage,
+  we may incorporate other Git commands like git-fsck to enhance Git object integrity.
+If we have time, we're eager to explore Git on a server and implement some plumbing commands.
+  For example, fetch-pack and upload-pack are commands that download data from a remote server.
+Introducing options to commands is also a good goal, as they can be an extension for our MVP.
+  Users need to enable options for specific commands as needed.
 
 ### Areas for Feedback
 - We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
