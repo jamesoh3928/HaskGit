@@ -51,7 +51,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 -
   ```bash
-  haskgit commit <msg>
+  haskgit commit -m <msg>
   ```
   Output:
   - `msg` is provided:
@@ -96,9 +96,7 @@ Commands that will be implemented:
     ```
   - commit: Creates a new commit containing the current contents of the index.
     ```
-    -- this will create commit for current staging area
-    haskgit commit
-
+    -- '-m' flag required for MVP
     haskgit commit -m "Some commit message"
     ```
   - restore: Restores a file from the last commit to the working directory. (You can also unstage by using --staged, but that would be a stretch goal).
