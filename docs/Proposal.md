@@ -247,55 +247,7 @@ type GitIndex = GitTree
 
 ### Key Functions
 
-1. Argument Parsing
-
-    The command-line interface consists of command and infomation such as path.
-      To reduce the complexity, there is no option for each command.
-    
-    We use library [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs-0.10.22) to handle the parsing of command-line arguments and the formating of outputs.
-
-    As there is a feature of help built in CmdArgs, we can employ "haskgit [command] --help" to
-      output the usage of each command.
-
-    Here is a simple and draft example of using "--help".
-      Further refinement will be necessary once we have a better understanding of CmdArgs.
-
-    ```bash
-    cabal build
-    cabal v2-exec <your project name> -- --help
-    ```
-
-    ```haskell
-      -- here resolves problem of "Can't make a derived instance of `Data HaskGit`"
-      {-# LANGUAGE DeriveDataTypeable #-}
-      import System.Console.CmdArgs
-
-      -- define CLI data type called "HaskGit"
-      -- only command of "help", will add more modes on it
-      data HaskGit = Help
-        deriving (Data, Typeable, Show)
-
-      helpMode :: HaskGit
-      -- &= attach attribute to this mode
-      helpMode = Help &= help "usage: haskgit [command]"
-
-      main :: IO ()
-      -- print available mode (command)
-      main = print =<< cmdArgs helpMode
-    ```
-
-    ```output
-    The haskgit program
-
-    haskgit [OPTIONS]
-      usage: haskgit [command]
-
-    Common flags:
-      -? --help     Display help message
-      -V --version  Print version information
-    ```
-
-2. Hashing Git Objects
+1. Hashing Git Objects
    
    In Git, the paths of Git objects are determined by using a hash function. This makes tracking Git objects easy and fast.
    
@@ -331,7 +283,7 @@ type GitIndex = GitTree
     - For Tree: Hash of the concatenation of Blobs and subtrees within Tree
     - For Commit: Hash of concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
 
-3. Implementing cat function
+2. Implementing cat function
   
   We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
 
@@ -401,32 +353,77 @@ Git uses zlib to compress the new content and store files efficiently.
   dataToHash :: ByteString
   dataToHash = C8.pack "Hello, world!"
   ```
-3. cmdargs (Command line argument processing): (https://hackage.haskell.org/package/cmdargs-0.10.22)
-Since we are interacting with command line, we would need to parse arguments.
+3. cmdargs
+
+    [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs-0.10.22)
+    cmdargs can be used  to handle the parsing of command-line arguments and the formating of outputs.
+
+    cmdargs will mainly be used for parsing and handling command-line arguments.
+
+    As there is a feature of help built in CmdArgs, we can also employ "haskgit [command] --help" to
+      output the usage of each command. Here is a simple and draft example of using "--help".
+
+    ```bash
+    cabal build
+    cabal v2-exec <your project name> -- --help
+    ```
+
+    ```haskell
+      -- here resolves problem of "Can't make a derived instance of `Data HaskGit`"
+      {-# LANGUAGE DeriveDataTypeable #-}
+      import System.Console.CmdArgs
+
+      -- define CLI data type called "HaskGit"
+      -- only command of "help", will add more modes on it
+      data HaskGit = Help
+        deriving (Data, Typeable, Show)
+
+      helpMode :: HaskGit
+      -- &= attach attribute to this mode
+      helpMode = Help &= help "usage: haskgit [command]"
+
+      main :: IO ()
+      -- print available mode (command)
+      main = print =<< cmdArgs helpMode
+    ```
+
+    ```output
+    The haskgit program
+
+    haskgit [OPTIONS]
+      usage: haskgit [command]
+
+    Common flags:
+      -? --help     Display help message
+      -V --version  Print version information
+    ```
+
 
 4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
 ### Testing
-  Our testing strategy is based on unit testing,
-    implemented through the tasty testing framework, including [Tasty-Unit](https://hackage.haskell.org/package/tasty-hunit) which provides HUnit features.
-  One aspect of our testing approach involves string assertion tests that compare expected and actual results.
-  This is particularly useful for verifying the behavior of the CLI console application
-    before we proceed with the integration of functionalities based on Git Objects' operations.
+  Testing will involve using the [`tasty`](https://hackage.haskell.org/package/tasty) testing framework, including [Tasty-Unit](https://hackage.haskell.org/package/tasty-hunit) which provides HUnit features.
 
-  In the context of Git Objects, 
-    tests may involve the comparison of hash values and directory structures.
-  There are Git plumbing commands that provide details about the inner processes of a simple Git command.
-    For example, the git hash-object command calculates the SHA-1 hash value for data used in creating a Git Object,
-      which is stored under .git/objects.
-    Similarly, the git cat-file command is utilized to inspect Git objects, confirming their type and content.
-  Our approach entails using such commands to generate expected results and
-    then asserting these results against our actual output during the development of Git Objects.
 
-  To streamline and make the testing environment more practical,
-    we will employ a template directory (with sub-directories and files)
-    and executing commands within specified datetime.
+  The following is the plan for testing each component:
 
-  In addition, the helper functions that make up the commands will also be involved in the unit tests in order to improve reliability and facilitate debugging.
+  1. Testing Hash Functions
+      - Create test cases for Blob, Tree, and Commit.
+      - Verify that hash values remain consistent when called multiple times with the same objects.
+      - When a flag is set to True, confirm that Git objects are stored in the expected directory.
+
+  2. Testing Cat Functions
+      - Create test cases for Blob, Tree, and Commit.
+      - Ensure that the returned string value matches the expected result.
+
+  3. Testing Commands
+      - Test cases for each command will be created to check if all Git commands are executed as expected.
+      - For example:
+        - `haskgit init`: Confirm the creation of a Git directory.
+        - `haskgit add`: Verify that files are added to the staging area.
+        - `haskgit commit`: Check for the expected creation of commit objects.
+      - More specific testing strategies for each command will be discussed further as concrete plans are established for each command.
+
 
 ### Checkpoint
   By the checkpoint, we plan to complete following tasks:
@@ -442,10 +439,20 @@ Since we are interacting with command line, we would need to parse arguments.
 
 ### Stretch Goals
 
-Git is a distributed version control system. In addition to its core features for basic usage,
-  we may incorporate other Git commands like `git-fsck` to enhance Git object integrity.
-If we have time, we're eager to explore implementing remote repository and commands like `git push` and `git pull` as well.
-Introducing options to commands is also a good goal, as they can be an extension for our MVP.
+In addition to the MVP, the following stretch goals will be accomplished based on available time
+* Implement other challenging git commands:
+  - `git diff`: Shows changes between commits, commit and working tree, etc.
+  - `git fsck` : Verifies the connectivity and validity of the objects in the database.
+  - `haskgit merge`: Joins two or more development histories together.
+  - `haskgit cherry-pick`: Applies the changes introduced by some existing commits.
+* Implement remote repository feature
+  - `haskgit push`
+  - `haskgit pull`
+* Implment some flags for git commands
+  - -a for `commit`: Automatically stage and commit all changes in one step.
+  - -b for `checkout`: Create and switch to a new branch.
+  - -d for `branch`: Delete a branch.
+  - Other common flags.
 
 ### Areas for Feedback
 - We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
