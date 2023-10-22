@@ -412,9 +412,9 @@ Git uses zlib to compress the new content and store files efficiently.
       - Verify that hash values remain consistent when called multiple times with the same objects.
       - When a flag is set to True, confirm that Git objects are stored in the expected directory.
 
-  2. Testing Cat Functions
-      - Create test cases for Blob, Tree, and Commit.
-      - Ensure that the returned string value matches the expected result.
+  2. Testing Serialize/Deserialize Functions
+      - Test cases for serializing/deserializing Blob, Tree, and Commit.
+      - Verify that output of serailization and deserialization are correct
 
   3. Testing Commands
       - Test cases for each command will be created to check if all Git commands are executed as expected.
@@ -465,9 +465,3 @@ In addition to the MVP, the following stretch goals will be accomplished based o
 - Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
 - Write yourself a Git: https://wyag.thb.lt/
 - Git Community Book: https://shafiul.github.io/gitbook/index.html
-
-<!-- TODO: delete -->
-<!-- TODO List (James, Jack, Chen)
-- Check if we missed anything from proposal rubric
-- Check if we missed anything from final project rubric
-- Double check writings -->
