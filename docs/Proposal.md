@@ -20,11 +20,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 ## Additional Details
 
 ### Use Case
-<!-- - TODO (Chen)
-- One or more typical "use cases". These might include "storyboards" explaining
-  how a user would interact with the program or some interesting "input/output"
-  examples. -->
-  HaskGit is a CLI application, all I/O interactions with users happen on command line.
+  HaskGit will be a CLI application, all I/O interactions with users happen on command line. Following are some exapmle commands:
 
 -
   ```bash
@@ -66,18 +62,9 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
      -- repeat the above message if more path is added
     ```
   - `msg` is not provied:
-    call an editor with comment on the header
-    ```
-    # On branch <branch>
-    # Changes to be committed:
-    #   new file: <path>
-    #   modified: <path>
-    #
-    <msg>
-    ```
-    when the user saves it and exit, 
-    display the same output as the above case.
-  - others:
+    For our MVP, we will require users to provide messages on command line. 
+    - "Commit message not provided. Use '-m' flag."
+  - no files are in staging area:
     - "nothing to commit, working tree clean"
     ```
     On branch <branch>
@@ -87,7 +74,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 
 
 ### Minimum Viable Product
-The MVP will implement most of the Git commands that can run locally. For feasibility, we will implement the Git commands without any flag options, except for '-m' in the case of commit. Most commands will follow the default options. The list of commands to be implemented is as follows:
+The MVP will implement most of the Git commands that can run locally. For feasibility, we will implement the Git commands without any flag options, except for some cases, such as '-m' flag for commit command. Most commands will follow the default options. The list of commands to be implemented is as follows:
 
 Command list
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
@@ -148,6 +135,7 @@ Commands that will be implemented:
     ```
 
 - Inspection and Comparison
+  <!-- TODO: question - when I used git show, it's same as git log?? -->
   - show: Shows one or more git objects.
      ```console
     haskgit show hash_value
@@ -215,8 +203,8 @@ We need specific data structures to represent a data unit in the Git database. W
     A blob object is compressed binary data of a content file, representing the file data in a specific state.
 
 ```haskell
--- Blob = (file content in binary, filename)
-type Blob = (ByteString, String)
+-- GitBlob = (file content in binary, filename)
+type GitBlob = (ByteString, String)
 ```
 
 2. Tree Object
@@ -224,8 +212,8 @@ type Blob = (ByteString, String)
     A tree object represents a directory in a file structure. A tree consists of Blobs (files in the directory) and subtrees (subdirectories).
 
 ```haskell
--- Tree = list of files and subdirectories
-type Tree = [Tree | Blob]
+-- GitTree = list of files and subdirectories
+type GitTree = [Tree | Blob]
 ```
 
 3. Commit Object
@@ -234,66 +222,39 @@ type Tree = [Tree | Blob]
 
 ```haskell
 -- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message, creationg time)
-type Commit = Maybe((Tree, Commit, String, String, String, UTCTime))
+type GitCommit = Maybe((GitTree, GitCommit, String, String, String, UTCTime))
 ```
 
 It will be useful to have some sort of enum that will represent all Git objects, and we would like to store with hash value as well. Therefore, we will also create following types:
 
 ```haskell
-Data GitObject = Tree | Commit | Blob
+Data GitObject = GitTree | GitCommit | GitBlob
 
 Data GitObjectHash = (GitObject, ByteString)
 ```
 
 #### References
-In Git, references are labels that point to specific Git objects. For example, when we check out a new branch, there will be a reference pointing to the corresponding Commit object, with the branch name serving as a label. We are going to implement two new types, Ref and Refs, to represent this.
+In Git, references are labels that point to specific Git objects. For example, when we check out a new branch, there will be a reference pointing to the corresponding Commit object, with the branch name serving as a label. We are going to implement two new types, GitRef and GitRefs, to represent this.
 
 ```haskell
 -- Ref = (name of pointer - (HEAD, branch name, etc), commit object)
-type Ref = (String, Commit)
+type GitRef = (String, GitCommit)
 ```
 
 ```haskell
 -- Refs = list of Ref
-type Refs = [Ref]
+type GitRefs = [GitRef]
 ```
 
 #### Index
-In Git, the index acts as an intermediate step between the working directory and the Git repository, serving as a staging area. When we read data from the index file, we need a representation of the 'staged changes' to add them to the commit tree when 'git commit' is called. Since the index represents all the changed files, we can alias the `Index` type as `Tree` and use this data to create a Commit object later.
+In Git, the index acts as an intermediate step between the working directory and the Git repository, serving as a staging area. When we read data from the index file, we need a representation of the 'staged changes' to add them to the commit tree when 'git commit' is called. Since the index represents all the changed files, we can alias the `GitIndex` type as `GitTree` and use this data to create a Commit object later.
 
 ```haskell
-type Index = Tree
+type GitIndex = GitTree
 ```
 
 ### Key Functions
-(TODO: Make sure you make function signatures)
-1. Argument Parsing (Chen)
-
-    The command-line interface consists of command and infomation such as path.
-      To reduce the complexity, there is no option for each command.
-
-    <!-- We use library [ArgParser](https://hackage.haskell.org/package/argparser)
-      to handle the parsing of command-line arguments and the formating of outputs.
-    
-    Here is an example for `haskgit help`
-    ```haskell
-    data HaskGit =
-      HaskGit String
-      deriving (Show)
-    
-    cmdParser :: ParserSpec HaskGit
-    cmdParser = HaskGit
-
-    main = withParseResult cmdParser print
-    ```
-
-    I also looked [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs)
-      which is the most downloaded one in hackage.
-    It also has some problems on type class "Data" resolving.
-
-    TODO: consider if it is better to use CmdArgs instead of ArgParser-->
-
-2. Hashing Git Objects
+1. Hashing Git Objects
    
    In Git, the paths of Git objects are determined by using a hash function. This makes tracking Git objects easy and fast.
    
@@ -329,7 +290,7 @@ type Index = Tree
     - For Tree: Hash of the concatenation of Blobs and subtrees within Tree
     - For Commit: Hash of concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
 
-3. Implementing cat function
+2. Implementing cat function
   
   We need to implement a function that retrieves the content of Git objects. 
 
@@ -371,31 +332,11 @@ Git uses zlib to compress the new content and store files efficiently.
   dataToHash = C8.pack "Hello, world!"
   ```
 3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
-Since we are interacting with command line, we need to parse arguments.
+Since we are interacting with command line, we would need to parse arguments.
 
 4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
-- TODO: (Jack, Chen) - add more if needed
-
 ### Testing
-<!-- - TODO: https://hackage.haskell.org/package/HUnit (Chen)
-- Thoughts on testing. These might include critical functions or data structures
-  that will be given
-  - [`tasty`](https://hackage.haskell.org/package/tasty) tests.
-  - [HUnit: A unit testing framework for Haskell](https://hackage.haskell.org/package/HUnit)
-
-  1. Command-Line Interface
-    - use HUnit to assert equal by string (actual and expected output)
-  2. GitObject (tree, blob, and commit objects)
-    - use test files and directories
-    - generate commits and store info used for generatation
-    - assert equal by hash value
-    - Git utility tools of "hash-object", "cat-file", and "read/write/commit-tree"
-        maybe helpful as a guide.
-    - FIXME: if there is no feature to make a commit with a custom datetime,
-      it may be compared by info decoded by the hash - (TODO: delete - message from James - there may be a way to set specified time in testing environment but good to mention in the proposal)
-  4. Tests for helper functions for each command (e.g. `runInit` - refer to "Code Structure" section) -->
-
   Our testing strategy is based on unit testing,
     implemented through the tasty testing framework.
   One aspect of our testing approach involves string assertion tests that compare expected and actual results.
@@ -414,11 +355,11 @@ Since we are interacting with command line, we need to parse arguments.
   To streamline and make the testing environment more practical,
     we will employ a template directory (with sub-directories and files)
     and executing commands within specified datetime.
+
   In addition, the helper functions that make up the commands will also be involved in the unit tests in order to improve reliability and facilitate debugging.
 
 ### Checkpoint
-- TODO: Expected functionality to be completed at the Checkpoint (Jack).
-  By the first checkpoint, we hope to complete following tasks:
+  By the checkpoint, we plan to complete following tasks:
   
   - Defining data types for Git Objects, Ref, and Index
   - Argument parser function
@@ -427,17 +368,14 @@ Since we are interacting with command line, we need to parse arguments.
   - Unit test for above functions
   - `git init`, `git add`, and `git status` commands
 
-  We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the first checkpoint, the git commands in the MVP scope will be split for each member to implment.
+  We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 
-<!-- TODO: Chen - you can refer to things I wrote in google docs -->
 Git is a distributed version control system. In addition to its core features for basic usage,
-  we may incorporate other Git commands like git-fsck to enhance Git object integrity.
-If we have time, we're eager to explore Git on a server and implement some plumbing commands.
-  For example, fetch-pack and upload-pack are commands that download data from a remote server.
+  we may incorporate other Git commands like `git-fsck` to enhance Git object integrity.
+If we have time, we're eager to explore implementing remote repository and commands like `git push` and `git pull` as well.
 Introducing options to commands is also a good goal, as they can be an extension for our MVP.
-  Users need to enable options for specific commands as needed.
 
 ### Areas for Feedback
 - We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
@@ -447,21 +385,9 @@ Introducing options to commands is also a good goal, as they can be an extension
 - Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
 - Write yourself a Git: https://wyag.thb.lt/
 - Git Community Book: https://shafiul.github.io/gitbook/index.html
-- TODO: add more if needed (Jack, Chen)
 
-Other TODO List (James, Jack, Chen)
+<!-- TODO: delete -->
+<!-- TODO List (James, Jack, Chen)
 - Check if we missed anything from proposal rubric
 - Check if we missed anything from final project rubric
-- Double check writings
-
-Missing
-- separate modules
-  - Hunit
-
-<!-- Proposal Rubric (we also need to check final project rubric as well) -->
-<!-- 
-One or more typical “use cases”. These might include “storyboards” explaining how a user would interact with the program or some interesting “input/output” examples.
-A sketch of intended components (key functions, key data structures, separate modules). To satisfy the “multiple Haskell modules” requirement, it may suffice to separate an application into a “model-controller” module and a “view” module (e.g., a “text view” module that could be replaced by a “GUI view” module).
-Thoughts on testing. These might include critical functions or data structures that will be given tasty tests.
-Thoughts on a “minimal viable product” and “stretch goals”. Be sure to review the final project grading rubric and consider organizing the project around a core deliverable that will almost certainly be achieved and then a number of extensions and features that could be added to ensure that project is of suitable size/scope/effort.
-Expected functionality to be completed at the Checkpoint. -->
+- Double check writings -->
