@@ -409,7 +409,7 @@ Git uses zlib to compress the new content and store files efficiently.
 
   1. Testing Hash Functions
       - Create test cases for Blob, Tree, and Commit.
-      - Verify that hash values remain consistent when called multiple times with the same objects.
+      - Verify that hash values remain consistent when called multiple times with the same objects (for testing purpouse, we will need to pass in the same time to make hash consistent).
       - When a flag is set to True, confirm that Git objects are stored in the expected directory.
 
   2. Testing Serialize/Deserialize Functions
