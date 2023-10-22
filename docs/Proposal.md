@@ -286,32 +286,32 @@ type GitIndex = GitTree
 2. Reading/Writing to and from Object Storage
 We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
 
-```
-<!-- Each header will have type, byte length, and null character -->
--- Blob
-header = "blob #{data.bytesize}\0"
-data =  file content
+      ```
+      <!-- Each header will have type, byte length, and null character -->
+      -- Blob
+      header = "blob #{data.bytesize}\0"
+      data =  file content
 
--- Tree
-header = "tree #{data.bytesize}\0"
-data = concatenated hashes of subtrees and blobs (have space between)
+      -- Tree
+      header = "tree #{data.bytesize}\0"
+      data = concatenated hashes of subtrees and blobs (have space between)
 
--- Commit
-header = "commit #{data.bytesize}\0"
-data = hash of tree of root directory + parent commit hash + author + commiter + commit message + creation time (Spaced out)
-```
+      -- Commit
+      header = "commit #{data.bytesize}\0"
+      data = hash of tree of root directory + parent commit hash + author + commiter + commit message + creation time (Spaced out)
+      ```
 
-Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
+      Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
 
-```haskell
-serializeGitObject :: ByteString -> GitObject
+      ```haskell
+      serializeGitObject :: ByteString -> GitObject
 
-deserializeGitObject :: GitObject -> ByteString
-```
+      deserializeGitObject :: GitObject -> ByteString
+      ```
 
-Both functions will use zlib to compress and decompress the files.
+      Both functions will use zlib to compress and decompress the files.
 
-For reading and writing the files, we will use the `System.IO` library.
+      For reading and writing the files, we will use the `System.IO` library.
 
 3. Implementing cat function
   
