@@ -285,61 +285,62 @@ type GitIndex = GitTree
 
 2. Implementing cat function
   
-  We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
+    We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
 
-  ```haskell
-  getCatFile :: GitObject -> [String]
-  ```
-
-  Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
-
-  - For Blob, it will return the actual content. (There will be only one string in the list)
-  - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
-
-    ```Console
-    ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
-    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
-    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
-    ```
-  - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
-
-    ```
-    ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
-    "parent 8f94139338f9404f26296befa88755fc2598c2893",
-    "author Someone1",
-    "committer Someone2",
-    "Initial commit"]
+    ```haskell
+    gitCatFile :: GitObject -> [String]
     ```
 
-  4. Reading/Writing to and from Object Storage
-We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
+    Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
 
-```
-<!-- Each header will have type, byte length, and null character -->
--- Blob
-header = "blob #{data.bytesize}\0"
-data =  file content
+    - For Blob, it will return the actual content. (There will be only one string in the list)
+    - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
 
--- Tree
-header = "tree #{data.bytesize}\0"
-data = concatenated hashes of subtrees and blobs (have space between)
+      ```Console
+      ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
+      "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
+      "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
+      ```
+    - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
 
--- Commit
-header = "commit #{data.bytesize}\0"
-data = hash of tree of root directory + parent commit hash + author + commiter + commit message + creation time (Spaced out)
-```
+      ```
+      ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
+      "parent 8f94139338f9404f26296befa88755fc2598c2893",
+      "author Someone1",
+      "committer Someone2",
+      "Initial commit"]
+      ```
 
-Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
+  3. Reading/Writing to and from Object Storage
+  
+      We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
 
-```haskell
-serializeGitObject :: ByteString -> GitObject
+      ```
+      <!-- Each header will have type, byte length, and null character -->
+      -- Blob
+      header = "blob #{data.bytesize}\0"
+      data =  file content
 
-deserializeGitObject :: GitObject -> ByteString
-```
+      -- Tree
+      header = "tree #{data.bytesize}\0"
+      data = concatenated hashes of subtrees and blobs (have space between)
 
-Both functions will use zlib to compress and decompress the files.
+      -- Commit
+      header = "commit #{data.bytesize}\0"
+      data = hash of tree of root directory + parent commit hash + author + commiter + commit message + creation time (Spaced out)
+      ```
 
-For reading and writing the files, we will use the `System.IO` library.
+      Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
+
+      ```haskell
+      serializeGitObject :: ByteString -> GitObject
+
+      deserializeGitObject :: GitObject -> ByteString
+      ```
+
+      Both functions will use zlib to compress and decompress the files.
+
+      For reading and writing the files, we will use the `System.IO` library.
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
