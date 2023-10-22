@@ -384,20 +384,15 @@ Git uses zlib to compress the new content and store files efficiently.
   dataToHash :: ByteString
   dataToHash = C8.pack "Hello, world!"
   ```
-3. cmdargs
+3. CmdArgs
 
-    [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs-0.10.22)
-    cmdargs can be used  to handle the parsing of command-line arguments and the formating of outputs.
+    [CmdArgs](https://hackage.haskell.org/package/cmdargs-0.10.22)
+     can be used  to handle the parsing of command-line arguments and the formating of outputs.
 
-    cmdargs will mainly be used for parsing and handling command-line arguments.
+    CmdArgs will mainly be used for parsing and handling command-line arguments.
 
     As there is a feature of help built in CmdArgs, we can also employ "haskgit [command] --help" to
       output the usage of each command. Here is a simple and draft example of using "--help".
-
-    ```bash
-    cabal build
-    cabal v2-exec <your project name> -- --help
-    ```
 
     ```haskell
       -- here resolves problem of "Can't make a derived instance of `Data HaskGit`"
@@ -428,7 +423,6 @@ Git uses zlib to compress the new content and store files efficiently.
       -? --help     Display help message
       -V --version  Print version information
     ```
-
 
 4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
@@ -489,9 +483,9 @@ In addition to the MVP, the following stretch goals will be accomplished based o
   - Other common flags.
 
 ### Areas for Feedback
-- We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
-- Do you have any feedback on our data structures and code structure?
-- Is there any library you recommend to use?
+- We would appreciate your feedback on the project's scope. Do you believe it's feasible? Are there any challenging aspects we might be overlooking?
+- Do you have any feedback on our data structures and code organization?
+- Is there a library you would recommend using?
 
 ### References
 - Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
