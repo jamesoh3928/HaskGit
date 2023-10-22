@@ -284,7 +284,8 @@ type GitIndex = GitTree
     - Note that header = "{type} #{content.bytesize}\0", e.g. "Blob 139\0"
 
 2. Reading/Writing to and from Object Storage
-We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
+
+    We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
 
       ```
       <!-- Each header will have type, byte length, and null character -->
@@ -304,42 +305,63 @@ We will also implement functions for converting data from the stored data to Git
       Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
 
       ```haskell
-      serializeGitObject :: ByteString -> GitObject
+      serializeGitObject ::  GitObject -> ByteString
 
-      deserializeGitObject :: GitObject -> ByteString
+      deserializeGitObject :: ByteString -> GitObject
       ```
 
       Both functions will use zlib to compress and decompress the files.
 
       For reading and writing the files, we will use the `System.IO` library.
 
-3. Implementing cat function
-  
-  We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
+3. Instantiating git objects as Show
 
-  ```haskell
-  getCatFile :: GitObject -> [String]
-  ```
+    We would need a feature to convert git objects to String so we can print on stdout. This feature needs in commands like show and log. To do this, we will make GitObject as instance of type class Show and use show function.
 
-  Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
+      ``` Haskell
+      instance Show GitObject where
+        -- Implement the show function
+        show Blob = ...  
+        show Tree = ...
+        show Commit = ...
+      ```
 
-  - For Blob, it will return the actual content. (There will be only one string in the list)
-  - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
+      The implementation of show will be based on the type of GitObject. Depending on the type of GitObject, it will return the following string:
 
-    ```Console
-    ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
-    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
-    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
-    ```
-  - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
+      - For Blob, it will return the actual content. (There will be only one string in the list)
+      - For Tree, it will return a string of following format:
+      
+        ```Console
+        object_type1 hash_value1 file_name1
+        object_type2 hash_value2 file_name2
+        object_type3 hash_value3 file_name3
+        ...
+        (the actual `git cat-file` command includes the file mode, but we will not include this for the project's scope). For example:
 
-    ```
-    ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
-    "parent 8f94139338f9404f26296befa88755fc2598c2893",
-    "author Someone1",
-    "committer Someone2",
-    "Initial commit"]
-    ```
+        ```Console
+        -- sample example
+        blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt
+        blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt
+        tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory
+        ```
+      - For Commit, it will return a string of following format:
+
+        ```Console
+        tree hash_value
+        parent hash_value
+        author author_name
+        committer committer_name
+        commit_message
+        ```
+
+        ```Console
+        -- sample example
+        tree a906cb2a4a904a152e80877d4088654daad0c8599
+        parent 8f94139338f9404f26296befa88755fc2598c2893
+        author Someone1
+        committer Someone2
+        Initial commit
+        ```
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
@@ -433,11 +455,12 @@ Git uses zlib to compress the new content and store files efficiently.
   - Defining data types for Git Objects, Ref, and Index
   - Argument parsing (set up the structure in `Main.hs`)
   - Git Object hash function
-  - Git Object cat function
+  - Writing/Reading Git Objects from storage
+  - Implementing Show
   - Unit test for above functions
   - `git init`, `git add`, and `git status` commands
 
-  We will first focus on establishing main functionality such as argument parsing, hash, cat function while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
+  We will first focus on establishing main functionality such as argument parsing, hash, writing/reading git objects, and show while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 
