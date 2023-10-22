@@ -20,7 +20,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 ## Additional Details
 
 ### Use Case
-  HaskGit will be a CLI application, all I/O interactions with users happen on command line. Following are some exapmle commands:
+  HaskGit will be a CLI application, all I/O interactions with users happen on command line. Following are some example commands:
 
 -
   ```bash
@@ -28,10 +28,10 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
   ```
   Output: All available HaskGit commands, with a brief description of each command
   ```
-  Example:
   init    Create an empty Git repository
   add     Add file contents to the index
   commit  Record changes to the repository
+  ...
   ```
 
 -
@@ -57,9 +57,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
   - `msg` is provided:
     ```
      [<branch> <hash>] <msg>
-     <#> file(s) changed, <#> insertions(+), <#> deletions(-)
-     <create/delete> mode <file permission> <path>
-     -- repeat the above message if more path is added
+     <#> file(s) changed
     ```
   - `msg` is not provied:
     For our MVP, we will require users to provide messages on command line. 
@@ -77,6 +75,7 @@ HaskGit is a Git implementation using Haskell. The goal of the project is to imp
 The MVP will implement most of the Git commands that can run locally. For feasibility, we will implement the Git commands without any flag options, except for some cases, such as '-m' flag for commit command. Most commands will follow the default options. The list of commands to be implemented is as follows:
 
 Command list
+
 Full list of git commands (not part of MVP): https://git-scm.com/docs 
 
 Commands that will be implemented:
@@ -128,7 +127,7 @@ Commands that will be implemented:
     haskgit branch branch_name
     ```
   - checkout: Switches branches or restores working tree files.
-    ```console
+    ```
     haskgit checkout branch-name
 
     haskgit checkout commit-hash  
@@ -279,39 +278,12 @@ type GitIndex = GitTree
 
     The current plan for obtaining the hash value for each object type is as follows:
 
-    - For Blob: Hash of (header + new content). Note that header = "Blob #{content.bytesize}\0"
-    - For Tree: Hash of the concatenation of Blobs and subtrees within Tree
-    - For Commit: Hash of concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
+    - For Blob: Hash of (header + new content).
+    - For Tree: Hash of (header + concatenation of Blobs and subtrees within Tree)
+    - For Commit: Hash of (header + concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash)
+    - Note that header = "{type} #{content.bytesize}\0", e.g. "Blob 139\0"
 
-2. Implementing cat function
-  
-  We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
-
-  ```haskell
-  getCatFile :: GitObject -> [String]
-  ```
-
-  Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
-
-  - For Blob, it will return the actual content. (There will be only one string in the list)
-  - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
-
-    ```Console
-    ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
-    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
-    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
-    ```
-  - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
-
-    ```
-    ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
-    "parent 8f94139338f9404f26296befa88755fc2598c2893",
-    "author Someone1",
-    "committer Someone2",
-    "Initial commit"]
-    ```
-
-  4. Reading/Writing to and from Object Storage
+2. Reading/Writing to and from Object Storage
 We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
 
 ```
@@ -341,9 +313,37 @@ Both functions will use zlib to compress and decompress the files.
 
 For reading and writing the files, we will use the `System.IO` library.
 
+3. Implementing cat function
+  
+  We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
+
+  ```haskell
+  getCatFile :: GitObject -> [String]
+  ```
+
+  Based on the type of GitObject, the data will be extracted, uncompressed using Codec.Compression.Zlib, and converted to a string. Depending on the type of GitObject, it will return the following string:
+
+  - For Blob, it will return the actual content. (There will be only one string in the list)
+  - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
+
+    ```Console
+    ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
+    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
+    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
+    ```
+  - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
+
+    ```
+    ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
+    "parent 8f94139338f9404f26296befa88755fc2598c2893",
+    "author Someone1",
+    "committer Someone2",
+    "Initial commit"]
+    ```
+
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
-We need to hash different things to implement Git.
+We need to hash various things to implement Git.
 2. zlib: https://hackage.haskell.org/package/zlib
 Git uses zlib to compress the new content and store files efficiently.
   ```Haskell
@@ -424,18 +424,20 @@ Git uses zlib to compress the new content and store files efficiently.
         - `haskgit commit`: Check for the expected creation of commit objects.
       - More specific testing strategies for each command will be discussed further as concrete plans are established for each command.
 
+  4. More test may be added depending on the design changes in the future.
+
 
 ### Checkpoint
   By the checkpoint, we plan to complete following tasks:
   
   - Defining data types for Git Objects, Ref, and Index
-  - Argument parser function
+  - Argument parsing (set up the structure in `Main.hs`)
   - Git Object hash function
   - Git Object cat function
   - Unit test for above functions
   - `git init`, `git add`, and `git status` commands
 
-  We will first focus on establishing main functionality such as argument parser, hash, cat function while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
+  We will first focus on establishing main functionality such as argument parsing, hash, cat function while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 
@@ -457,6 +459,7 @@ In addition to the MVP, the following stretch goals will be accomplished based o
 ### Areas for Feedback
 - We would love to receive feedback on the scope of the project. Do you think this is feasible? Are there any challenging parts that we might be missing?
 - Do you have any feedback on our data structures and code structure?
+- Is there any library you recommend to use?
 
 ### References
 - Pro Git: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects 
