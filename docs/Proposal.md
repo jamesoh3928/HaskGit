@@ -135,14 +135,6 @@ Commands that will be implemented:
     ```
 
 - Inspection and Comparison
-  <!-- TODO: question - when I used git show, it's same as git log?? -->
-  - show: Shows one or more git objects. In the standard 'git show' behavior, it includes the specified commit and the differences. However, for the project's scope, only the commit will be included.
-     ```console
-    haskgit show hash_value
-
-    -- show latest commit
-    haskgit show  
-    ```
   - log: Show commit logs
     ```
     haskgit log
@@ -221,7 +213,7 @@ type GitTree = [Tree | Blob]
     A commit object represents each commit made within the repository. It contains the tree object representing the root directory, the parent commit (if it's the first commit, it will be Nothing), author, committer, and commit message.
 
 ```haskell
--- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message, creationg time)
+-- Commit = Maybe(tree of root directory, parent commit, author, commiter, commit message, creation time)
 type GitCommit = Maybe((GitTree, GitCommit, String, String, String, UTCTime))
 ```
 
@@ -326,7 +318,7 @@ type GitIndex = GitTree
 
    For the hash computation, the plan is to use Crypto.Hash.SHA1.hash function. This function takes ByteString as input and returns the hash value as ByteString. We will also use the Data.ByteString.Char8 module to convert strings to ByteString. Here's how you can use it:
 
-    ```
+    ```haskell
     import qualified Crypto.Hash.SHA1 as SHA1
 
     -- apply hash function
@@ -343,7 +335,7 @@ type GitIndex = GitTree
   
   We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
 
-  ```
+  ```haskell
   getCatFile :: GitObject -> [String]
   ```
 
@@ -366,6 +358,36 @@ type GitIndex = GitTree
     "committer Someone2",
     "Initial commit"]
     ```
+
+  4. Reading/Writing to and from Object Storage
+We will also implement functions for converting data from the stored data to GitObjects and vice versa. When storing data, we will concatenate the header and data, which will be compressed and stored in the file. For each GitObject, the header and data will follow this format:
+
+```
+<!-- Each header will have type, byte length, and null character -->
+-- Blob
+header = "blob #{data.bytesize}\0"
+data =  file content
+
+-- Tree
+header = "tree #{data.bytesize}\0"
+data = concatenated hashes of subtrees and blobs (have space between)
+
+-- Commit
+header = "commit #{data.bytesize}\0"
+data = hash of tree of root directory + parent commit hash + author + commiter + commit message + creation time (Spaced out)
+```
+
+Again, the header and data will be concatenated and compressed using the `zlib` library and stored in the content. The function for serializing and deserializing data will have the following signature:
+
+```haskell
+serializeGitObject :: ByteString -> GitObject
+
+deserializeGitObject :: GitObject -> ByteString
+```
+
+Both functions will use zlib to compress and decompress the files.
+
+For reading and writing the files, we will use the `System.IO` library.
 
 ### Libraries
 1. SHA1: https://hackage.haskell.org/package/cryptohash-sha1  
