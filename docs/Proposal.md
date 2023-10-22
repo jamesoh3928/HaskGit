@@ -314,9 +314,9 @@ type GitIndex = GitTree
 
       For reading and writing the files, we will use the `System.IO` library.
 
-3. Instantiating git objects as Show
+3. Make GitObjects instance of Show type class
 
-    We would need a feature to convert git objects to String so we can print on stdout. This feature needs in commands like show and log. To do this, we will make GitObject as instance of type class Show and use show function.
+    We would need a feature to convert git objects to String so we can print them on the terminal. This feature needs for commands like `show` and `log`. To do this, we will make GitObject as instance of `Show` and use show function.
 
       ``` Haskell
       instance Show GitObject where
@@ -326,7 +326,7 @@ type GitIndex = GitTree
         show Commit = ...
       ```
 
-      The implementation of show will be based on the type of GitObject. Depending on the type of GitObject, it will return the following string:
+      The implementation of show will be based on the type of the `GitObject`. Depending on the `GitObject` type, it will return the following string:
 
       - For Blob, it will return the actual content. (There will be only one string in the list)
       - For Tree, it will return a string of following format:
