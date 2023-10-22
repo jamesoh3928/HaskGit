@@ -454,13 +454,13 @@ Git uses zlib to compress the new content and store files efficiently.
   
   - Defining data types for Git Objects, Ref, and Index
   - Argument parsing (set up the structure in `Main.hs`)
-  - Git Object hash function
-  - Writing/Reading Git Objects from storage
-  - Implementing Show
+  - GitObject hash function
+  - Serialize/Deserialize Functions
+  - Implementing Show for GitObject
   - Unit test for above functions
   - `git init`, `git add`, and `git status` commands
 
-  We will first focus on establishing main functionality such as argument parsing, hash, writing/reading git objects, and show while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
+  We will first focus on establishing main functionality such as argument parsing, hash, serialize/deserialize Functions, and show while creating unit test along the way. After the checkpoint, the git commands in the MVP scope will be split for each member to implment.
 
 ### Stretch Goals
 
