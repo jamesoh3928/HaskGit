@@ -254,7 +254,56 @@ type GitIndex = GitTree
 ```
 
 ### Key Functions
-1. Hashing Git Objects
+
+1. Argument Parsing
+
+    The command-line interface consists of command and infomation such as path.
+      To reduce the complexity, there is no option for each command.
+    
+    We use library [cmdargs: Command line argument processing](https://hackage.haskell.org/package/cmdargs-0.10.22) to handle the parsing of command-line arguments and the formating of outputs.
+
+    As there is a feature of help built in CmdArgs, we can employ "haskgit [command] --help" to
+      output the usage of each command.
+
+    Here is a simple and draft example of using "--help".
+      Further refinement will be necessary once we have a better understanding of CmdArgs.
+
+    ```bash
+    cabal build
+    cabal v2-exec <your project name> -- --help
+    ```
+
+    ```haskell
+      -- here resolves problem of "Can't make a derived instance of `Data HaskGit`"
+      {-# LANGUAGE DeriveDataTypeable #-}
+      import System.Console.CmdArgs
+
+      -- define CLI data type called "HaskGit"
+      -- only command of "help", will add more modes on it
+      data HaskGit = Help
+        deriving (Data, Typeable, Show)
+
+      helpMode :: HaskGit
+      -- &= attach attribute to this mode
+      helpMode = Help &= help "usage: haskgit [command]"
+
+      main :: IO ()
+      -- print available mode (command)
+      main = print =<< cmdArgs helpMode
+    ```
+
+    ```output
+    The haskgit program
+
+    haskgit [OPTIONS]
+      usage: haskgit [command]
+
+    Common flags:
+      -? --help     Display help message
+      -V --version  Print version information
+    ```
+
+2. Hashing Git Objects
    
    In Git, the paths of Git objects are determined by using a hash function. This makes tracking Git objects easy and fast.
    
@@ -290,7 +339,7 @@ type GitIndex = GitTree
     - For Tree: Hash of the concatenation of Blobs and subtrees within Tree
     - For Commit: Hash of concatenated Tree Object hash + committer name + author name + commit message + creation time + Parent commit hash
 
-2. Implementing cat function
+3. Implementing cat function
   
   We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
 
@@ -330,14 +379,14 @@ Git uses zlib to compress the new content and store files efficiently.
   dataToHash :: ByteString
   dataToHash = C8.pack "Hello, world!"
   ```
-3. argParser: https://hackage.haskell.org/package/argparser-0.3.4/docs/System-Console-ArgParser.html 
+3. cmdargs (Command line argument processing): (https://hackage.haskell.org/package/cmdargs-0.10.22)
 Since we are interacting with command line, we would need to parse arguments.
 
 4. Other libraries: Data.ByteString module, System.IO, Data.Time, etc.
 
 ### Testing
   Our testing strategy is based on unit testing,
-    implemented through the tasty testing framework.
+    implemented through the tasty testing framework, including [Tasty-Unit](https://hackage.haskell.org/package/tasty-hunit) which provides HUnit features.
   One aspect of our testing approach involves string assertion tests that compare expected and actual results.
   This is particularly useful for verifying the behavior of the CLI console application
     before we proceed with the integration of functionalities based on Git Objects' operations.
