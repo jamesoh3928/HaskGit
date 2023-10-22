@@ -134,10 +134,14 @@ Commands that will be implemented:
     ```
 
 - Inspection and Comparison
-  - log: Show commit logs
-    ```
-    haskgit log
-    ```
+  - show: Shows one or more git objects. In the standard 'git show' behavior, it includes the specified commit and the differences. However, for the project's scope, only the commit will be included.
+
+  ```Console
+  haskgit show hash_value
+
+  -- show latest commit
+  haskgit show  
+  ```
 
 - Patching
   - rebase: Reapplies commits on top of another base tip. 
