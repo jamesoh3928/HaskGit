@@ -136,7 +136,7 @@ Commands that will be implemented:
 
 - Inspection and Comparison
   <!-- TODO: question - when I used git show, it's same as git log?? -->
-  - show: Shows one or more git objects.
+  - show: Shows one or more git objects. In the standard 'git show' behavior, it includes the specified commit and the differences. However, for the project's scope, only the commit will be included.
      ```console
     haskgit show hash_value
 
@@ -292,7 +292,7 @@ type GitIndex = GitTree
 
 2. Implementing cat function
   
-  We need to implement a function that retrieves the content of Git objects. 
+  We need to implement a function that retrieves the content of Git objects. This function will be used to convert git objects to printable string that will be show in stdout (will be used in show and log command).  
 
   ```
   getCatFile :: GitObject -> [String]
@@ -303,20 +303,19 @@ type GitIndex = GitTree
   - For Blob, it will return the actual content. (There will be only one string in the list)
   - For Tree, it will return a list of strings representing each element as "Git Object type, hash value, and file name" (the actual Git format includes the file mode, but we will not include this for the project's scope). For example:
 
-  ```Console
-  ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
-   "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
-   "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
-  ```
+    ```Console
+    ["blob a906cb2a4a904a152e80877d4088654daad0c8599 file1.txt", 
+    "blob 8f94139338f9404f26296befa88755fc2598c2893 file2.txt",
+    "tree 23ebdb3b47d0f41f0c9b07b6286e103b971a51c1  subdirectory"]
+    ```
   - For Commit, it will return a list of strings representing "Tree, parent (if not an initial commit), author, committer, and commit message". For example:
 
     ```
-    tree a906cb2a4a904a152e80877d4088654daad0c8599
-    parent 8f94139338f9404f26296befa88755fc2598c2893
-    author Someone1 
-    committer Someone2
-
-    Initial commit
+    ["tree a906cb2a4a904a152e80877d4088654daad0c8599", 
+    "parent 8f94139338f9404f26296befa88755fc2598c2893",
+    "author Someone1",
+    "committer Someone2",
+    "Initial commit"]
     ```
 
 ### Libraries
