@@ -394,6 +394,11 @@ Git uses zlib to compress the new content and store files efficiently.
     As there is a feature of help built in CmdArgs, we can also employ "haskgit [command] --help" to
       output the usage of each command. Here is a simple and draft example of using "--help".
 
+    ```bash
+    stack build
+    stack run -- --help
+    ```
+
     ```haskell
       -- here resolves problem of "Can't make a derived instance of `Data HaskGit`"
       {-# LANGUAGE DeriveDataTypeable #-}
