@@ -1,0 +1,63 @@
+Excellent proposal.
+
+Git is an interesting domain to implement.  Although there are many
+features of git, it does lend itself to an incremental approach of
+implementing the most important functionality first and then extending
+to additional features.
+
+I recommend looking into the distinction in `git` between "plumbing"
+commands and "porcelain"
+(https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain).
+Although we are mostly familiar with the "porcelain" commands, the
+"plumbing" commands are "behind the scenes doing the low-level work".
+A lot of your infrastructure that will be shared between the different
+high-level commands will come from the plumbing level.
+
+Think carefully about how you will follow the "functional core and
+imperative shell' design pattern, considering that the state of the
+filesystem is the source of truth about the state of the repository;
+nearly every interaction will need to query the filesystem and it may
+be infeasible to organize things around something like:
+
+  loadGitState :: IO GitState
+  modifyGitState :: GitState -> ... -> GitState
+  saveGitState :: GitState -> IO ()
+
+On the other hand, the Key Data structures do lend themselves well to
+pure functional implementations.
+
+In your `type GitCommit`, I wouldn't think that it should be:
+
+  type GitCommit = Maybe (GitTree, GitCommit, String, String, String, UTCTime)
+
+but rather
+
+  type GitCommit = (GitTree, Maybe GitCommit, String, String, String, UTCTime)
+
+It is only the parent commit that is optional.  Technically, merge
+commits can have multiple parents, so it might be more like:
+
+  type GitCommit = (GitTree, [GitCommit], String, String, String, UTCTime)
+
+You may not want to use `instance Show` for `GitObject` for their
+console representations; in Haskell, the `Show` type class is really
+more like Rust's `Debut` trait --- it is meant to display in a form
+that could be pasted back into a Haskell source file to recreate the
+data.
+
+
+Overall, I think that the scope is fine.  A "feature complete" git
+client would be much too large, but I suspect that you will be able to
+get some core functionality working and then scale it up.
+
+You may want to think about error handling.  How will your project
+behave if there are IO errors when reading the .git information?
+
+Using existing libraries for SHA1 and command-line processing are fine.
+
+Considering the size of the project, it may not be a bad idea to look
+at the way that other git projects (e.g.,
+https://github.com/Byron/gitoxide) organize their shared core library.
+
+
+Score: 10/10
