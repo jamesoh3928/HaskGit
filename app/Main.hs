@@ -12,7 +12,7 @@ loadIndex = undefined
 saveIndex :: ByteString -> IO ()
 saveIndex = undefined
 
-loadGitObject :: IO ByteString
+loadGitObject :: ByteString -> IO ByteString
 loadGitObject = undefined
 
 saveGitObject :: ByteString -> ByteString -> IO ()

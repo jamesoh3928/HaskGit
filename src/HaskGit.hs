@@ -7,6 +7,7 @@ import Data.ByteString (ByteString)
 import Data.Time.Clock (UTCTime)
 import GitObject
 import Index
+import Ref
 
 -- List of plumbing commands
 
@@ -25,6 +26,11 @@ gitReadTree = undefined
 -- This command creates a new commit object based on a tree object and parent commits.
 gitCommitTree :: GitTree -> [GitCommit] -> String -> String -> String -> UTCTime -> GitCommit
 gitCommitTree = undefined
+
+-- Update the object name stored in a ref safely
+-- TODO: may need to update the signature
+gitUpdateRef :: GitRef -> GitRef
+gitUpdateRef = undefined
 
 -- This command is used to add or update index entries (staging area).
 gitUpdateIndex :: GitIndex -> ByteString

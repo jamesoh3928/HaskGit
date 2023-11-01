@@ -2,9 +2,9 @@
 
 Team members:
 
-- Name1
-- Name2
-- Name3
+- James Oh
+- Jack Oh
+- Chen Guo
 
 ## Summary Description
 
