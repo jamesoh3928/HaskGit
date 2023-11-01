@@ -1,5 +1,8 @@
 module Index
-    (
+    (GitIndex
     ) where
 
--- type GitIndex = GitTree
+-- import GitTree from GitObject.hs
+import GitObject
+
+type GitIndex = GitTree

@@ -1,9 +1,13 @@
 module Ref
-    (
-    ) where
+  ( GitRef,
+    GitRefs,
+  )
+where
 
--- -- Ref = (name of pointer - (HEAD, branch name, etc), commit object)
--- type GitRef = (String, GitCommit)
+import GitObject
 
--- -- Refs = list of Ref
--- type GitRefs = [GitRef]
+-- Ref = (name of pointer - (HEAD, branch name, etc), commit object)
+type GitRef = (String, GitCommit)
+
+-- Refs = list of Ref
+type GitRefs = [GitRef]
