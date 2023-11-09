@@ -1,4 +1,4 @@
-# Project Title
+# HaskGit
 
 Team members:
 
@@ -28,3 +28,11 @@ Give a summary of the progress made and lessons learned thus far.
 Note: Be sure that all `.hs` source files and any supporting files (e.g.,
 `stack.yaml`, `package.yaml`/`<package_name>.cabal` files, data files, examples,
 ...) have been committed and pushed.
+
+<!-- GitMonad -->
+1. Restricting the I/O (only thing that we export will be used)
+2. Limit the I/O that only Git will be using - protection design pattern
+---- e.g. only modify the files in .git
+---- swithc and branch may modify other files
+3. Think about the other commands
+4. Just do lower level commands and then finds out the pattern
