@@ -31,20 +31,21 @@ gitHashObject obj _ = SHA1.hash (gitObjectToBS obj)
 testHash :: String -> IO ()
 testHash filename = do
   content <- BSLC.readFile filename
-  -- -- putStrLn (show content)
+  -- hash with the header
+  -- -- -- putStrLn (show content)
+  -- -- -- putStrLn (BSLC.unpack (decompress content))
+  -- let b = newBlob 899 (BSLC.unpack (decompress content)) "Blob_test"
+  -- let h = gitHashObject b True
+  -- let hex = encode h
+  -- -- putStrLn ("Blob object show: " ++ (show b))
   -- -- putStrLn (BSLC.unpack (decompress content))
-  let b = newBlob (BSLC.unpack (decompress content)) "Blob_test"
-  let h = gitHashObject b True
-  let hex = encode h
-  -- putStrLn ("Blob object show: " ++ (show b))
-  -- putStrLn (BSLC.unpack (decompress content))
-  putStrLn ("Hash in hexadecimal with header: " ++ show hex)
+  -- putStrLn ("Hash in hexadecimal with header: " ++ show hex)
 
--- hashing without the header
--- case parse (parseBlob filename) "" (BSLC.unpack (decompress content)) of
---   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---   Right result -> do
---     print (encode (gitHashObject result False))
+  -- hashing without the header
+  case parse (parseBlob filename) "" (BSLC.unpack (decompress content)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> do
+      print (encode (gitHashObject result False))
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> ByteString

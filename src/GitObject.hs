@@ -9,6 +9,7 @@ module GitObject
     GitObjectHash,
     newBlob,
     newTree,
+    newCommit,
     gitObjectToBS,
     getBlobContent,
   )
@@ -20,29 +21,34 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
--- GitBlob = (file content in binary, filename)
-type GitBlob = (String, String)
+-- GitBlob = (byteSize, file content in binary, filename)
+type GitBlob = (Int, String, String)
 
-newBlob :: String -> String -> GitObject
-newBlob content filename = Blob (content, filename)
+newBlob :: Int -> String -> String -> GitObject
+newBlob byteSize content filename = Blob (byteSize, content, filename)
 
 getBlobContent :: GitObject -> String
-getBlobContent (Blob (content, _)) = content
+getBlobContent (Blob (_, content, _)) = content
 getBlobContent _ = ""
 
--- GitTree = [(permission bits, name, sha1 hash)]
-type GitTree = [(String, String, ByteString)]
+-- GitTree = (byteSize, [(permission bits, name, sha1 hash)])
+type GitTree = (Int, [(String, String, ByteString)])
 
-newTree :: GitTree -> GitObject
-newTree = Tree
+newTree :: Int -> [(String, String, ByteString)] -> GitObject
+newTree byteSize elems = Tree (byteSize, elems)
 
--- GitCommit = (tree, parent, author, committer, message, timestamp)
-newtype GitCommit = GitCommit (GitTree, Maybe [ByteString], String, String, String, UTCTime)
+-- GitCommit = (tree hash, parent hashes, author, committer, message)
+newtype GitCommit = GitCommit (ByteString, [ByteString], String, String, String, UTCTime)
+  deriving (Show)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
+newCommit :: ByteString -> [ByteString] -> String -> String -> String -> UTCTime -> GitObject
+newCommit tree parents author commiter message timestamp = Commit (GitCommit (tree, parents, author, commiter, message, timestamp))
+
 type GitObjectHash = (GitObject, ByteString)
 
+-- TODO: delete
 -- newTree :: GitTree -> GitObject
 -- newTree tree = Tree tree
 
@@ -59,16 +65,15 @@ instance Show GitObject where
   show :: GitObject -> String
   show (Tree tree) = "Tree " ++ show tree
   show (Blob blob) = "Blob " ++ show blob
-  show (Commit (GitCommit (gt, parents, author, commiter, message, timestamp))) = "Commit " ++ "(" ++ commitStr ++ ")"
-    where
-      commitStr = show gt ++ ", " ++ parentStr ++ ", " ++ author ++ ", " ++ commiter ++ ", " ++ message ++ ", " ++ show timestamp
-      parentStr = case parents of
-        Nothing -> ""
-        -- TODO: maybe we can try to print the hash of parents but current structure does not allow it
-        Just _ -> "parents"
+  show (Commit commit) = "Commit " ++ show commit
+
+-- TODO: delete
+-- show (Commit (GitCommit (gt, parents, author, commiter, message, timestamp))) = "Commit " ++ "(" ++ commitStr ++ ")"
+--   where
+--     commitStr = show gt ++ ", " ++ show parents ++ ", " ++ author ++ ", " ++ commiter ++ ", " ++ message ++ ", " ++ show timestamp
 
 gitObjectToBS :: GitObject -> ByteString
 -- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
-gitObjectToBS (Blob (content, _)) = BSL.toStrict (BSLC.pack content)
+gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " ++ (show byteSize) ++ "\0" ++ content))
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
