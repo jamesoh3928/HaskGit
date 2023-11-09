@@ -12,7 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 -- import qualified Data.ByteString.Lazy as BSL
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, newBlob)
-import GitParser (parseBlob)
+import GitParser (parseGitObject)
 import Index
 import Ref
 import Text.Parsec (parse)
@@ -42,7 +42,7 @@ testHash filename = do
   -- putStrLn ("Hash in hexadecimal with header: " ++ show hex)
 
   -- hashing without the header
-  case parse (parseBlob filename) "" (BSLC.unpack (decompress content)) of
+  case parse (parseGitObject filename) "" (BSLC.unpack (decompress content)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
       print (encode (gitHashObject result False))

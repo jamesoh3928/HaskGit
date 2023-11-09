@@ -1,7 +1,7 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitObject (GitObject)
-import GitParser (parseBlob, parseCommit, parseTree)
+import GitParser (parseGitObject)
 import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
@@ -36,19 +36,23 @@ gitShow filename = do
   -- Prelude.putStrLn (show y)
 
   -- Blob parse
-  --   case parse (parseBlob filename) "" (unpack (decompress x)) of
-  --     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-  --     Right result -> print result
+  -- case parse (parseBlob filename) "" (unpack (decompress x)) of
+  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+  --   Right result -> print result
 
-  --   Tree parse
-  case parse parseTree "" (unpack (decompress x)) of
+  -- Tree parse
+  -- case parse parseTree "" (unpack (decompress x)) of
+  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+  --   Right result -> print result
+
+  -- Commit parse
+  -- case parse parseCommit "" (unpack (decompress x)) of
+  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+  --   Right result -> print result
+
+  case parse (parseGitObject filename) "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
-
--- Commit parse
--- case parse parseCommit "" (unpack (decompress x)) of
---   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---   Right result -> print result
 
 ------------------------------------------------
 -- Blob test
@@ -56,6 +60,9 @@ gitShow filename = do
 
 -- Tree test
 -- ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+
+-- Commit test
+-- ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
 
 decompressPrint filename = do
   x <- BSLC.readFile filename

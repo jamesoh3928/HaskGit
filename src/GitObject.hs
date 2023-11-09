@@ -31,20 +31,26 @@ getBlobContent :: GitObject -> String
 getBlobContent (Blob (_, content, _)) = content
 getBlobContent _ = ""
 
--- GitTree = (byteSize, [(permission bits, name, sha1 hash)])
-type GitTree = (Int, [(String, String, ByteString)])
+-- GitTree = (byteSize, [(filemode bits, name, sha1 hash)], filename)
+type GitTree = (Int, [(String, String, ByteString)], String)
 
-newTree :: Int -> [(String, String, ByteString)] -> GitObject
-newTree byteSize elems = Tree (byteSize, elems)
+newTree :: Int -> [(String, String, ByteString)] -> String -> GitObject
+newTree byteSize elems filename = Tree (byteSize, elems, filename)
+
+-- GitAuthor = (name, email, date - unix timestamp)
+type GitAuthor = (String, String, String)
+
+-- GitCommitter = (name, email, date - unix timestamp)
+type GitCommitter = (String, String, String)
 
 -- GitCommit = (tree hash, parent hashes, author, committer, message)
-newtype GitCommit = GitCommit (ByteString, [ByteString], String, String, String, UTCTime)
+newtype GitCommit = GitCommit (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
   deriving (Show)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
-newCommit :: ByteString -> [ByteString] -> String -> String -> String -> UTCTime -> GitObject
-newCommit tree parents author commiter message timestamp = Commit (GitCommit (tree, parents, author, commiter, message, timestamp))
+newCommit :: ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> String -> GitObject
+newCommit tree parents authorInfo committerInfo message filename = Commit (GitCommit (tree, parents, authorInfo, committerInfo, message, filename))
 
 type GitObjectHash = (GitObject, ByteString)
 
