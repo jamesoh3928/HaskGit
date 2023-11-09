@@ -1,4 +1,9 @@
-module GitParser () where
+module GitParser
+  ( parseBlob,
+    parseCommit,
+    parseTree,
+  )
+where
 
 import Data.ByteString as B
 import Data.ByteString.Char8 as BC
@@ -15,16 +20,17 @@ byteSize s = B.length (BC.pack s)
 --   bytesize <- manyTill digit (char '\0')
 --   return bytesize
 
-paseBlob :: String -> Parser GitObject
-paseBlob filename = do
+parseBlob :: String -> Parser GitObject
+parseBlob filename = do
   _ <- string "blob "
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
-    Nothing -> fail "Not a valid byte size"
+    Nothing -> fail "Not a valid byte size in blob file"
     Just bytesize -> do
       content <- many anyChar
+      -- data integrity check
       if bytesize /= byteSize content
-        then fail "Byte size does not match"
+        then fail "Byte size does not match in blob file"
         else return (GitObject.newBlob content filename)
 
 parseTree :: Parser String
