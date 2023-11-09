@@ -7,6 +7,7 @@ where
 
 import Data.ByteString as B
 import Data.ByteString.Char8 as BC
+import Data.Functor
 import GitObject
 import Text.Parsec.String
 import Text.ParserCombinators.Parsec
@@ -31,10 +32,24 @@ parseBlob filename = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob content filename)
+        else return (GitObject.newBlob (BC.pack content) filename)
 
-parseTree :: Parser String
-parseTree = string "tree "
+parseGitTreeEntry :: Parser (String, String, ByteString)
+parseGitTreeEntry = do
+  filemode <- manyTill digit (char ' ') :: Parser String
+  name <- manyTill anyChar (char '\0')
+  -- Read 20 bytes of SHA-1 hash
+  sha <- Text.ParserCombinators.Parsec.count 20 anyChar
+  return (filemode, name, BC.pack sha)
+
+parseTree :: Parser GitObject
+parseTree = do
+  _ <- string "tree "
+  manyTill parseGitTreeEntry eof <&> GitObject.newTree
 
 parseCommit :: Parser String
-parseCommit = string "commit "
+parseCommit = do
+  string "commit "
+
+parseGitObject :: Parser GitObject
+parseGitObject = undefined
