@@ -1,7 +1,5 @@
 module GitParser
-  ( parseBlob,
-    parseCommit,
-    parseTree,
+  ( parseGitObject,
   )
 where
 
@@ -13,11 +11,6 @@ import Text.Read (readMaybe)
 
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
-
--- parseByteSize :: Parser Int
--- parseByteSize = do
---   bytesize <- manyTill digit (char '\0')
---   return bytesize
 
 parseBlob :: String -> Parser GitObject
 parseBlob filename = do
@@ -32,8 +25,8 @@ parseBlob filename = do
         then fail "Byte size does not match in blob file"
         else return (GitObject.newBlob bytesize content filename)
 
-parseTree :: Parser GitObject
-parseTree = do
+parseTree :: String -> Parser GitObject
+parseTree filename = do
   _ <- string "tree "
   -- TODO: check data integrity of byte size
   bytesizeString <- manyTill digit (char '\0')
@@ -41,7 +34,7 @@ parseTree = do
     Nothing -> fail "Not a valid byte size in tree file"
     Just bytesize -> do
       elems <- manyTill parseGitTreeEntry eof
-      return (GitObject.newTree bytesize elems)
+      return (GitObject.newTree bytesize elems filename)
   where
     parseGitTreeEntry :: Parser (String, String, ByteString)
     parseGitTreeEntry = do
@@ -52,8 +45,8 @@ parseTree = do
       return (filemode, name, BC.pack sha)
 
 -- GitCommit = (tree, parent, author, committer, message, timestamp)
-parseCommit :: Parser GitObject
-parseCommit = do
+parseCommit :: String -> Parser GitObject
+parseCommit filename = do
   _ <- string "commit "
   _ <- manyTill digit (char '\0')
   _ <- string "tree "
@@ -62,19 +55,16 @@ parseCommit = do
   parent <- manyTill anyChar (char '\n')
   _ <- string "author "
   authorLine <- manyTill anyChar (char '\n')
-  let authorInfo = words authorLine
-  let authorName = head authorInfo
-  let authorEmail = last authorInfo
-  let authorDate = last (init authorInfo)
+  let authorWords = words authorLine
+  --   TODO: in the future, also consider the timezone
+  let authorInfo = (head authorWords, last (init authorWords), head (init authorWords))
   _ <- string "committer "
   committerLine <- manyTill anyChar (char '\n')
-  let committerInfo = words committerLine
-  let committerName = head committerInfo
-  let committerEmail = last committerInfo
-  let committerDate = last (init committerInfo)
+  let committerWords = words committerLine
+  let committerInfo = (head committerWords, last (init committerWords), head (init committerWords))
   _ <- string "\n"
   message <- manyTill anyChar (char '\n')
-  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] authorName committerName message undefined)
+  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] authorInfo committerInfo message filename)
 
-parseGitObject :: Parser GitObject
-parseGitObject = undefined
+parseGitObject :: String -> Parser GitObject
+parseGitObject filename = parseBlob filename <|> parseTree filename <|> parseCommit filename
