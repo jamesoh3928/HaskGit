@@ -1,7 +1,8 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Lazy.Char8 as BSLC
-import GitObject
-
+import GitObject (GitObject)
+import GitParser (parseBlob)
+import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
 
@@ -28,5 +29,18 @@ sToGitObject s = undefined
 -- (Depends on how the GitObject file content will be saved)
 gitShow :: String -> IO ()
 gitShow filename = do
+  x <- BSLC.readFile filename
+  -- BSLC.putStrLn (decompress x)
+  -- y <- parseBlob (unpack x)
+  -- print the gitobject
+  -- Prelude.putStrLn (show y)
+  case parse (parseBlob filename) "" (unpack (decompress x)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
+
+-- Blob test
+-- ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+
+test filename = do
   x <- BSLC.readFile filename
   BSLC.putStrLn (decompress x)
