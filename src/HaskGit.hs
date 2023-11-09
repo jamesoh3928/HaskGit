@@ -5,25 +5,27 @@ where
 
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
+import Data.ByteString (ByteString)
 -- import Data.ByteString (ByteString)
 
-import Data.ByteString.Lazy (ByteString, pack)
--- import Data.ByteString.Lazy.Char8 (pack)
+-- import Data.ByteString.Lazy (ByteString)
+-- import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject, GitTree)
+import GitObject (GitCommit, GitObject, GitTree, gitObjectToBS)
 import Index
 import Ref
 
 -- List of plumbing commands
 
-testGitHashBlob :: String -> ByteString
-testGitHashBlob content = gitHashObject ((compress (pack content), "test"))
+-- testGitHashBlob :: String -> ByteString
+-- testGitHashBlob content = gitHashObject ((compress (pack content), "test"))
 
 -- This command computes the SHA-1 hash of Git objects.
 gitHashObject :: GitObject -> Bool -> ByteString
--- gitHashObject = undefined
+-- gitHashObject :: ByteString -> Bool -> ByteString
 -- when object is blob
-gitHashObject (bs, s) _ = SHA1.hashlazy bs
+-- gitHashObject (Blob (content, filename)) _ = SHA1.hashlazy (compress (pack content))
+gitHashObject content _ = SHA1.hash (gitObjectToBS content)
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> ByteString

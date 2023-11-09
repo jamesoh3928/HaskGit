@@ -7,10 +7,14 @@ module GitObject
     GitObject,
     GitObjectHash,
     newBlob,
+    gitObjectToBS,
   )
 where
 
+import qualified Codec.Compression.Zlib as Zlib
 import Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
 -- GitBlob = (file content in binary, filename)
@@ -36,3 +40,6 @@ newBlob content filename = Blob (content, filename)
 
 -- newCommit :: GitCommit -> GitObject
 -- newCommit commit = Commit commit
+
+gitObjectToBS :: GitObject -> ByteString
+gitObjectToBS (Blob (content, filename)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
