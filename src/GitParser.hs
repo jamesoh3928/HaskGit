@@ -54,17 +54,22 @@ parseCommit filename = do
   _ <- string "parent "
   parent <- manyTill anyChar (char '\n')
   _ <- string "author "
-  authorLine <- manyTill anyChar (char '\n')
-  let authorWords = words authorLine
-  --   TODO: in the future, also consider the timezone
-  let authorInfo = (head authorWords, last (init authorWords), head (init authorWords))
+  authorName <- manyTill (noneOf "<") (char '<')
+  authorEmail <- manyTill (noneOf ">") (char '>')
+  spaces
+  authorTimestamp <- manyTill digit (char ' ')
+  --   TODO: consider timezone in the future
+  _ <- manyTill anyChar newline
   _ <- string "committer "
-  committerLine <- manyTill anyChar (char '\n')
-  let committerWords = words committerLine
-  let committerInfo = (head committerWords, last (init committerWords), head (init committerWords))
+  committerName <- manyTill (noneOf "<") (char '<')
+  committerEmail <- manyTill (noneOf ">") (char '>')
+  _ <- spaces
+  committerTimestamp <- manyTill digit (char ' ')
+  --   TODO: consider timezone in the future
+  _ <- manyTill anyChar newline
   _ <- string "\n"
   message <- manyTill anyChar (char '\n')
-  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] authorInfo committerInfo message filename)
+  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message filename)
 
 parseGitObject :: String -> Parser GitObject
 parseGitObject filename = parseBlob filename <|> parseTree filename <|> parseCommit filename
