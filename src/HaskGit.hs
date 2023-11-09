@@ -5,15 +5,17 @@ where
 
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
-import Data.ByteString (ByteString)
--- import Data.ByteString (ByteString)
-
--- import Data.ByteString.Lazy (ByteString)
--- import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.ByteString (ByteString, unpack)
+import Data.ByteString.Base16 (encode)
+-- import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+-- import qualified Data.ByteString.Lazy as BSL
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject, GitTree, gitObjectToBS)
+import GitObject (GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, newBlob)
+import GitParser (parseBlob)
 import Index
 import Ref
+import Text.Parsec (parse)
 
 -- List of plumbing commands
 
@@ -22,10 +24,27 @@ import Ref
 
 -- This command computes the SHA-1 hash of Git objects.
 gitHashObject :: GitObject -> Bool -> ByteString
--- gitHashObject :: ByteString -> Bool -> ByteString
--- when object is blob
--- gitHashObject (Blob (content, filename)) _ = SHA1.hashlazy (compress (pack content))
-gitHashObject content _ = SHA1.hash (gitObjectToBS content)
+gitHashObject obj _ = SHA1.hash (gitObjectToBS obj)
+
+-- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
+
+testHash :: String -> IO ()
+testHash filename = do
+  content <- BSLC.readFile filename
+  -- -- putStrLn (show content)
+  -- -- putStrLn (BSLC.unpack (decompress content))
+  let b = newBlob (BSLC.unpack (decompress content)) "Blob_test"
+  let h = gitHashObject b True
+  let hex = encode h
+  -- putStrLn ("Blob object show: " ++ (show b))
+  -- putStrLn (BSLC.unpack (decompress content))
+  putStrLn ("Hash in hexadecimal with header: " ++ show hex)
+
+-- hashing without the header
+-- case parse (parseBlob filename) "" (BSLC.unpack (decompress content)) of
+--   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+--   Right result -> do
+--     print (encode (gitHashObject result False))
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> ByteString

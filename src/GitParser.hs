@@ -32,7 +32,7 @@ parseBlob filename = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob (BC.pack content) filename)
+        else return (GitObject.newBlob content filename)
 
 parseGitTreeEntry :: Parser (String, String, ByteString)
 parseGitTreeEntry = do

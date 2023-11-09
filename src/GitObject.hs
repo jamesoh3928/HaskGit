@@ -10,20 +10,25 @@ module GitObject
     newBlob,
     newTree,
     gitObjectToBS,
+    getBlobContent,
   )
 where
 
 import qualified Codec.Compression.Zlib as Zlib
-import Data.ByteString (ByteString)
+import Data.ByteString (ByteString, empty)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
 -- GitBlob = (file content in binary, filename)
-type GitBlob = (ByteString, String)
+type GitBlob = (String, String)
 
-newBlob :: ByteString -> String -> GitObject
+newBlob :: String -> String -> GitObject
 newBlob content filename = Blob (content, filename)
+
+getBlobContent :: GitObject -> String
+getBlobContent (Blob (content, _)) = content
+getBlobContent _ = ""
 
 -- GitTree = [(permission bits, name, sha1 hash)]
 type GitTree = [(String, String, ByteString)]
@@ -61,3 +66,9 @@ instance Show GitObject where
         Nothing -> ""
         -- TODO: maybe we can try to print the hash of parents but current structure does not allow it
         Just _ -> "parents"
+
+gitObjectToBS :: GitObject -> ByteString
+-- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
+gitObjectToBS (Blob (content, _)) = BSL.toStrict (BSLC.pack content)
+
+-- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
