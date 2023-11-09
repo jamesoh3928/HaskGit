@@ -3,11 +3,12 @@
 module GitObject
   ( GitBlob,
     GitTree,
-    GitNode,
+    -- GitNode,
     GitCommit,
     GitObject,
     GitObjectHash,
     newBlob,
+    newTree,
     gitObjectToBS,
   )
 where
@@ -19,19 +20,19 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
 -- GitBlob = (file content in binary, filename)
-type GitBlob = (String, String)
+type GitBlob = (ByteString, String)
 
-newBlob :: String -> String -> GitObject
+newBlob :: ByteString -> String -> GitObject
 newBlob content filename = Blob (content, filename)
 
--- GitNode
-data GitNode = TreeNode GitTree | BlobNode GitBlob
+-- GitTree = [(permission bits, name, sha1 hash)]
+type GitTree = [(String, String, ByteString)]
 
--- GitTree = list of files and subdirectories
-type GitTree = [GitNode]
+newTree :: GitTree -> GitObject
+newTree = Tree
 
 -- GitCommit = (tree, parent, author, committer, message, timestamp)
-newtype GitCommit = GitCommit (GitTree, Maybe [GitCommit], String, String, String, UTCTime)
+newtype GitCommit = GitCommit (GitTree, Maybe [ByteString], String, String, String, UTCTime)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
@@ -44,10 +45,10 @@ type GitObjectHash = (GitObject, ByteString)
 -- newCommit commit = Commit commit
 
 -----------------------------------------------
-instance Show GitNode where
-  show :: GitNode -> String
-  show (TreeNode tree) = "TreeNode " ++ show tree
-  show (BlobNode blob) = "BlobNode " ++ show blob
+-- instance Show GitNode where
+--   show :: GitNode -> String
+--   show (TreeNode tree) = "TreeNode " ++ show tree
+--   show (BlobNode blob) = "BlobNode " ++ show blob
 
 instance Show GitObject where
   show :: GitObject -> String
@@ -60,6 +61,3 @@ instance Show GitObject where
         Nothing -> ""
         -- TODO: maybe we can try to print the hash of parents but current structure does not allow it
         Just _ -> "parents"
-
-gitObjectToBS :: GitObject -> ByteString
-gitObjectToBS (Blob (content, filename)) = BSL.toStrict (Zlib.compress (BSLC.pack content))

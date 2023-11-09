@@ -1,7 +1,7 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitObject (GitObject)
-import GitParser (parseBlob)
+import GitParser (parseBlob, parseTree)
 import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
@@ -34,13 +34,30 @@ gitShow filename = do
   -- y <- parseBlob (unpack x)
   -- print the gitobject
   -- Prelude.putStrLn (show y)
-  case parse (parseBlob filename) "" (unpack (decompress x)) of
+
+  -- Blob parse
+  -- case parse (parseBlob filename) "" (unpack (decompress x)) of
+  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+  --   Right result -> print result
+
+  -- Tree parse
+  case parse parseTree "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
 
 -- Blob test
 -- ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
 
-test filename = do
+-- Tree test
+-- ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+
+decompressPrint filename = do
   x <- BSLC.readFile filename
   BSLC.putStrLn (decompress x)
+
+
+-- TODO: delete
+-- Tree: ".git/objects/02/c665efc85f165dd60563accf221cb6ecfbdbc4"
+-- tree 427100644 .gitattributes∙:èP∙ΘSFO↔ΩΘZ6∩±¡sBh100644 .gitignoreΩ║G]╪♥4?┘hpe⌡!╚╕·D╠100644 CHANGELOG.md┴σ%↕kΓ┘╓x
+-- 1Θ┌ù≥≥♥▄@`100644 HaskGit.cabal╫ä╠If╤÷Φ♠]        nΩIn$ε┴100644 README.mdÄ»∟A►$╧Ñó▐^Mu╡ù+ε100644 Setup.hsÜÖJ÷w░▀╘;v│τµ♦=dß40000 appdb>$(=¬╥ä░9╝╡O┤☻½ql40000 assets±↕√ΓP⌠╕°t[φr→µê╠⌠│ÿ°40000 docs↓?ƒ♠╗%ô:¡☺,=S`e¥\╬ß»40000 src¢î»i│9`Ωò·╕ª1║<╛`╧
+-- 100644 stack.yaml╧º2y{%2╢eHt≡╫wò¥⌐√â140000 test$♥å╡U╗▀┼æ╔r╙⌡▒ëφ°M¶Å
