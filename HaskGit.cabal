@@ -41,6 +41,7 @@ library
       time,
       bytestring,
       zlib,
+      cryptohash-sha1,
   default-language: Haskell2010
 
 executable HaskGit-exe
