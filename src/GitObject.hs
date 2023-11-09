@@ -75,5 +75,11 @@ instance Show GitObject where
 gitObjectToBS :: GitObject -> ByteString
 -- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
 gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " ++ (show byteSize) ++ "\0" ++ content))
+-- (header + concatenation of Blobs and subtrees within Tree)
+gitObjectToBS (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ (show byteSize) ++ "\0" ++ content))
+  where
+    -- tree = [(permission_bit, name, hash)]
+    content [] = ""
+    content ((permission_bit, name, hash)) =  
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
