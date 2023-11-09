@@ -5,10 +5,9 @@ module GitParser
   )
 where
 
-import Data.ByteString as B
-import Data.ByteString.Char8 as BC
-import GitObject
-import Text.Parsec.String
+import Data.ByteString as B (ByteString, length)
+import Data.ByteString.Char8 as BC (ByteString, pack)
+import GitObject (GitObject, newBlob, newCommit, newTree)
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
@@ -62,13 +61,20 @@ parseCommit = do
   _ <- string "parent "
   parent <- manyTill anyChar (char '\n')
   _ <- string "author "
-  author <- manyTill anyChar (char '\n')
+  authorLine <- manyTill anyChar (char '\n')
+  let authorInfo = words authorLine
+  let authorName = head authorInfo
+  let authorEmail = last authorInfo
+  let authorDate = last (init authorInfo)
   _ <- string "committer "
-  committer <- manyTill anyChar (char '\n')
+  committerLine <- manyTill anyChar (char '\n')
+  let committerInfo = words committerLine
+  let committerName = head committerInfo
+  let committerEmail = last committerInfo
+  let committerDate = last (init committerInfo)
   _ <- string "\n"
   message <- manyTill anyChar (char '\n')
-
-  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] author committer message undefined)
+  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] authorName committerName message undefined)
 
 parseGitObject :: Parser GitObject
 parseGitObject = undefined
