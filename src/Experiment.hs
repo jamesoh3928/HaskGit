@@ -1,6 +1,5 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Lazy.Char8 as BSLC
-import GHC.IO.Exception (IOException (ioe_filename))
 
 -- import Data.ByteString.Lazy as BLU
 
