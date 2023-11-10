@@ -30,7 +30,7 @@ sToGitObject s = undefined
 gitShow :: String -> IO ()
 gitShow filename = do
   x <- BSLC.readFile filename
-  case parse (parseGitObject filename) "" (unpack (decompress x)) of
+  case parse parseGitObject "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
 

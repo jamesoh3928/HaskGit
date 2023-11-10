@@ -12,8 +12,8 @@ import Text.Read (readMaybe)
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
 
-parseBlob :: String -> Parser GitObject
-parseBlob filename = do
+parseBlob :: Parser GitObject
+parseBlob = do
   _ <- string "blob "
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
@@ -23,7 +23,7 @@ parseBlob filename = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob bytesize content filename)
+        else return (GitObject.newBlob bytesize content)
 
 parseTree :: Parser GitObject
 parseTree = do
@@ -75,5 +75,5 @@ parseCommit = do
       message <- manyTill anyChar (char '\n')
       return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message)
 
-parseGitObject :: String -> Parser GitObject
-parseGitObject filename = parseBlob filename <|> parseTree <|> parseCommit
+parseGitObject :: Parser GitObject
+parseGitObject = parseBlob <|> parseTree <|> parseCommit

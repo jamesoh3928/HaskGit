@@ -22,17 +22,17 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
--- GitBlob = (byteSize, file content in binary, filename)
-type GitBlob = (Int, String, String)
+-- GitBlob = (byteSize, file content in binary)
+type GitBlob = (Int, String)
 
-newBlob :: Int -> String -> String -> GitObject
-newBlob byteSize content filename = Blob (byteSize, content, filename)
+newBlob :: Int -> String -> GitObject
+newBlob byteSize content = Blob (byteSize, content)
 
 getBlobContent :: GitObject -> String
-getBlobContent (Blob (_, content, _)) = content
+getBlobContent (Blob (_, content)) = content
 getBlobContent _ = ""
 
--- GitTree = (byteSize, [(filemode bits, name, sha1 hash)])
+-- GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
 type GitTree = (Int, [(String, String, ByteString)])
 
 newTree :: Int -> [(String, String, ByteString)] -> GitObject
@@ -74,7 +74,7 @@ instance Show GitObject where
   show (Commit commit) = "Commit " ++ show commit
 
 gitShowStr :: GitObject -> String
-gitShowStr (Blob (_, content, _)) = content
+gitShowStr (Blob (_, content)) = content
 gitShowStr (Tree (_, _)) = "Tree"
 
 -- gitShowStr (Tree (_, [(String, String, ByteString)], String)) = "Tree " ++ show tree
@@ -82,7 +82,7 @@ gitShowStr (Tree (_, _)) = "Tree"
 
 gitObjectToBS :: GitObject -> ByteString
 -- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
-gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
+gitObjectToBS (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
 -- (header + concatenation of Blobs and subtrees within Tree)
 gitObjectToBS (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
   where
