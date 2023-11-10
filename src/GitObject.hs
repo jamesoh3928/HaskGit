@@ -45,13 +45,13 @@ type GitAuthor = (String, String, String)
 -- GitCommitter = (name, email, date - unix timestamp)
 type GitCommitter = (String, String, String)
 
--- GitCommit = (tree hash, parent hashes, author, committer, message, filename)
-type GitCommit = (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
+-- GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
+type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
-newCommit :: ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> String -> GitObject
-newCommit tree parents authorInfo committerInfo message commitHash = Commit (tree, parents, authorInfo, committerInfo, message, commitHash)
+newCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> String -> GitObject
+newCommit bytesize tree parents authorInfo committerInfo message commitHash = Commit (bytesize, tree, parents, authorInfo, committerInfo, message, commitHash)
 
 type GitObjectHash = (GitObject, ByteString)
 
@@ -74,10 +74,10 @@ instance Show GitObject where
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
--- TODO: delete
--- show (Commit (GitCommit (gt, parents, author, commiter, message, timestamp))) = "Commit " ++ "(" ++ commitStr ++ ")"
---   where
---     commitStr = show gt ++ ", " ++ show parents ++ ", " ++ author ++ ", " ++ commiter ++ ", " ++ message ++ ", " ++ show timestamp
+gitShowStr :: GitObject -> String
+gitShowStr (Blob blob) = "Blob " ++ show blob
+gitShowStr (Tree tree) = "Tree " ++ show tree
+gitShowStr (Commit commit) = "Commit " ++ show commit
 
 gitObjectToBS :: GitObject -> ByteString
 -- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))

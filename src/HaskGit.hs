@@ -121,8 +121,6 @@ gitShow hash = undefined
   -- -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   -- let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
   -- filecontent <- BSLC.readFile filename
-  -- putStrLn ""
-
   -- case parse (parseGitObject filename) "" (unpack (decompress filecontent)) of
   --   Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
   --   Right (Commit (tree, parents, authorInfo, committerInfo, message, commitHash)) -> do

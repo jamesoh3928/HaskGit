@@ -48,29 +48,32 @@ parseTree filename = do
 parseCommit :: String -> Parser GitObject
 parseCommit filename = do
   _ <- string "commit "
-  _ <- manyTill digit (char '\0')
-  _ <- string "tree "
-  rootTree <- manyTill anyChar (char '\n')
-  --   Assuming only one parent for MVP
-  _ <- string "parent "
-  parent <- manyTill anyChar (char '\n')
-  _ <- string "author "
-  authorName <- manyTill (noneOf "<") (char '<')
-  authorEmail <- manyTill (noneOf ">") (char '>')
-  spaces
-  authorTimestamp <- manyTill digit (char ' ')
-  --   TODO: consider timezone in the future
-  _ <- manyTill anyChar newline
-  _ <- string "committer "
-  committerName <- manyTill (noneOf "<") (char '<')
-  committerEmail <- manyTill (noneOf ">") (char '>')
-  _ <- spaces
-  committerTimestamp <- manyTill digit (char ' ')
-  --   TODO: consider timezone in the future
-  _ <- manyTill anyChar newline
-  _ <- string "\n"
-  message <- manyTill anyChar (char '\n')
-  return (GitObject.newCommit (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message filename)
+  byteSize <- manyTill digit (char '\0')
+  case readMaybe byteSize of
+    Nothing -> fail "Not a valid byte size in commit file"
+    Just bytesize -> do
+      _ <- string "tree "
+      rootTree <- manyTill anyChar (char '\n')
+      --   Assuming only one parent for MVP
+      _ <- string "parent "
+      parent <- manyTill anyChar (char '\n')
+      _ <- string "author "
+      authorName <- manyTill (noneOf "<") (char '<')
+      authorEmail <- manyTill (noneOf ">") (char '>')
+      spaces
+      authorTimestamp <- manyTill digit (char ' ')
+      --   TODO: consider timezone in the future
+      _ <- manyTill anyChar newline
+      _ <- string "committer "
+      committerName <- manyTill (noneOf "<") (char '<')
+      committerEmail <- manyTill (noneOf ">") (char '>')
+      _ <- spaces
+      committerTimestamp <- manyTill digit (char ' ')
+      --   TODO: consider timezone in the future
+      _ <- manyTill anyChar newline
+      _ <- string "\n"
+      message <- manyTill anyChar (char '\n')
+      return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message filename)
 
 parseGitObject :: String -> Parser GitObject
 parseGitObject filename = parseBlob filename <|> parseTree filename <|> parseCommit filename
