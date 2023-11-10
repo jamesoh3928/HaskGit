@@ -14,7 +14,7 @@ import Data.ByteString (ByteString, unpack)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
-import GitObject (GitBlob, GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, newBlob)
+import GitObject (GitBlob, GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, gitShowStr, newBlob, newGitObjectHash)
 import GitParser (parseGitObject)
 import Index
 import Ref
@@ -117,12 +117,13 @@ gitBranch = undefined
 
 gitShow :: ByteString -> IO ()
 gitShow hash = do
+  -- TODO: need to convert bytestring to the actual string
   -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
-    Right gitObj -> undefined
+    Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
 
 gitLog :: ByteString -> String
 gitLog = undefined
