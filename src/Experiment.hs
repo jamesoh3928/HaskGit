@@ -30,26 +30,6 @@ sToGitObject s = undefined
 gitShow :: String -> IO ()
 gitShow filename = do
   x <- BSLC.readFile filename
-  -- BSLC.putStrLn (decompress x)
-  -- y <- parseBlob (unpack x)
-  -- print the gitobject
-  -- Prelude.putStrLn (show y)
-
-  -- Blob parse
-  -- case parse (parseBlob filename) "" (unpack (decompress x)) of
-  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-  --   Right result -> print result
-
-  -- Tree parse
-  -- case parse parseTree "" (unpack (decompress x)) of
-  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-  --   Right result -> print result
-
-  -- Commit parse
-  -- case parse parseCommit "" (unpack (decompress x)) of
-  --   Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-  --   Right result -> print result
-
   case parse (parseGitObject filename) "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
