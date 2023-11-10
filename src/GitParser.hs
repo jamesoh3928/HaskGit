@@ -12,8 +12,8 @@ import Text.Read (readMaybe)
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
 
-parseBlob :: String -> Parser GitObject
-parseBlob filename = do
+parseBlob :: Parser GitObject
+parseBlob = do
   _ <- string "blob "
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
@@ -23,10 +23,10 @@ parseBlob filename = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob bytesize content filename)
+        else return (GitObject.newBlob bytesize content)
 
-parseTree :: String -> Parser GitObject
-parseTree filename = do
+parseTree :: Parser GitObject
+parseTree = do
   _ <- string "tree "
   -- TODO: check data integrity of byte size
   bytesizeString <- manyTill digit (char '\0')
@@ -34,7 +34,7 @@ parseTree filename = do
     Nothing -> fail "Not a valid byte size in tree file"
     Just bytesize -> do
       elems <- manyTill parseGitTreeEntry eof
-      return (GitObject.newTree bytesize elems filename)
+      return (GitObject.newTree bytesize elems)
   where
     parseGitTreeEntry :: Parser (String, String, ByteString)
     parseGitTreeEntry = do
@@ -45,11 +45,11 @@ parseTree filename = do
       return (filemode, name, BC.pack sha)
 
 -- GitCommit = (tree, parent, author, committer, message, timestamp)
-parseCommit :: String -> Parser GitObject
-parseCommit filename = do
+parseCommit :: Parser GitObject
+parseCommit = do
   _ <- string "commit "
-  byteSize <- manyTill digit (char '\0')
-  case readMaybe byteSize of
+  bytesizeString <- manyTill digit (char '\0')
+  case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in commit file"
     Just bytesize -> do
       _ <- string "tree "
@@ -73,7 +73,7 @@ parseCommit filename = do
       _ <- manyTill anyChar newline
       _ <- string "\n"
       message <- manyTill anyChar (char '\n')
-      return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message filename)
+      return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message)
 
-parseGitObject :: String -> Parser GitObject
-parseGitObject filename = parseBlob filename <|> parseTree filename <|> parseCommit filename
+parseGitObject :: Parser GitObject
+parseGitObject = parseBlob <|> parseTree <|> parseCommit

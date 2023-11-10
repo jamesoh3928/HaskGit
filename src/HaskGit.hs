@@ -45,7 +45,7 @@ testHash filename = do
   -- putStrLn ("Hash in hexadecimal with header: " ++ show hex)
 
   -- hashing without the header
-  case parse (parseGitObject filename) "" (BSLC.unpack (decompress content)) of
+  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
       print (encode (gitHashObject result False))
@@ -115,16 +115,14 @@ gitCheckout = undefined
 gitBranch :: ByteString -> ByteString
 gitBranch = undefined
 
-gitShow :: ByteString -> IO String
-gitShow hash = undefined
-  -- do
-  -- -- TODO: find the git directory based on the filename (right now, assuming we are in root)
-  -- let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
-  -- filecontent <- BSLC.readFile filename
-  -- case parse (parseGitObject filename) "" (unpack (decompress filecontent)) of
-  --   Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
-  --   Right (Commit (tree, parents, authorInfo, committerInfo, message, commitHash)) -> do
-  --     putStrLn ("Author: " ++ show tree)
+gitShow :: ByteString -> IO ()
+gitShow hash = do
+  -- TODO: find the git directory based on the filename (right now, assuming we are in root)
+  let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
+  filecontent <- BSLC.readFile filename
+  case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+    Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
+    Right gitObj -> undefined
 
 gitLog :: ByteString -> String
 gitLog = undefined
