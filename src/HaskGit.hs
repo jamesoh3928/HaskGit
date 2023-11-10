@@ -4,14 +4,17 @@ module HaskGit
 where
 
 import Codec.Compression.Zlib (compress, decompress)
+-- import qualified Data.ByteString.Char8 as BS
+
+-- import qualified Data.ByteString.Lazy as BSL
+
+import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString, unpack)
 import Data.ByteString.Base16 (encode)
--- import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSLC
--- import qualified Data.ByteString.Lazy as BSL
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, newBlob)
+import GitObject (GitBlob, GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, newBlob)
 import GitParser (parseGitObject)
 import Index
 import Ref
@@ -112,8 +115,18 @@ gitCheckout = undefined
 gitBranch :: ByteString -> ByteString
 gitBranch = undefined
 
-gitShow :: ByteString -> String
-gitShow = undefined
+gitShow :: ByteString -> IO String
+gitShow hash = undefined
+  -- do
+  -- -- TODO: find the git directory based on the filename (right now, assuming we are in root)
+  -- let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
+  -- filecontent <- BSLC.readFile filename
+  -- putStrLn ""
+
+  -- case parse (parseGitObject filename) "" (unpack (decompress filecontent)) of
+  --   Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
+  --   Right (Commit (tree, parents, authorInfo, committerInfo, message, commitHash)) -> do
+  --     putStrLn ("Author: " ++ show tree)
 
 gitLog :: ByteString -> String
 gitLog = undefined

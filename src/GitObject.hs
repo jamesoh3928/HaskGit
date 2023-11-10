@@ -22,11 +22,11 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 
--- GitBlob = (byteSize, file content in binary, filename)
+-- GitBlob = (byteSize, file content in binary, blobHash)
 type GitBlob = (Int, String, String)
 
 newBlob :: Int -> String -> String -> GitObject
-newBlob byteSize content filename = Blob (byteSize, content, filename)
+newBlob byteSize content blobHash = Blob (byteSize, content, blobHash)
 
 getBlobContent :: GitObject -> String
 getBlobContent (Blob (_, content, _)) = content
@@ -36,7 +36,7 @@ getBlobContent _ = ""
 type GitTree = (Int, [(String, String, ByteString)], String)
 
 newTree :: Int -> [(String, String, ByteString)] -> String -> GitObject
-newTree byteSize elems filename = Tree (byteSize, elems, filename)
+newTree byteSize elems treeHash = Tree (byteSize, elems, treeHash)
 
 -- GitAuthor = (name, email, date - unix timestamp)
 type GitAuthor = (String, String, String)
@@ -45,13 +45,12 @@ type GitAuthor = (String, String, String)
 type GitCommitter = (String, String, String)
 
 -- GitCommit = (tree hash, parent hashes, author, committer, message)
-newtype GitCommit = GitCommit (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
-  deriving (Show)
+type GitCommit = (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
 newCommit :: ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> String -> GitObject
-newCommit tree parents authorInfo committerInfo message filename = Commit (GitCommit (tree, parents, authorInfo, committerInfo, message, filename))
+newCommit tree parents authorInfo committerInfo message commitHash = Commit (tree, parents, authorInfo, committerInfo, message, commitHash)
 
 type GitObjectHash = (GitObject, ByteString)
 

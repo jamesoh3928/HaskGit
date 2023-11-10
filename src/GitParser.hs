@@ -4,7 +4,7 @@ module GitParser
 where
 
 import Data.ByteString as B (ByteString, length)
-import Data.ByteString.Char8 as BC (ByteString, pack)
+import Data.ByteString.Char8 as BC (pack)
 import GitObject (GitObject, newBlob, newCommit, newTree)
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
@@ -51,6 +51,7 @@ parseCommit filename = do
   _ <- manyTill digit (char '\0')
   _ <- string "tree "
   rootTree <- manyTill anyChar (char '\n')
+  --   Assuming only one parent for MVP
   _ <- string "parent "
   parent <- manyTill anyChar (char '\n')
   _ <- string "author "
