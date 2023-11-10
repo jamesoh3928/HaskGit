@@ -70,7 +70,7 @@ gitShowStr (Blob (_, content), _) = content
 gitShowStr (Tree (_, elems), treeHash) = "tree " ++ B.unpack treeHash ++ "\n\n" ++ filesDirs
   where
     filesDirs = concatMap (\(_, name, _) -> name ++ "\n") elems
-gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ B.unpack commitHash ++ "\nAuthor: " ++ authorName ++ "<" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
+gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ B.unpack commitHash ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
   where
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
@@ -93,8 +93,8 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     (cName, cEmail, cDate, cTimeStamp) = committerObj
     content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
     -- TODO: ask Jack if using show on Int is fine
-    gitAuthor = "author " ++ aName ++ "<" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
-    gitCommitter = "committer " ++ cName ++ "<" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
+    gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
+    gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
 ------ Helpers (maybe separate files later) -------
 unixToUTCTime :: Integer -> UTCTime
