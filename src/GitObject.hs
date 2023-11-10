@@ -85,11 +85,12 @@ gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " +
 -- (header + concatenation of Blobs and subtrees within Tree)
 gitObjectToBS (Tree (byteSize, xs, _)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
   where
-    -- tree = [(permission_bit, name, hash)]
     content :: [(String, String, ByteString)] -> String
     content [] = ""
     content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash
     content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash ++ content xxs
-gitObjectToBS (Commit _) = empty
+-- GitCommit = (tree hash, parent hashes, author, committer, message)
+-- newtype GitCommit = GitCommit (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
+gitObjectToBS (Commit (GitCommit (treeHash, parentHashes, author, committer, message))) = BSL.toStrict (BSLC.pack)
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
