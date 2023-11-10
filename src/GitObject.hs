@@ -17,6 +17,7 @@ where
 
 import qualified Codec.Compression.Zlib as Zlib
 import Data.ByteString (ByteString, empty)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
@@ -79,6 +80,15 @@ instance Show GitObject where
 
 gitObjectToBS :: GitObject -> ByteString
 -- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
-gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " ++ (show byteSize) ++ "\0" ++ content))
+gitObjectToBS (Blob (byteSize, content, _)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
+-- (header + concatenation of Blobs and subtrees within Tree)
+gitObjectToBS (Tree (byteSize, xs, _)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
+  where
+    -- tree = [(permission_bit, name, hash)]
+    content :: [(String, String, ByteString)] -> String
+    content [] = ""
+    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash
+    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash ++ content xxs
+gitObjectToBS (Commit _) = empty
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
