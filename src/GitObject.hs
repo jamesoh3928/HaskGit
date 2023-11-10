@@ -96,8 +96,8 @@ gitObjectToBS (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show b
 gitObjectToBS (Commit (byteSize, treeHash, parentHashes, (aName, aEmail, aDate), (cName, cEmail, cDate), message)) = BSL.toStrict (BSLC.pack ("commit " ++ show byteSize ++ "\0" ++ content))
   where
     content :: String
-    content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message ++ "\n"
-    gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ aDate ++ " \n"
-    gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ cDate ++ " \n"
+    content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
+    gitAuthor = "author" ++ aName ++ " <" ++ aEmail ++ "> " ++ aDate ++ " \n"
+    gitCommitter = "committer" ++ cName ++ " <" ++ cEmail ++ "> " ++ cDate ++ " \n"
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
