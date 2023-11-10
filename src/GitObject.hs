@@ -3,7 +3,6 @@
 module GitObject
   ( GitBlob,
     GitTree,
-    -- GitNode,
     GitCommit,
     GitObject,
     GitObjectHash,
@@ -17,13 +16,13 @@ module GitObject
   )
 where
 
-import qualified Codec.Compression.Zlib as Zlib
-import Data.ByteString (ByteString, empty)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.Time.Clock (UTCTime)
-import Text.Read (Lexeme (String))
+import Data.Time
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
@@ -41,11 +40,11 @@ type GitTree = (Int, [(String, String, ByteString)])
 newTree :: Int -> [(String, String, ByteString)] -> GitObject
 newTree byteSize elems = Tree (byteSize, elems)
 
--- GitAuthor = (name, email, date - unix timestamp, timezone string)
-type GitAuthor = (String, String, String, String)
+-- GitAuthor = (name, email, date - unix time in seconds, timezone string)
+type GitAuthor = (String, String, Int, String)
 
--- GitCommitter = (name, email, date - unix timestamp)
-type GitCommitter = (String, String, String, String)
+-- GitCommitter = (name, email, date - unix time in seconds, timezone string)
+type GitCommitter = (String, String, Int, String)
 
 -- GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
 type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String)
@@ -60,40 +59,21 @@ type GitObjectHash = (GitObject, ByteString)
 newGitObjectHash :: GitObject -> ByteString -> GitObjectHash
 newGitObjectHash obj objHash = (obj, objHash)
 
--- TODO: delete
--- newTree :: GitTree -> GitObject
--- newTree tree = Tree tree
-
--- newCommit :: GitCommit -> GitObject
--- newCommit commit = Commit commit
-
------------------------------------------------
--- instance Show GitNode where
---   show :: GitNode -> String
---   show (TreeNode tree) = "TreeNode " ++ show tree
---   show (BlobNode blob) = "BlobNode " ++ show blob
-
 instance Show GitObject where
   show :: GitObject -> String
   show (Tree tree) = "Tree " ++ show tree
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
--- TODO: gitObjecHash to string
 gitShowStr :: GitObjectHash -> String
 gitShowStr (Blob (_, content), _) = content
-gitShowStr (Tree (_, elems), treeHash) = "tree " ++ show treeHash ++ "\n\n" ++ filesDirs
+gitShowStr (Tree (_, elems), treeHash) = "tree " ++ B.unpack treeHash ++ "\n\n" ++ filesDirs
   where
     filesDirs = concatMap (\(_, name, _) -> name ++ "\n") elems
-
--- gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ show commitHash ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n\t" ++ message ++ "\n"
---   where
---     (authorName, authorEmail, authorUnixTS) = authorInfo
---     -- Convert unix timestamp to timestamp string with time zone
---     authorTS = formatTime defaultTimeLocale "%a %b %e %H:%M:%S %Y %z" (posixSecondsToUTCTime (fromIntegral authorTS))
-
--- gitShowStr (Tree (_, [(String, String, ByteString)], String)) = "Tree " ++ show tree
--- gitShowStr (Commit commit) = "Commit " ++ show commit
+gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ B.unpack commitHash ++ "\nAuthor: " ++ authorName ++ "<" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
+  where
+    (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
+    authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
 
 -- Convert the gitObject
 gitObjectSerialize :: GitObject -> ByteString
@@ -112,5 +92,19 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     (aName, aEmail, aDate, aTimeStamp) = authorObj
     (cName, cEmail, cDate, cTimeStamp) = committerObj
     content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
-    gitAuthor = "author " ++ aName ++ "<" ++ aEmail ++ "> " ++ aDate ++ " " ++ aTimeStamp ++ "\n"
-    gitCommitter = "committer " ++ cName ++ "<" ++ cEmail ++ "> " ++ cDate ++ " " ++ cTimeStamp ++ "\n\n"
+    -- TODO: ask Jack if using show on Int is fine
+    gitAuthor = "author " ++ aName ++ "<" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
+    gitCommitter = "committer " ++ cName ++ "<" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
+
+------ Helpers (maybe separate files later) -------
+unixToUTCTime :: Integer -> UTCTime
+unixToUTCTime unixTime = posixSecondsToUTCTime $ fromInteger unixTime
+
+formatUTCTimeWithTimeZone :: String -> UTCTime -> String
+formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %e %T %Y " utcTimeWithTZ ++ timezoneOffset
+  where
+    -- Parse the timezone offset from the format "-0500"
+    hours = read (take 3 timezoneOffset) :: Int
+    minutes = read (drop 3 timezoneOffset) :: Int
+    timezoneMinutes = hours * 60 + minutes
+    utcTimeWithTZ = utcTime {utctDayTime = utctDayTime utcTime + fromIntegral (timezoneMinutes * 60)}

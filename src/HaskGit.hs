@@ -12,6 +12,7 @@ import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
+import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
@@ -112,11 +113,16 @@ gitCheckout = undefined
 gitBranch :: ByteString -> ByteString
 gitBranch = undefined
 
+-- Test in GHCI:
+-- Blob: gitShow (B.pack "f6f754dbe0808826bed2237eb651558f75215cc6")
+-- Tree: gitShow (B.pack "f6e1af0b636897ed62c8c6dad0828f1172b9b82a")
+-- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
 gitShow :: ByteString -> IO ()
 gitShow hash = do
   -- TODO: need to convert bytestring to the actual string
   -- TODO: find the git directory based on the filename (right now, assuming we are in root)
-  let filename = ".git/objects/" ++ take 2 (show hash) ++ "/" ++ drop 2 (show hash)
+  -- 2 hexadecimal = 4 bytes
+  let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
