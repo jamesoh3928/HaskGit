@@ -10,11 +10,11 @@ import Codec.Compression.Zlib (compress, decompress)
 
 import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
-import Data.ByteString (ByteString, unpack)
+import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
-import GitObject (GitBlob, GitCommit, GitObject, GitTree, getBlobContent, gitObjectToBS, gitShowStr, newBlob, newGitObjectHash)
+import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
 import Index
 import Ref
@@ -22,12 +22,9 @@ import Text.Parsec (parse)
 
 -- List of plumbing commands
 
--- testGitHashBlob :: String -> ByteString
--- testGitHashBlob content = gitHashObject ((compress (pack content), "test"))
-
 -- This command computes the SHA-1 hash of Git objects.
 gitHashObject :: GitObject -> Bool -> ByteString
-gitHashObject obj _ = SHA1.hash (gitObjectToBS obj)
+gitHashObject obj _ = SHA1.hash (gitObjectSerialize obj)
 
 -- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
 

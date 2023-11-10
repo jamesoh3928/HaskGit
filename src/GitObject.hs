@@ -11,7 +11,7 @@ module GitObject
     newTree,
     newCommit,
     newGitObjectHash,
-    gitObjectToBS,
+    gitObjectSerialize,
     gitShowStr,
     getBlobContent,
   )
@@ -95,23 +95,22 @@ gitShowStr (Tree (_, elems), treeHash) = "tree " ++ show treeHash ++ "\n\n" ++ f
 -- gitShowStr (Tree (_, [(String, String, ByteString)], String)) = "Tree " ++ show tree
 -- gitShowStr (Commit commit) = "Commit " ++ show commit
 
-gitObjectToBS :: GitObject -> ByteString
--- gitObjectToBS (Blob (content, _)) = BSL.toStrict (Zlib.compress (BSLC.pack content))
-gitObjectToBS (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
+-- Convert the gitObject
+gitObjectSerialize :: GitObject -> ByteString
+-- Blob: Header + filecontent
+gitObjectSerialize (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
 -- (header + concatenation of Blobs and subtrees within Tree)
-gitObjectToBS (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
+gitObjectSerialize (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
   where
     content :: [(String, String, ByteString)] -> String
     content [] = ""
     content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash
     content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash ++ content xxs
--- GitCommit = (tree hash, parent hashes, author, committer, message)
--- newtype GitCommit = GitCommit (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
-gitObjectToBS (Commit (byteSize, treeHash, parentHashes, (aName, aEmail, aDate), (cName, cEmail, cDate), message)) = BSL.toStrict (BSLC.pack ("commit " ++ show byteSize ++ "\0" ++ content))
+-- Commit: header + concatenation of content inside
+gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committerObj, message)) = BSL.toStrict (BSLC.pack ("commit " ++ show byteSize ++ "\0" ++ content))
   where
-    content :: String
+    (aName, aEmail, aDate, aTimeStamp) = authorObj
+    (cName, cEmail, cDate, cTimeStamp) = committerObj
     content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
-    gitAuthor = "author" ++ aName ++ " <" ++ aEmail ++ "> " ++ aDate ++ " \n"
-    gitCommitter = "committer" ++ cName ++ " <" ++ cEmail ++ "> " ++ cDate ++ " \n"
-
--- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
+    gitAuthor = "author " ++ aName ++ "<" ++ aEmail ++ "> " ++ aDate ++ " " ++ aTimeStamp ++ "\n"
+    gitCommitter = "committer " ++ cName ++ "<" ++ cEmail ++ "> " ++ cDate ++ " " ++ cTimeStamp ++ "\n\n"
