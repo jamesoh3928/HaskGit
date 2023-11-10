@@ -1,2 +1,5 @@
+import Test.Tasty (TestTree, defaultMain, localOption, testGroup)
+import Test.Tasty.Hunit (Assertion, assertFailure)
+-- import Test.Tasty.QuickCheck
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = tests >>= defaultMain
