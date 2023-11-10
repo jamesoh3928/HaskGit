@@ -21,6 +21,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
+import Text.Read (Lexeme (String))
 
 -- GitBlob = (byteSize, file content in binary, blobHash)
 type GitBlob = (Int, String, String)
@@ -44,7 +45,7 @@ type GitAuthor = (String, String, String)
 -- GitCommitter = (name, email, date - unix timestamp)
 type GitCommitter = (String, String, String)
 
--- GitCommit = (tree hash, parent hashes, author, committer, message)
+-- GitCommit = (tree hash, parent hashes, author, committer, message, filename)
 type GitCommit = (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
@@ -90,6 +91,9 @@ gitObjectToBS (Tree (byteSize, xs, _)) = BSL.toStrict (BSLC.pack ("tree " ++ sho
     content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash ++ content xxs
 -- GitCommit = (tree hash, parent hashes, author, committer, message)
 -- newtype GitCommit = GitCommit (ByteString, [ByteString], GitAuthor, GitCommitter, String, String)
-gitObjectToBS (Commit (GitCommit (treeHash, parentHashes, author, committer, message))) = BSL.toStrict (BSLC.pack)
+gitObjectToBS (Commit (byteSize, treeHash, parentHashes, author, committer, message, filename)) = BSL.toStrict (BSLC.pack ("commit " ++ byteSize ++ "\0" ++ content))
+  where
+    content :: String
+    content = concat (fmap BS.unpack treeHash)
 
 -- gitObjectToBS obj = BSL.toStrict (Zlib.compress (BSL.fromStrict (getBlobContent obj)))
