@@ -72,7 +72,7 @@ parseCommit = do
       --   TODO: consider timezone in the future
       _ <- manyTill anyChar newline
       _ <- string "\n"
-      message <- manyTill anyChar (char '\n')
+      message <- manyTill anyChar eof
       return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message)
 
 parseGitObject :: Parser GitObject
