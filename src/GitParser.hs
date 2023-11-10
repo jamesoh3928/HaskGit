@@ -63,17 +63,17 @@ parseCommit = do
       spaces
       authorTimestamp <- manyTill digit (char ' ')
       --   TODO: consider timezone in the future
-      _ <- manyTill anyChar newline
+      authorTimeZone <- manyTill anyChar newline
       _ <- string "committer "
       committerName <- manyTill (noneOf "<") (char '<')
       committerEmail <- manyTill (noneOf ">") (char '>')
       _ <- spaces
       committerTimestamp <- manyTill digit (char ' ')
       --   TODO: consider timezone in the future
-      _ <- manyTill anyChar newline
+      committerTimeZone <- manyTill anyChar newline
       _ <- string "\n"
       message <- manyTill anyChar eof
-      return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp) (committerName, committerEmail, committerTimestamp) message)
+      return (GitObject.newCommit bytesize (BC.pack rootTree) [BC.pack parent] (authorName, authorEmail, authorTimestamp, authorTimeZone) (committerName, committerEmail, committerTimestamp, committerTimeZone) message)
 
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit

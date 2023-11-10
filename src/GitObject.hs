@@ -10,7 +10,9 @@ module GitObject
     newBlob,
     newTree,
     newCommit,
+    newGitObjectHash,
     gitObjectToBS,
+    gitShowStr,
     getBlobContent,
   )
 where
@@ -39,11 +41,11 @@ type GitTree = (Int, [(String, String, ByteString)])
 newTree :: Int -> [(String, String, ByteString)] -> GitObject
 newTree byteSize elems = Tree (byteSize, elems)
 
--- GitAuthor = (name, email, date - unix timestamp)
-type GitAuthor = (String, String, String)
+-- GitAuthor = (name, email, date - unix timestamp, timezone string)
+type GitAuthor = (String, String, String, String)
 
 -- GitCommitter = (name, email, date - unix timestamp)
-type GitCommitter = (String, String, String)
+type GitCommitter = (String, String, String, String)
 
 -- GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
 type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String)
@@ -54,6 +56,9 @@ newCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> S
 newCommit bytesize tree parents authorInfo committerInfo message = Commit (bytesize, tree, parents, authorInfo, committerInfo, message)
 
 type GitObjectHash = (GitObject, ByteString)
+
+newGitObjectHash :: GitObject -> ByteString -> GitObjectHash
+newGitObjectHash obj objHash = (obj, objHash)
 
 -- TODO: delete
 -- newTree :: GitTree -> GitObject
@@ -74,9 +79,18 @@ instance Show GitObject where
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
-gitShowStr :: GitObject -> String
-gitShowStr (Blob (_, content)) = content
-gitShowStr (Tree (_, _)) = "Tree"
+-- TODO: gitObjecHash to string
+gitShowStr :: GitObjectHash -> String
+gitShowStr (Blob (_, content), _) = content
+gitShowStr (Tree (_, elems), treeHash) = "tree " ++ show treeHash ++ "\n\n" ++ filesDirs
+  where
+    filesDirs = concatMap (\(_, name, _) -> name ++ "\n") elems
+
+-- gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ show commitHash ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n\t" ++ message ++ "\n"
+--   where
+--     (authorName, authorEmail, authorUnixTS) = authorInfo
+--     -- Convert unix timestamp to timestamp string with time zone
+--     authorTS = formatTime defaultTimeLocale "%a %b %e %H:%M:%S %Y %z" (posixSecondsToUTCTime (fromIntegral authorTS))
 
 -- gitShowStr (Tree (_, [(String, String, ByteString)], String)) = "Tree " ++ show tree
 -- gitShowStr (Commit commit) = "Commit " ++ show commit
