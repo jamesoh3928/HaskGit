@@ -6,6 +6,7 @@ where
 import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Char8 as BC (pack)
 import GitObject (GitObject, newBlob, newCommit, newTree)
+import Index (GitIndex)
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
@@ -91,3 +92,18 @@ parseCommit = do
 
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
+
+-- parseIndexEntry :: Get IndexEntry
+-- parseIndexEntry = do
+--   -- Implement parsing logic for each field
+--   ctimeSec <- getWord32le
+--   ctimeNsec <- getWord32le
+--   mtimeSec <- getWord32le
+--   mtimeNsec <- getWord32le
+--   -- ... Parse more fields
+
+--   return $ IndexEntry ctimeSec ctimeNsec mtimeSec mtimeNsec
+
+-- Parse index file (which is in binary format)
+parseIndexFile :: Parser GitIndex
+parseIndexFile = undefined

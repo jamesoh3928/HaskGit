@@ -92,7 +92,6 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     (aName, aEmail, aDate, aTimeStamp) = authorObj
     (cName, cEmail, cDate, cTimeStamp) = committerObj
     content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
-    -- TODO: ask Jack if using show on Int is fine
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 

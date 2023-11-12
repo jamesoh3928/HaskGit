@@ -1,4 +1,5 @@
 import Codec.Compression.Zlib (compress, decompress)
+import qualified Data.ByteString as B
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitObject (GitObject)
 import GitParser (parseGitObject)
@@ -48,11 +49,9 @@ decompressPrint filename = do
   x <- BSLC.readFile filename
   BSLC.putStrLn (decompress x)
 
--- TODO: delete
--- Tree: ".git/objects/02/c665efc85f165dd60563accf221cb6ecfbdbc4"
--- tree 427100644 .gitattributes∙:èP∙ΘSFO↔ΩΘZ6∩±¡sBh100644 .gitignoreΩ║G]╪♥4?┘hpe⌡!╚╕·D╠100644 CHANGELOG.md┴σ%↕kΓ┘╓x
--- 1Θ┌ù≥≥♥▄@`100644 HaskGit.cabal╫ä╠If╤÷Φ♠]        nΩIn$ε┴100644 README.mdÄ»∟A►$╧Ñó▐^Mu╡ù+ε100644 Setup.hsÜÖJ÷w░▀╘;v│τµ♦=dß40000 appdb>$(=¬╥ä░9╝╡O┤☻½ql40000 assets±↕√ΓP⌠╕°t[φr→µê╠⌠│ÿ°40000 docs↓?ƒ♠╗%ô:¡☺,=S`e¥\╬ß»40000 src¢î»i│9`Ωò·╕ª1║<╛`╧
--- 100644 stack.yaml╧º2y{%2╢eHt≡╫wò¥⌐√â140000 test$♥å╡U╗▀┼æ╔r╙⌡▒ëφ°M¶Å
+readIndexFile :: IO ()
+readIndexFile = do
+  x <- BSLC.readFile ".git/index"
+  Prelude.putStrLn (BSLC.unpack x)
 
--- Commit test
--- 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
+-- CONTINUE: https://wyag.thb.lt/#staging-area:~:text=8.2.%20Parsing%20the-,index,-The%20index%20file 
