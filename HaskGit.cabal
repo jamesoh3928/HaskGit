@@ -71,4 +71,8 @@ test-suite HaskGit-test
       test
   build-depends:
       HaskGit
+    , base >=4.7 && <5
+    , bytestring
+    , tasty
+    , tasty-hunit
   default-language: Haskell2010
