@@ -105,5 +105,6 @@ parseGitObject = parseBlob <|> parseTree <|> parseCommit
 --   return $ IndexEntry ctimeSec ctimeNsec mtimeSec mtimeNsec
 
 -- Parse index file (which is in binary format)
+-- Followed git index format documentation: https://git-scm.com/docs/index-format
 parseIndexFile :: Parser GitIndex
 parseIndexFile = undefined
