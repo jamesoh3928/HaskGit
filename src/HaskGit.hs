@@ -1,5 +1,6 @@
 module HaskGit
   (
+    testHash
   )
 where
 

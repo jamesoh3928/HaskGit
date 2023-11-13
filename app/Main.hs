@@ -1,10 +1,29 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 module Main (main) where
 
+import HaskGit (testHash)
+import System.Console.CmdArgs
 import Data.ByteString (ByteString)
-import Lib
+-- import Lib
+
+-- you can run it by `stack exec -- -f <filename`
+-- FIXME: use command instead of option
+data HaskGit =
+    TestHash {filename :: FilePath}
+    | Help
+    deriving (Data, Typeable, Show, Eq)
+
+testHashMode = TestHash {filename = def &= typFile &= help "TestHash :: String -> IO()"}
+cmdModes = modes [testHashMode]
+
+runCommand :: HaskGit -> IO ()
+runCommand cmd = case cmd of
+  TestHash filename -> testHash filename
 
 main :: IO ()
-main = someFunc
+main = do
+  cmd <- cmdArgs cmdModes
+  runCommand cmd
 
 loadIndex :: IO ByteString
 loadIndex = undefined
