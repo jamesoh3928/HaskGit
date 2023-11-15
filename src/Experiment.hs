@@ -1,8 +1,10 @@
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Data.ByteString as B
+import Data.ByteString.Base16 (encode)
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitObject (GitObject)
 import GitParser (parseGitObject)
+import HaskGit (gitHashObject)
 import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
@@ -54,4 +56,14 @@ readIndexFile = do
   x <- BSLC.readFile ".git/index"
   Prelude.putStrLn (BSLC.unpack x)
 
--- CONTINUE: https://wyag.thb.lt/#staging-area:~:text=8.2.%20Parsing%20the-,index,-The%20index%20file 
+testHash :: String -> IO ()
+testHash filename = do
+  content <- BSLC.readFile filename
+
+  -- hashing without the header
+  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> do
+      print (encode (gitHashObject result))
+
+-- CONTINUE: https://wyag.thb.lt/#staging-area:~:text=8.2.%20Parsing%20the-,index,-The%20index%20file
