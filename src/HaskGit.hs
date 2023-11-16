@@ -1,7 +1,7 @@
 module HaskGit
-(
-gitShow
-)
+  ( gitShow,
+    gitHashObject,
+  )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
@@ -13,8 +13,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
-import Index ( GitIndex, gitIndexSerialize )
-import Ref ( GitRef )
+import Index (GitIndex, gitIndexSerialize)
+import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents)
 import System.FilePath
 import Text.Parsec (parse)
