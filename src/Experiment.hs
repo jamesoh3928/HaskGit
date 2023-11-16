@@ -1,8 +1,7 @@
 import Codec.Compression.Zlib (compress, decompress)
-import qualified Data.ByteString as B
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitObject (GitObject)
-import GitParser (parseGitObject)
+import GitParser (parseGitObject, parseIndexFile)
 import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
@@ -35,6 +34,13 @@ gitShow filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
 
+testParseIndex :: IO ()
+testParseIndex = do
+  x <- BSLC.readFile ".git/index"
+  case parse parseIndexFile "" (unpack x) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
+
 ------------------------------------------------
 -- Blob test
 -- ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
@@ -53,5 +59,3 @@ readIndexFile :: IO ()
 readIndexFile = do
   x <- BSLC.readFile ".git/index"
   Prelude.putStrLn (BSLC.unpack x)
-
--- CONTINUE: https://wyag.thb.lt/#staging-area:~:text=8.2.%20Parsing%20the-,index,-The%20index%20file 

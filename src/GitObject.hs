@@ -4,7 +4,8 @@ module GitObject
   ( GitBlob,
     GitTree,
     GitCommit,
-    GitObject,
+    -- TODO: check if we want to do this
+    GitObject(..),
     GitObjectHash,
     newBlob,
     newTree,
