@@ -1,26 +1,21 @@
 module HaskGit
-  (
-    module HaskGit
-  )
+(
+gitShow
+)
 where
 
 import Codec.Compression.Zlib (compress, decompress)
--- import qualified Data.ByteString.Char8 as BS
-
--- import qualified Data.ByteString.Lazy as BSL
-
-import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
+import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
-import Index
-import Ref
-import System.Directory (doesDirectoryExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import Index ( GitIndex, gitIndexSerialize )
+import Ref ( GitRef )
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents)
 import System.FilePath
 import Text.Parsec (parse)
 
@@ -37,30 +32,64 @@ findGitDirectory fp = do
     then return fp
     else do
       xs <- getDirectoryContents fp
-      if ".git" `elem` xs
-        then return (fp ++ "/.git")
+      if ".haskgit" `elem` xs
+        then return (fp ++ "/.haskgit")
         else findGitDirectory (takeDirectory fp)
+
+-- take GitObject and save in .haskgit/objects file
+saveGitObject :: ByteString -> GitObject -> IO ()
+saveGitObject hash obj = do
+  gitdir <- getGitDirectory
+  let content = compress (BSLC.fromStrict (gitObjectSerialize obj))
+  -- (compress (BSLC.pack content))
+  let h = B.unpack (encode hash)
+  let path = gitdir ++ "/objects/" ++ take 2 h
+  b <- doesDirectoryExist path
+  if b
+    then BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+    else do
+      createDirectoryIfMissing True path
+      BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+
+-- Take GitIndex and save in .haskgit/index file
+saveGitIndex :: GitIndex -> IO ()
+saveGitIndex index = do
+  gitdir <- getGitDirectory
+  let content = compress (BSLC.fromStrict (gitIndexSerialize index))
+  BSLC.writeFile (gitdir ++ "/index") content
+
+-- B.writeFile path content
 
 -- List of plumbing commands
 
 -- This command computes the SHA-1 hash of Git objects.
-gitHashObject :: GitObject -> Bool -> ByteString
-gitHashObject obj _ = SHA1.hash (gitObjectSerialize obj)
+gitHashObject :: GitObject -> ByteString
+gitHashObject obj = SHA1.hash (gitObjectSerialize obj)
 
--- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
+gitHashCommand :: GitObject -> Bool -> IO ByteString
+gitHashCommand obj b = do
+  let hash = gitHashObject obj
+  if b
+    then do
+      saveGitObject hash obj
+      return hash
+    else return hash
 
-testHash :: String -> IO ()
-testHash filename = do
+testHashCommand :: String -> IO ()
+testHashCommand filename = do
   content <- BSLC.readFile filename
-
   -- hashing without the header
   case parse parseGitObject "" (BSLC.unpack (decompress content)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
-      print (encode (gitHashObject result False))
+      -- print (gitHashObject result)
+      hash <- gitHashCommand result True
+      print (encode hash)
+
+-- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
 
 -- This command creates a tree object from the current index (staging area).
-gitWriteTree :: GitIndex -> ByteString
+gitWriteTree :: GitIndex -> IO ()
 gitWriteTree = undefined
 
 -- This command reads a tree object and checks it out in the working directory.
@@ -88,18 +117,7 @@ gitReadCache = undefined
 gitRevList :: ByteString -> [GitCommit]
 gitRevList = undefined
 
---
-serializeGitObject :: GitObject -> ByteString
-serializeGitObject = undefined
-
---
-deserializeGitObject :: ByteString -> GitObject
-deserializeGitObject = undefined
-
 -- List of porcelain commands
-gitInit :: () -> ByteString
-gitInit = undefined
-
 gitAdd :: ByteString -> ByteString
 gitAdd = undefined
 
@@ -130,10 +148,10 @@ gitBranch = undefined
 -- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
 gitShow :: ByteString -> IO ()
 gitShow hash = do
-  -- TODO: need to convert bytestring to the actual string
-  -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   -- 2 hexadecimal = 4 bytes
-  let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
+  gitdir <- getGitDirectory
+  let hashHex = B.unpack hash
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err

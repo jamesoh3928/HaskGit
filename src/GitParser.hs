@@ -1,12 +1,17 @@
 module GitParser
   ( parseGitObject,
+    parseInt32,
+    parseIndexFile,
   )
 where
 
+import Data.Bits
 import Data.ByteString as B (ByteString, length)
-import Data.ByteString.Char8 as BC (pack)
-import GitObject (GitObject, newBlob, newCommit, newTree)
-import Index (GitIndex)
+import Data.ByteString.Base16 as B16 (encode)
+import Data.ByteString.Char8 as BC (pack, unpack)
+import Data.Char (ord)
+import GitObject (GitObject (..))
+import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
@@ -24,26 +29,26 @@ parseBlob = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob bytesize content)
+        else return (Blob (bytesize, content))
 
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
-  -- TODO: check data integrity of byte size
+  -- TODO: check data integrity of byte size in the future, but for now assume the syze is cofrect
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in tree file"
     Just bytesize -> do
       elems <- manyTill parseGitTreeEntry eof
-      return (GitObject.newTree bytesize elems)
+      return (Tree (bytesize, elems))
   where
     parseGitTreeEntry :: Parser (String, String, ByteString)
     parseGitTreeEntry = do
       filemode <- manyTill digit (char ' ') :: Parser String
-      name <- manyTill anyChar (char '\0')
+      filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha <- Text.ParserCombinators.Parsec.count 20 anyChar
-      return (filemode, name, BC.pack sha)
+      sha' <- Text.ParserCombinators.Parsec.count 20 anyChar
+      return (filemode, filename, BC.pack sha')
 
 -- GitCommit = (tree, parent, author, committer, message, timestamp)
 parseCommit :: Parser GitObject
@@ -72,39 +77,101 @@ parseCommit = do
       committerTimeZone <- manyTill anyChar newline
       _ <- string "\n"
       message <- manyTill anyChar eof
+      let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
+          committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
       return
-        ( GitObject.newCommit
-            bytesize
-            (BC.pack rootTree)
-            [BC.pack parent]
-            ( init authorNameWithSpace,
-              authorEmail,
-              read authorTimestamp,
-              authorTimeZone
-            )
-            ( init committerNameWithSpace,
-              committerEmail,
-              read committerTimestamp,
-              committerTimeZone
-            )
-            message
-        )
+        (Commit (bytesize, BC.pack rootTree, [BC.pack parent], authorInfo, committerInfo, message))
 
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
 
--- parseIndexEntry :: Get IndexEntry
--- parseIndexEntry = do
---   -- Implement parsing logic for each field
---   ctimeSec <- getWord32le
---   ctimeNsec <- getWord32le
---   mtimeSec <- getWord32le
---   mtimeNsec <- getWord32le
---   -- ... Parse more fields
+-- Parse n-byte integer in network byte order (big-endian)
+parseInt :: Int -> Parser Int
+parseInt n = do
+  ints <- (ord <$>) <$> count n anyChar
+  -- Loop through int list and get actualy decimal value
+  return (foldl (\v x -> v * 256 + x) 0 ints)
 
---   return $ IndexEntry ctimeSec ctimeNsec mtimeSec mtimeNsec
+-- Parse 4-byte integer in network byte order (big-endian)
+parseInt32 :: Parser Int
+parseInt32 = parseInt 4
+
+-- Parse 2-byte integer in network byte order (big-endian)
+parseInt16 :: Parser Int
+parseInt16 = parseInt 2
+
+-- Parse a Git index entry (for mvp, assuming version 2)
+-- Followed git index format documentation: https://github.com/git/git/blob/master/Documentation/gitformat-index.txt
+parseGitIndexEntry :: Parser GitIndexEntry
+parseGitIndexEntry = do
+  ctimeS' <- parseInt32
+  ctimeNs' <- parseInt32
+  mtimeS' <- parseInt32
+  mtimeNs' <- parseInt32
+  dev' <- parseInt32
+  ino' <- parseInt32
+  _ <- count 2 (char '\NUL') -- Ignored
+  mode <- parseInt16
+  let modeType' = shiftR mode 12
+      -- 9-bit unix permission. Only 0755 and 0644 are valid for regular files.
+      modePerms' = mode .&. 0x01FF
+  uid' <- parseInt32
+  gid' <- parseInt32
+  fsize' <- parseInt32
+  sha' <- BC.unpack . B16.encode . BC.pack <$> count 20 anyChar
+  flags <- parseInt16
+  let flagAssumeValid' = flags .&. 0x8000 /= 0
+      -- flagExtended, ignoring for mvp
+      _ = flags .&. 0x4000 /= 0
+      flagStage' = flags .&. 0x3000
+      nameLength = flags .&. 0x0FFF
+
+  -- If version > 2, there is another 16 bit but skipping for MVP
+
+  name' <-
+    if nameLength < 0xFFF
+      then do
+        -- _ <- char '\NUL' -- Ensure termination with null character
+        count nameLength anyChar
+      else do
+        -- _ <- string "\NUL\NUL\NUL\NUL" -- Ensure termination with four null characters
+        manyTill anyChar (char '\NUL')
+
+  -- If version == 4, there is extra data but skipping for MVP
+
+  -- Skip padding so we can start at the right bit for next entry
+  -- Data is padded on multiples of eight bytes for pointer
+  -- alignment, so we skip as many bytes as we need for the next
+  -- read to start at the right position
+  let padding = 8 - ((62 + Prelude.length name') `mod` 8)
+  _ <- count padding anyChar
+
+  return $
+    GitIndexEntry
+      ctimeS'
+      ctimeNs'
+      mtimeS'
+      mtimeNs'
+      dev'
+      ino'
+      modeType'
+      modePerms'
+      uid'
+      gid'
+      fsize'
+      sha'
+      flagAssumeValid'
+      flagStage'
+      name'
 
 -- Parse index file (which is in binary format)
--- Followed git index format documentation: https://git-scm.com/docs/index-format
+-- Ignoring the extension data for now
 parseIndexFile :: Parser GitIndex
-parseIndexFile = undefined
+parseIndexFile = do
+  -- 4-byte signature (DIRC)
+  _ <- string "DIRC"
+  -- 4-byte version number (our mvp only takes version 2)
+  _ <- string "\0\0\0\2"
+  numEntries <- parseInt32
+  entries <- count numEntries parseGitIndexEntry
+  return (GitIndex entries)

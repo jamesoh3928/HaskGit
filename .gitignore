@@ -1,4 +1,4 @@
 .stack-work/
 *.lock
 dist-newstyle/
-.vscode/
+.vscode/.haskgit/
