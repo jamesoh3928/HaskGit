@@ -1,7 +1,6 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import Data.ByteString.Lazy.Char8 as BSLC
-import GitObject (GitObject)
 import GitParser (parseGitObject, parseIndexFile)
 import HaskGit (gitHashObject)
 import Text.Parsec (parse)
@@ -22,13 +21,7 @@ dummyString = "commit d5332273b6680b6515ca0719afa54a7e6b5f6efc (HEAD -> main, or
 saveContent :: String -> String -> IO ()
 saveContent filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
--- TODO: rename, use https://hackage.haskell.org/package/parsec
-sToGitObject :: String -> GitObject
-sToGitObject s = undefined
-
--- ToDO
--- After unpacking to string, parse the string and covert to correct format
--- (Depends on how the GitObject file content will be saved)
+--  Just a test function
 gitShow :: String -> IO ()
 gitShow filename = do
   x <- BSLC.readFile filename

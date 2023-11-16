@@ -4,24 +4,17 @@ module HaskGit
 where
 
 import Codec.Compression.Zlib (compress, decompress)
--- import qualified Data.ByteString.Char8 as BS
-
--- import qualified Data.ByteString.Lazy as BSL
-
-import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encode)
-import qualified Data.ByteString.Builder as BSL
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
+import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
 import Index
 import Ref
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents)
 import System.FilePath
 import Text.Parsec (parse)
 
@@ -116,18 +109,7 @@ gitReadCache = undefined
 gitRevList :: ByteString -> [GitCommit]
 gitRevList = undefined
 
---
-serializeGitObject :: GitObject -> ByteString
-serializeGitObject = undefined
-
---
-deserializeGitObject :: ByteString -> GitObject
-deserializeGitObject = undefined
-
 -- List of porcelain commands
-gitInit :: () -> ByteString
-gitInit = undefined
-
 gitAdd :: ByteString -> ByteString
 gitAdd = undefined
 
@@ -152,6 +134,7 @@ gitCheckout = undefined
 gitBranch :: ByteString -> ByteString
 gitBranch = undefined
 
+-- TODO: delete this function when haskGitShow is fully implemented
 -- Test in GHCI:
 -- Blob: gitShow (B.pack "f6f754dbe0808826bed2237eb651558f75215cc6")
 -- Tree: gitShow (B.pack "f6e1af0b636897ed62c8c6dad0828f1172b9b82a")
@@ -173,7 +156,7 @@ haskGitShow hash = do
   -- TODO: need to convert bytestring to the actual string
   -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   -- 2 hexadecimal = 4 bytes
-  let filename = ".haskgit/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
+  let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err

@@ -4,12 +4,8 @@ module GitObject
   ( GitBlob,
     GitTree,
     GitCommit,
-    -- TODO: check if we want to do this
     GitObject(..),
     GitObjectHash,
-    newBlob,
-    newTree,
-    newCommit,
     newGitObjectHash,
     gitObjectSerialize,
     gitShowStr,
@@ -28,18 +24,12 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
 
-newBlob :: Int -> String -> GitObject
-newBlob byteSize content = Blob (byteSize, content)
-
 getBlobContent :: GitObject -> String
 getBlobContent (Blob (_, content)) = content
 getBlobContent _ = ""
 
 -- GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
 type GitTree = (Int, [(String, String, ByteString)])
-
-newTree :: Int -> [(String, String, ByteString)] -> GitObject
-newTree byteSize elems = Tree (byteSize, elems)
 
 -- GitAuthor = (name, email, date - unix time in seconds, timezone string)
 type GitAuthor = (String, String, Int, String)
@@ -51,9 +41,6 @@ type GitCommitter = (String, String, Int, String)
 type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
-
-newCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> GitObject
-newCommit bytesize tree parents authorInfo committerInfo message = Commit (bytesize, tree, parents, authorInfo, committerInfo, message)
 
 type GitObjectHash = (GitObject, ByteString)
 
