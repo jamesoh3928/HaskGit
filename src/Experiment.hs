@@ -1,8 +1,10 @@
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
+import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitParser (parseGitObject, parseIndexFile)
 import HaskGit (gitHashObject)
+import Index
 import Text.Parsec (parse)
 
 -- import System.Console.CmdArgs.Implicit
@@ -18,8 +20,8 @@ dummyString :: String
 dummyString = "commit d5332273b6680b6515ca0719afa54a7e6b5f6efc (HEAD -> main, origin/main, origin/HEAD)\nAuthor: James Oh <jo9347@cs.rit.edu>\nDate:   Wed Nov 1 14:49:36 2023 -0400\n\nAdd load/save functions"
 
 -- Write and save git object
-saveContent :: String -> String -> IO ()
-saveContent filename content = BSLC.writeFile filename (compress (BSLC.pack content))
+saveGitObject :: String -> String -> IO ()
+saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
 gitShow :: String -> IO ()
@@ -29,12 +31,20 @@ gitShow filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
 
-testParseIndex :: IO ()
-testParseIndex = do
-  x <- BSLC.readFile ".git/index"
+-- Test: ".git/index"
+testParseIndex :: String -> IO ()
+testParseIndex s = do
+  x <- BSLC.readFile s
   case parse parseIndexFile "" (unpack x) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
+
+testSaveIndex :: IO ()
+testSaveIndex = do
+  x <- BSLC.readFile ".git/index"
+  case parse parseIndexFile "" (unpack x) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> BSLC.writeFile "testIndex" (fromStrict (gitIndexSerialize result))
 
 ------------------------------------------------
 -- Blob test
@@ -64,5 +74,3 @@ testHash filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
       print (encode (gitHashObject result))
-
--- CONTINUE: https://wyag.thb.lt/#staging-area:~:text=8.2.%20Parsing%20the-,index,-The%20index%20file

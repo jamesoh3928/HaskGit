@@ -53,6 +53,7 @@ instance Show GitObject where
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
+-- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
 gitShowStr (Blob (_, content), _) = content
 gitShowStr (Tree (_, elems), treeHash) = "tree " ++ B.unpack treeHash ++ "\n\n" ++ filesDirs
@@ -63,7 +64,7 @@ gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
 
--- Convert the gitObject
+-- Convert the gitObject (this function does not compress with zllib)
 gitObjectSerialize :: GitObject -> ByteString
 -- Blob: Header + filecontent
 gitObjectSerialize (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
