@@ -5,7 +5,6 @@ where
 
 import Codec.Compression.Zlib (compress, decompress)
 -- import qualified Data.ByteString.Char8 as BS
-
 -- import qualified Data.ByteString.Lazy as BSL
 
 import Control.Monad
@@ -21,16 +20,32 @@ import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr,
 import GitParser (parseGitObject)
 import Index
 import Ref
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 import Text.Parsec (parse)
+
+-- Given hash value, return corresponding git directory
+-- Example:
+-- hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
+-- output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+hashToFilePath :: String -> IO FilePath
+hashToFilePath hash = do
+  gitdir <- getGitDirectory
+  return (gitdir ++ "/objects/" ++ take 2 hash ++ "/" ++ drop 2 hash)
+
+-- Returns path to reference
+-- Example:
+-- refToFilePath refs/heads/main
+-- ".haskgit/refs/heads/main"
+refToFilePath :: String -> IO FilePath
+refToFilePath ref = do
+  gitdir <- getGitDirectory
+  return (gitdir ++ "/" ++ ref)
 
 getGitDirectory :: IO FilePath
 getGitDirectory = do
   curr <- getCurrentDirectory
   findGitDirectory curr
-
--- findGitDirectory "/home/jack8558/CSCI541/HaskGit/src"
 
 findGitDirectory :: FilePath -> IO FilePath
 findGitDirectory fp = do
@@ -45,19 +60,15 @@ findGitDirectory fp = do
 -- take GitObject and save
 saveGitObject :: ByteString -> GitObject -> IO ()
 saveGitObject hash obj = do
-  gitdir <- getGitDirectory
   let content = compress (BSLC.fromStrict (gitObjectSerialize obj))
   -- (compress (BSLC.pack content))
-  let h = B.unpack (encode hash)
-  let path = gitdir ++ "/objects/" ++ take 2 h
-  b <- doesDirectoryExist path
-  if b
-    then BSLC.writeFile (path ++ "/" ++ drop 2 h) content
-    else do
-      createDirectoryIfMissing True path
-      BSLC.writeFile (path ++ "/" ++ drop 2 h) content
-
--- B.writeFile path content
+  path <- hashToFilePath (B.unpack (encode hash))
+  -- b <- doesDirectoryExist path
+  -- if b
+  --   then BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+  --   else do
+  createDirectoryIfMissing True (takeDirectory path)
+  BSLC.writeFile path content
 
 -- List of plumbing commands
 
@@ -85,8 +96,6 @@ testHashCommand filename = do
       hash <- gitHashCommand result True
       print (encode hash)
 
--- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
-
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> ByteString
 gitWriteTree = undefined
@@ -100,9 +109,33 @@ gitCommitTree :: GitTree -> [GitCommit] -> String -> String -> String -> UTCTime
 gitCommitTree = undefined
 
 -- Update the object name stored in a ref safely
+-- Ref mostly contains hash but can also store symbolic ref
 -- TODO: may need to update the signature
-gitUpdateRef :: GitRef -> GitRef
-gitUpdateRef = undefined
+-- git update-ref <refname> <new-object-name>
+-- refs/heads/branch-name
+gitUpdateRef :: String -> String -> IO ()
+gitUpdateRef ref obj = do
+  path <- refToFilePath ref
+  objHashPath <- hashToFilePath obj
+  objRefPath <- refToFilePath obj
+  hashCheck <- doesFileExist objHashPath
+  refCheck <- doesFileExist objRefPath
+  if not (validateRef ref)
+    then putStrLn "Invalid reference. Please provide either HEAD or refs/..."
+    else
+      if not hashCheck
+        then
+          if not refCheck
+            then putStrLn "Invalid new object. Please provide hash of exsting commit object or ref."
+            else -- when objects is ref
+              writeFile path ("refs: " ++ obj ++ "\n")
+        else do
+          createDirectoryIfMissing True (takeDirectory path)
+          writeFile path (obj ++ "\n")
+
+-- ref is valid if it starts with 'refs/' or it is HEAD
+validateRef :: String -> Bool
+validateRef ref = ref == "HEAD" || take 5 ref == "refs/"
 
 -- This command is used to add or update index entries (staging area).
 gitUpdateIndex :: GitIndex -> ByteString
