@@ -1,6 +1,7 @@
 module HaskGit
-  ( gitHashObject,
-  )
+(
+gitShow
+)
 where
 
 import Codec.Compression.Zlib (compress, decompress)
@@ -81,7 +82,7 @@ testHashCommand filename = do
 -- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
 
 -- This command creates a tree object from the current index (staging area).
-gitWriteTree :: GitIndex -> ByteString
+gitWriteTree :: GitIndex -> IO ()
 gitWriteTree = undefined
 
 -- This command reads a tree object and checks it out in the working directory.
