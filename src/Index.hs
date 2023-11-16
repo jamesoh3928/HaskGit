@@ -1,8 +1,11 @@
 module Index
   ( GitIndex (..),
     GitIndexEntry (..),
+    gitIndexSerialize,
   )
 where
+
+import Data.ByteString (ByteString)
 
 -- Based on the documentation: https://github.com/vaibhavsagar/duffer/blob/master/duffer/src/Duffer/Plumbing.hs
 data GitIndexEntry = GitIndexEntry
@@ -26,3 +29,10 @@ data GitIndexEntry = GitIndexEntry
 
 newtype GitIndex = GitIndex [GitIndexEntry]
   deriving (Show)
+
+-- Header: 12 bytes - "DIRC" + version (4 bytes - always 2 for mvp) + number of entries (4 bytes)
+gitIndexSerialize :: GitIndex -> ByteString
+gitIndexSerialize (GitIndex entries) = undefined
+
+gitIndexEntrySerialize :: GitIndexEntry -> ByteString
+gitIndexEntrySerialize entry = undefined

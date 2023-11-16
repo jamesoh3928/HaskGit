@@ -10,7 +10,7 @@ import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
 import Data.Char (ord)
-import GitObject (GitObject, newBlob, newCommit, newTree)
+import GitObject (GitObject (..))
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
@@ -29,7 +29,7 @@ parseBlob = do
       -- data integrity check
       if bytesize /= byteSize content
         then fail "Byte size does not match in blob file"
-        else return (GitObject.newBlob bytesize content)
+        else return (Blob (bytesize, content))
 
 parseTree :: Parser GitObject
 parseTree = do
@@ -40,7 +40,7 @@ parseTree = do
     Nothing -> fail "Not a valid byte size in tree file"
     Just bytesize -> do
       elems <- manyTill parseGitTreeEntry eof
-      return (GitObject.newTree bytesize elems)
+      return (Tree (bytesize, elems))
   where
     parseGitTreeEntry :: Parser (String, String, ByteString)
     parseGitTreeEntry = do
@@ -77,23 +77,10 @@ parseCommit = do
       committerTimeZone <- manyTill anyChar newline
       _ <- string "\n"
       message <- manyTill anyChar eof
+      let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
+          committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
       return
-        ( GitObject.newCommit
-            bytesize
-            (BC.pack rootTree)
-            [BC.pack parent]
-            ( init authorNameWithSpace,
-              authorEmail,
-              read authorTimestamp,
-              authorTimeZone
-            )
-            ( init committerNameWithSpace,
-              committerEmail,
-              read committerTimestamp,
-              committerTimeZone
-            )
-            message
-        )
+        (Commit (bytesize, BC.pack rootTree, [BC.pack parent], authorInfo, committerInfo, message))
 
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
