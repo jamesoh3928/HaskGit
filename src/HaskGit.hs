@@ -35,7 +35,7 @@ findGitDirectory fp = do
         then return (fp ++ "/.haskgit")
         else findGitDirectory (takeDirectory fp)
 
--- take GitObject and save
+-- take GitObject and save in .haskgit/objects file
 saveGitObject :: ByteString -> GitObject -> IO ()
 saveGitObject hash obj = do
   gitdir <- getGitDirectory
@@ -134,29 +134,16 @@ gitCheckout = undefined
 gitBranch :: ByteString -> ByteString
 gitBranch = undefined
 
--- TODO: delete this function when haskGitShow is fully implemented
 -- Test in GHCI:
 -- Blob: gitShow (B.pack "f6f754dbe0808826bed2237eb651558f75215cc6")
 -- Tree: gitShow (B.pack "f6e1af0b636897ed62c8c6dad0828f1172b9b82a")
 -- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
 gitShow :: ByteString -> IO ()
 gitShow hash = do
-  -- TODO: need to convert bytestring to the actual string
-  -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   -- 2 hexadecimal = 4 bytes
-  let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
-  filecontent <- BSLC.readFile filename
-  case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
-    Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
-    Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
-
--- To see git objects in .haskgit
-haskGitShow :: ByteString -> IO ()
-haskGitShow hash = do
-  -- TODO: need to convert bytestring to the actual string
-  -- TODO: find the git directory based on the filename (right now, assuming we are in root)
-  -- 2 hexadecimal = 4 bytes
-  let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
+  gitdir <- getGitDirectory
+  let hashHex = B.unpack hash
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err

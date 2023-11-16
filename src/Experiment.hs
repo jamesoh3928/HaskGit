@@ -38,13 +38,13 @@ testParseIndex = do
 
 ------------------------------------------------
 -- Blob test
--- ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+-- gitShow ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
 
 -- Tree test
--- ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+-- gitShow ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
 
 -- Commit test
--- ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+-- gitShow ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
 
 decompressPrint filename = do
   x <- BSLC.readFile filename
