@@ -36,8 +36,3 @@ loadGitObject = undefined
 
 saveGitObject :: ByteString -> ByteString -> IO ()
 saveGitObject = undefined
-
--- GitMonad: wrap
-
--- Question: having load and save in the main is not ideal?
--- Question about the scope (if it become infeasible, can we move branching to stretch goal)

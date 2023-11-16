@@ -1,6 +1,6 @@
 module HaskGit
   (
-    testHash
+    module HaskGit
   )
 where
 
@@ -20,7 +20,26 @@ import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr,
 import GitParser (parseGitObject)
 import Index
 import Ref
+import System.Directory (doesDirectoryExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import System.FilePath
 import Text.Parsec (parse)
+
+getGitDirectory :: IO FilePath
+getGitDirectory = do
+  curr <- getCurrentDirectory
+  findGitDirectory curr
+
+-- findGitDirectory "/home/jack8558/CSCI541/HaskGit/src"
+
+findGitDirectory :: FilePath -> IO FilePath
+findGitDirectory fp = do
+  if fp == "~" || fp == "/"
+    then return fp
+    else do
+      xs <- getDirectoryContents fp
+      if ".git" `elem` xs
+        then return (fp ++ "/.git")
+        else findGitDirectory (takeDirectory fp)
 
 -- List of plumbing commands
 
@@ -33,15 +52,6 @@ gitHashObject obj _ = SHA1.hash (gitObjectSerialize obj)
 testHash :: String -> IO ()
 testHash filename = do
   content <- BSLC.readFile filename
-  -- hash with the header
-  -- -- -- putStrLn (show content)
-  -- -- -- putStrLn (BSLC.unpack (decompress content))
-  -- let b = newBlob 899 (BSLC.unpack (decompress content)) "Blob_test"
-  -- let h = gitHashObject b True
-  -- let hex = encode h
-  -- -- putStrLn ("Blob object show: " ++ (show b))
-  -- -- putStrLn (BSLC.unpack (decompress content))
-  -- putStrLn ("Hash in hexadecimal with header: " ++ show hex)
 
   -- hashing without the header
   case parse parseGitObject "" (BSLC.unpack (decompress content)) of

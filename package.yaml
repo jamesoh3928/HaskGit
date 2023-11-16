@@ -28,6 +28,8 @@ library:
     - cryptohash-sha1
     - base16-bytestring
     - time
+    - directory
+    - filepath
 executables:
   HaskGit-exe:
     main: Main.hs
@@ -46,4 +48,5 @@ tests:
       - base >= 4.7 && < 5
       - tasty
       - tasty-hunit
+      - tasty-quickcheck
       - bytestring
