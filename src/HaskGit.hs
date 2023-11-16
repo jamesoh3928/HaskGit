@@ -1,5 +1,5 @@
 module HaskGit
-  (
+  ( gitHashObject,
   )
 where
 
@@ -11,7 +11,9 @@ import Codec.Compression.Zlib (compress, decompress)
 import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encode)
+import qualified Data.ByteString.Builder as BSL
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
@@ -19,34 +21,71 @@ import GitObject (GitCommit, GitObject, GitTree, gitObjectSerialize, gitShowStr,
 import GitParser (parseGitObject)
 import Index
 import Ref
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import System.FilePath
 import Text.Parsec (parse)
+
+getGitDirectory :: IO FilePath
+getGitDirectory = do
+  curr <- getCurrentDirectory
+  findGitDirectory curr
+
+-- findGitDirectory "/home/jack8558/CSCI541/HaskGit/src"
+
+findGitDirectory :: FilePath -> IO FilePath
+findGitDirectory fp = do
+  if fp == "~" || fp == "/"
+    then return fp
+    else do
+      xs <- getDirectoryContents fp
+      if ".haskgit" `elem` xs
+        then return (fp ++ "/.haskgit")
+        else findGitDirectory (takeDirectory fp)
+
+-- take GitObject and save
+saveGitObject :: ByteString -> GitObject -> IO ()
+saveGitObject hash obj = do
+  gitdir <- getGitDirectory
+  let content = compress (BSLC.fromStrict (gitObjectSerialize obj))
+  -- (compress (BSLC.pack content))
+  let h = B.unpack (encode hash)
+  let path = gitdir ++ "/objects/" ++ take 2 h
+  b <- doesDirectoryExist path
+  if b
+    then BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+    else do
+      createDirectoryIfMissing True path
+      BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+
+-- B.writeFile path content
 
 -- List of plumbing commands
 
 -- This command computes the SHA-1 hash of Git objects.
-gitHashObject :: GitObject -> Bool -> ByteString
-gitHashObject obj _ = SHA1.hash (gitObjectSerialize obj)
+gitHashObject :: GitObject -> ByteString
+gitHashObject obj = SHA1.hash (gitObjectSerialize obj)
 
--- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
+gitHashCommand :: GitObject -> Bool -> IO ByteString
+gitHashCommand obj b = do
+  let hash = gitHashObject obj
+  if b
+    then do
+      saveGitObject hash obj
+      return hash
+    else return hash
 
-testHash :: String -> IO ()
-testHash filename = do
+testHashCommand :: String -> IO ()
+testHashCommand filename = do
   content <- BSLC.readFile filename
-  -- hash with the header
-  -- -- -- putStrLn (show content)
-  -- -- -- putStrLn (BSLC.unpack (decompress content))
-  -- let b = newBlob 899 (BSLC.unpack (decompress content)) "Blob_test"
-  -- let h = gitHashObject b True
-  -- let hex = encode h
-  -- -- putStrLn ("Blob object show: " ++ (show b))
-  -- -- putStrLn (BSLC.unpack (decompress content))
-  -- putStrLn ("Hash in hexadecimal with header: " ++ show hex)
-
   -- hashing without the header
   case parse parseGitObject "" (BSLC.unpack (decompress content)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
-      print (encode (gitHashObject result False))
+      -- print (gitHashObject result)
+      hash <- gitHashCommand result True
+      print (encode hash)
+
+-- gitHashObject obj _ = SHA1.hash (gitObjectToBS (getBlobContent obj))
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> ByteString
@@ -123,6 +162,18 @@ gitShow hash = do
   -- TODO: find the git directory based on the filename (right now, assuming we are in root)
   -- 2 hexadecimal = 4 bytes
   let filename = ".git/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
+  filecontent <- BSLC.readFile filename
+  case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+    Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
+    Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
+
+-- To see git objects in .haskgit
+haskGitShow :: ByteString -> IO ()
+haskGitShow hash = do
+  -- TODO: need to convert bytestring to the actual string
+  -- TODO: find the git directory based on the filename (right now, assuming we are in root)
+  -- 2 hexadecimal = 4 bytes
+  let filename = ".haskgit/objects/" ++ take 2 (B.unpack hash) ++ "/" ++ drop 2 (B.unpack hash)
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
