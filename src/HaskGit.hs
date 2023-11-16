@@ -13,8 +13,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
-import Index
-import Ref
+import Index ( GitIndex, gitIndexSerialize )
+import Ref ( GitRef )
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, getCurrentDirectory, getDirectoryContents)
 import System.FilePath
 import Text.Parsec (parse)
@@ -50,6 +50,13 @@ saveGitObject hash obj = do
     else do
       createDirectoryIfMissing True path
       BSLC.writeFile (path ++ "/" ++ drop 2 h) content
+
+-- Take GitIndex and save in .haskgit/index file
+saveGitIndex :: GitIndex -> IO ()
+saveGitIndex index = do
+  gitdir <- getGitDirectory
+  let content = compress (BSLC.fromStrict (gitIndexSerialize index))
+  BSLC.writeFile (gitdir ++ "/index") content
 
 -- B.writeFile path content
 
