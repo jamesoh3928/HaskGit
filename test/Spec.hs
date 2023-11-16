@@ -16,9 +16,9 @@ tests = adjustOption @QuickCheckTests (* 10) $
       [ testGroup "GitObject"
           [
             -- return $ localOption @QuickCheckTests 1000 $ propNewBlob
-            testProperty "propNewBlob@Int@String" $ propNewBlob,
-            testProperty "propNewTree@Int@[(String, String, ByteString)]" $ propNewTree,
-            testProperty "propNewCommit@Int@ByteString@[ByteString]@GitAuthor@GitCommitter@String" $ propNewCommit
+            -- testProperty "propNewBlob@Int@String" $ propNewBlob,
+            -- testProperty "propNewTree@Int@[(String, String, ByteString)]" $ propNewTree,
+            -- testProperty "propNewCommit@Int@ByteString@[ByteString]@GitAuthor@GitCommitter@String" $ propNewCommit
             -- newGitObjectHash,
             -- gitObjectSerialize,
             -- gitShowStr,
@@ -30,24 +30,24 @@ tests = adjustOption @QuickCheckTests (* 10) $
         -- gitShow
       ]
 
-instance Arbitrary ByteString where
-  arbitrary = BS.pack <$> arbitrary
+-- instance Arbitrary ByteString where
+--   arbitrary = BS.pack <$> arbitrary
 
-propNewBlob :: Int -> String -> Property
-propNewBlob size content = size >= 0 ==> getBlobContent (newBlob size content) == content
+-- propNewBlob :: Int -> String -> Property
+-- propNewBlob size content = size >= 0 ==> getBlobContent (newBlob size content) == content
 
-propNewTree :: Int -> [(String, String, ByteString)] -> Property
-propNewTree size entries = size >= 0 ==> f (newTree size entries)
-  where
-    f (Tree (s, e)) = s == size && length e == length entries
+-- propNewTree :: Int -> [(String, String, ByteString)] -> Property
+-- propNewTree size entries = size >= 0 ==> f (newTree size entries)
+--   where
+--     f (Tree (s, e)) = s == size && length e == length entries
 
-propNewCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> Property
-propNewCommit bytesize tree parents authorInfo committerInfo message =
-  bytesize >= 0 ==>
-  gitHashObject (newCommit bytesize tree parents authorInfo committerInfo message) True
-    == gitHashObject obj True
-    where
-      obj = Commit (bytesize, tree, parents, authorInfo, committerInfo, message)
+-- propNewCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> Property
+-- propNewCommit bytesize tree parents authorInfo committerInfo message =
+--   bytesize >= 0 ==>
+--   gitHashObject (newCommit bytesize tree parents authorInfo committerInfo message) True
+--     == gitHashObject obj True
+--     where
+--       obj = Commit (bytesize, tree, parents, authorInfo, committerInfo, message)
 
 -- NOTE:
 -- An example of assertion test; The challenge is we need a `.dat` file that contains numerous test

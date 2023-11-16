@@ -44,55 +44,9 @@ tests:
     main: Spec.hs
     source-dirs: test
     dependencies:
-      - HaskGit
-      - base >= 4.7 && < 5
-      - tasty
-      - tasty-hunit
-      - tasty-quickcheck
-   ---
-name: HaskGit
-version: 0.1.0.0
-github: githubuser/HaskGit
-license: BSD-3-Clause
-author: Author name here
-maintainer: example@example.com
-copyright: 2023 Author name here
-extra-source-files:
-  - README.md
-  - CHANGELOG.md
-library:
-  source-dirs: src
-  exposed-modules:
-    - GitObject
-    - GitParser
-    - HaskGit
-    - Index
-    - Lib
-    - Ref
-  other-modules:
-    - Paths_HaskGit
-  dependencies:
-    - base >= 4.7 && < 5
-    - bytestring
-    - zlib
-    - parsec
-    - cryptohash-sha1
-    - base16-bytestring
-    - time
-    - directory
-    - filepath
-executables:
-  HaskGit-exe:
-    main: Main.hs
-    source-dirs: app
-    dependencies:
       - base >= 4.7 && < 5
       - HaskGit
       - bytestring
-      - cmdargs
-tests:
-  HaskGit-test:
-    main: Spec.hs
-    source-dirs: test
-    dependencies:
-   
+      - tasty
+      - tasty-hunit
+      - tasty-quickcheck

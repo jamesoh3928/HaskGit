@@ -1,42 +1,23 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Main (main) where
 
-import HaskGit (testHash)
+import HaskGit
+import GitObject
+import Index
+
 import System.Console.CmdArgs
 import Data.ByteString (ByteString)
--- import Lib
-
--- you can run it by `stack exec -- -f <filename`
--- FIXME: use command instead of option
-data HaskGit =
-    TestHash {filename :: FilePath}
-    | Help
-    deriving (Data, Typeable, Show, Eq)
-
-testHashMode = TestHash {filename = def &= typFile &= help "TestHash :: String -> IO()"}
-cmdModes = modes [testHashMode]
-
-runCommand :: HaskGit -> IO ()
-runCommand cmd = case cmd of
-  TestHash filename -> testHash filename
 import qualified Data.ByteString.Char8 as B
-import GitObject
-import HaskGit
-import Index
-import System.Console.CmdArgs
-
--- import Lib
 
 data HaskGit
-  = TestHash {filename :: FilePath}
+  = Show {hash :: String}
   | WriteTree {filename :: FilePath}
-  | Show {hash :: String}
   deriving (Data, Typeable, Show, Eq)
 
 -- NOTE: Functionality is not implemented yet
 writeTreeMode :: HaskGit
 writeTreeMode = WriteTree {filename = def &= typFile &= argPos 0} &=
-  help "haskgit show <filename>\nCreate a tree object from the current index"
+  help "haskgit writeTree <filename>\nCreate a tree object from the current index"
 
 showMode :: HaskGit
 showMode = Show {hash = def &= argPos 0}&=
