@@ -3,7 +3,7 @@ import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitParser (parseGitObject, parseIndexFile)
-import HaskGit (gitHashObject)
+import HaskGit
 import Index
 import Text.Parsec (parse)
 
@@ -74,3 +74,14 @@ testHash filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
       print (encode (gitHashObject result))
+
+testHashCommand :: String -> IO ()
+testHashCommand filename = do
+  content <- BSLC.readFile filename
+  -- hashing without the header
+  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> do
+      -- print (gitHashObject result)
+      hash <- gitHashCommand result True
+      print (encode hash)
