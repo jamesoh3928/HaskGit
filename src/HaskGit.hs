@@ -1,6 +1,5 @@
 module HaskGit
   ( gitShow,
-    gitHashObject,
     gitHashCommand,
   )
 where
