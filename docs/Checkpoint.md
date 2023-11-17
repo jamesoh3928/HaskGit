@@ -180,6 +180,7 @@ src/
 |   |-- Refs.hs -- types and functions related to References
 |   |-- Index.hs -- types and functions related to Index
 │   │-- HaskGit.hs -- functions for all git porcleain and plumbing commands
+|   |-- Util.hs -- utility functions that do not fit in other files
 |   |-- Experiment.hs -- just a playground for an experiment (planning to delete it in the future)
 app/
 |
