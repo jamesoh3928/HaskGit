@@ -25,20 +25,20 @@ saveGitObject :: String -> String -> IO ()
 saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
--- gitShow :: String -> IO ()
--- gitShow filename = do
---   x <- BSLC.readFile filename
---   case parse parseGitObject "" (unpack (decompress x)) of
---     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---     Right result -> print result
+gitShow :: String -> IO ()
+gitShow filename = do
+  x <- BSLC.readFile filename
+  case parse parseGitObject "" (unpack (decompress x)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
 
--- -- Test: ".git/index"
--- testParseIndex :: String -> IO ()
--- testParseIndex s = do
---   x <- BSLC.readFile s
---   case parse parseIndexFile "" (unpack x) of
---     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---     Right result -> print result
+-- Test: ".git/index"
+testParseIndex :: String -> IO ()
+testParseIndex s = do
+  x <- BSLC.readFile s
+  case parse parseIndexFile "" (unpack x) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
 
 testSaveIndex :: IO ()
 testSaveIndex = do
@@ -49,18 +49,23 @@ testSaveIndex = do
 
 ------------------------------------------------
 -- Blob test
--- gitShow ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+-- Main.gitShow ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
 
 -- Tree test
--- gitShow ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+-- Main.gitShow ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
 
 -- Commit test
--- gitShow ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+-- Main.gitShow ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
 
 decompressPrint filename = do
   x <- BSLC.readFile filename
   BSLC.putStrLn (decompress x)
 
+decompressSave filename newName = do
+  x <- BSLC.readFile filename
+  BSLC.writeFile newName (decompress x)
+
+-- .git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a
 readIndexFile :: IO ()
 readIndexFile = do
   x <- BSLC.readFile ".git/index"

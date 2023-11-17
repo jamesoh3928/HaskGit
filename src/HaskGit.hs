@@ -37,7 +37,8 @@ gitHashCommand obj b = do
     then do
       saveGitObject hash obj
       return hash
-    else return hash
+    else do
+      return hash
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> IO ()

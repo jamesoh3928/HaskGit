@@ -31,6 +31,7 @@ parseBlob = do
         then fail "Byte size does not match in blob file"
         else return (Blob (bytesize, content))
 
+-- Tree is binary object unlike commit
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
@@ -47,8 +48,8 @@ parseTree = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha' <- Text.ParserCombinators.Parsec.count 20 anyChar
-      return (filemode, filename, BC.pack sha')
+      sha' <- B16.encode . BC.pack <$> count 20 anyChar
+      return (filemode, filename, sha')
 
 -- GitCommit = (tree, parent, author, committer, message, timestamp)
 parseCommit :: Parser GitObject
@@ -118,7 +119,7 @@ parseGitIndexEntry = do
   uid' <- parseInt32
   gid' <- parseInt32
   fsize' <- parseInt32
-  sha' <- BC.unpack . B16.encode . BC.pack <$> count 20 anyChar
+  sha' <- B16.encode . BC.pack <$> count 20 anyChar
   flags <- parseInt16
   let flagAssumeValid' = flags .&. 0x8000 /= 0
       -- flagExtended, ignoring for mvp
