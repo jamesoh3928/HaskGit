@@ -1,7 +1,8 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module GitObject
-  ( GitBlob,
+  ( 
+    GitBlob,
     GitTree,
     GitCommit,
     GitObject (..),
