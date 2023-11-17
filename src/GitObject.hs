@@ -4,7 +4,7 @@ module GitObject
   ( GitBlob,
     GitTree,
     GitCommit,
-    GitObject(..),
+    GitObject (..),
     GitObjectHash,
     newGitObjectHash,
     gitObjectSerialize,
@@ -13,6 +13,7 @@ module GitObject
   )
 where
 
+import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
@@ -20,6 +21,8 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+-- import Index (intTo4Bytes)
+import System.FilePath
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)

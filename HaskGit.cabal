@@ -29,6 +29,7 @@ library
       Index
       Lib
       Ref
+      Util
   other-modules:
       Paths_HaskGit
   autogen-modules:

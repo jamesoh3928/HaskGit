@@ -2,6 +2,7 @@ module Index
   ( GitIndex (..),
     GitIndexEntry (..),
     gitIndexSerialize,
+    intToBytes,
   )
 where
 

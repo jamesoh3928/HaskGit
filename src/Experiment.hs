@@ -3,9 +3,9 @@ import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Lazy.Char8 as BSLC
 import GitParser (parseGitObject, parseIndexFile)
-import HaskGit (gitHashObject)
 import Index
 import Text.Parsec (parse)
+import Util (gitHashObject)
 
 -- import System.Console.CmdArgs.Implicit
 
@@ -24,20 +24,20 @@ saveGitObject :: String -> String -> IO ()
 saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
-gitShow :: String -> IO ()
-gitShow filename = do
-  x <- BSLC.readFile filename
-  case parse parseGitObject "" (unpack (decompress x)) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> print result
+-- gitShow :: String -> IO ()
+-- gitShow filename = do
+--   x <- BSLC.readFile filename
+--   case parse parseGitObject "" (unpack (decompress x)) of
+--     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+--     Right result -> print result
 
--- Test: ".git/index"
-testParseIndex :: String -> IO ()
-testParseIndex s = do
-  x <- BSLC.readFile s
-  case parse parseIndexFile "" (unpack x) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> print result
+-- -- Test: ".git/index"
+-- testParseIndex :: String -> IO ()
+-- testParseIndex s = do
+--   x <- BSLC.readFile s
+--   case parse parseIndexFile "" (unpack x) of
+--     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+--     Right result -> print result
 
 testSaveIndex :: IO ()
 testSaveIndex = do
