@@ -2,3 +2,4 @@
 *.lock
 dist-newstyle/
 .haskgit/
+.vscode/
