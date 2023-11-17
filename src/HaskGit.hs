@@ -1,5 +1,6 @@
 module HaskGit
   ( gitShow,
+    gitHashObject,
     gitHashCommand,
   )
 where
@@ -12,9 +13,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
-import Index
 import Index (GitIndex, gitIndexSerialize)
-import Ref
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist)
 import System.FilePath
@@ -90,28 +89,22 @@ gitRevList :: ByteString -> [GitCommit]
 gitRevList = undefined
 
 -- List of porcelain commands
-gitAdd :: ByteString -> ByteString
+gitAdd :: ByteString -> IO ()
 gitAdd = undefined
 
-gitStatus :: ByteString -> String
+gitStatus :: ByteString -> IO ()
 gitStatus = undefined
 
-gitCommit :: ByteString -> ByteString
+gitCommit :: ByteString -> IO ()
 gitCommit = undefined
 
-gitRestore :: ByteString -> ByteString
-gitRestore = undefined
-
-gitReset :: ByteString -> ByteString
+gitReset :: ByteString -> IO ()
 gitReset = undefined
 
-gitRm :: ByteString -> ByteString
-gitRm = undefined
-
-gitCheckout :: ByteString -> ByteString
+gitCheckout :: ByteString -> IO ()
 gitCheckout = undefined
 
-gitBranch :: ByteString -> ByteString
+gitBranch :: ByteString -> IO ()
 gitBranch = undefined
 
 -- Test in GHCI:
@@ -129,11 +122,8 @@ gitShow hash = do
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
     Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
 
-gitLog :: ByteString -> String
+gitLog :: ByteString -> IO String
 gitLog = undefined
 
-gitRebase :: ByteString -> ByteString
-gitRebase = undefined
-
-gitRevert :: ByteString -> ByteString
+gitRevert :: ByteString -> IO ()
 gitRevert = undefined

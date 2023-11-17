@@ -9,7 +9,6 @@ module GitObject
     newGitObjectHash,
     gitObjectSerialize,
     gitShowStr,
-    getBlobContent,
   )
 where
 
@@ -26,10 +25,6 @@ import System.FilePath
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
-
-getBlobContent :: GitObject -> String
-getBlobContent (Blob (_, content)) = content
-getBlobContent _ = ""
 
 -- GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
 type GitTree = (Int, [(String, String, ByteString)])
