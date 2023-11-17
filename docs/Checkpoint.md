@@ -79,7 +79,7 @@ Commands that will be implemented for MVP:
 
 ## Checkpoint Progress Summary
 
-fter adjusting our approach to explore with small commands and then building up some core functions based on the patterns we found, the parts we implemented are slightly different from the ones proposed in the initial proposal. However, we still believe that we have made significant progress in this project by developing core functions that can be utilized in many other command functions. Of course, there is still a lot of work to be done until we reach the MVP. Here is a brief summary of the progress we have made up to this checkpoint.
+After adjusting our approach to explore with small commands and then building up some core functions based on the patterns we found, the parts we implemented are slightly different from the ones proposed in the initial proposal. However, we still believe that we have made significant progress in this project by developing core functions that can be utilized in many other command functions. Of course, there is still a lot of work to be done until we reach the MVP. Here is a brief summary of the progress we have made up to this checkpoint.
 
 1. Modifying design
 A lot of things are happening inside Git, so we had to spend a lot of time researching the concept. There were many details we did not realize during the proposal, and there were too many I/Os happening inside Git to follow the "Functional core/Imperative shell" design pattern. If we were to follow this design pattern, we would have to read the entire Git directory into memory for every single Git command. This was not ideal, so we decided to reject such a design pattern and instead follow the simple MVC pattern.
@@ -134,10 +134,17 @@ The `hashObject` function takes the gitObject as an argument and returns the has
 
 6. Locate `.git` directory
 TODO: Review Jack
-In order to run Git commands, we need to be able to locate the `.git` directory. Git clients climb up the directory hierarchy until they find the `.git` directory. Our `getGitDirectory` function achieves this and will be one of the functions repeatedly used in Git command functions.
+In order to run Git commands, we need to be able to locate the `.git` directory. Git clients climb up the directory hierarchy until they find the `.git` directory. Our `getGitDirectory` function achieves this and will be one of the functions repeatedly used in Git command functions. To keep the original `.git` directory clean, the function will return `.haskgit` directory.
 
-7. Implementing `Ref`
-TODO: Jack
+`gitUpdateRef` function is implemented to update the ref in .haskgit file. 
+
+7. Implementing `Ref`:
+
+    Git ref is a file that contains a Git commit hash, we can think this as a pointer to a commit. For example, `.git/refs/heads/main` will store a commit hash main branch is pointing to. Ref will be used in lots of other commands such as `git branch`, `git checkout` and etc to update the commit branch is pointing to.
+
+    To work with ref, `gitRefUpdate` function was implemented. This funcition takes
+
+
 
 8. Command Line Parsing
 TODO: Review Chen
