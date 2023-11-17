@@ -1,6 +1,7 @@
 module HaskGit
   ( gitShow,
     gitHashObject,
+    gitHashCommand,
   )
 where
 
@@ -13,9 +14,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
 import GitParser (parseGitObject)
-import Index
 import Index (GitIndex, gitIndexSerialize)
-import Ref
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
@@ -82,17 +81,6 @@ gitHashCommand obj b = do
       return hash
     else return hash
 
-testHashCommand :: String -> IO ()
-testHashCommand filename = do
-  content <- BSLC.readFile filename
-  -- hashing without the header
-  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> do
-      -- print (gitHashObject result)
-      hash <- gitHashCommand result True
-      print (encode hash)
-
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> IO ()
 gitWriteTree = undefined
@@ -147,28 +135,22 @@ gitRevList :: ByteString -> [GitCommit]
 gitRevList = undefined
 
 -- List of porcelain commands
-gitAdd :: ByteString -> ByteString
+gitAdd :: ByteString -> IO ()
 gitAdd = undefined
 
-gitStatus :: ByteString -> String
+gitStatus :: ByteString -> IO ()
 gitStatus = undefined
 
-gitCommit :: ByteString -> ByteString
+gitCommit :: ByteString -> IO ()
 gitCommit = undefined
 
-gitRestore :: ByteString -> ByteString
-gitRestore = undefined
-
-gitReset :: ByteString -> ByteString
+gitReset :: ByteString -> IO ()
 gitReset = undefined
 
-gitRm :: ByteString -> ByteString
-gitRm = undefined
-
-gitCheckout :: ByteString -> ByteString
+gitCheckout :: ByteString -> IO ()
 gitCheckout = undefined
 
-gitBranch :: ByteString -> ByteString
+gitBranch :: ByteString -> IO ()
 gitBranch = undefined
 
 -- Test in GHCI:
@@ -186,11 +168,8 @@ gitShow hash = do
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
     Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
 
-gitLog :: ByteString -> String
+gitLog :: ByteString -> IO String
 gitLog = undefined
 
-gitRebase :: ByteString -> ByteString
-gitRebase = undefined
-
-gitRevert :: ByteString -> ByteString
+gitRevert :: ByteString -> IO ()
 gitRevert = undefined
