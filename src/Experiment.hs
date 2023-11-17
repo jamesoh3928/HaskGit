@@ -1,3 +1,6 @@
+-- NOTE: This file is just for a playground for experiment. Do not use any function in this file in any
+-- other places. This file will be deleted in the future.
+
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
@@ -6,7 +9,6 @@ import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
 import Index
 import Text.Parsec (parse)
-import Util (gitHashObject)
 
 -- import System.Console.CmdArgs.Implicit
 

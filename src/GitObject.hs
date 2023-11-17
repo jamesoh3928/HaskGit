@@ -5,24 +5,23 @@ module GitObject
     GitTree,
     GitCommit,
     GitObject (..),
-    GitObjectHash,
-    newGitObjectHash,
+    GitObjectHash (..),
     gitObjectSerialize,
     gitShowStr,
+    saveGitObject,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 as B16 (decode)
+import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.Time
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
--- import Index (intTo4Bytes)
+import System.Directory (createDirectoryIfMissing)
 import System.FilePath
+import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
@@ -48,9 +47,6 @@ instance Show GitObject where
   show (Commit commit) = "Commit " ++ show commit
 
 type GitObjectHash = (GitObject, ByteString)
-
-newGitObjectHash :: GitObject -> ByteString -> GitObjectHash
-newGitObjectHash obj objHash = (obj, objHash)
 
 -- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
@@ -88,15 +84,10 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
------- Helpers (maybe separate files later) -------
-unixToUTCTime :: Integer -> UTCTime
-unixToUTCTime unixTime = posixSecondsToUTCTime $ fromInteger unixTime
-
-formatUTCTimeWithTimeZone :: String -> UTCTime -> String
-formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %e %T %Y " utcTimeWithTZ ++ timezoneOffset
-  where
-    -- Parse the timezone offset from the format "-0500"
-    hours = read (take 3 timezoneOffset) :: Int
-    minutes = read (drop 3 timezoneOffset) :: Int
-    timezoneMinutes = hours * 60 + minutes
-    utcTimeWithTZ = utcTime {utctDayTime = utctDayTime utcTime + fromIntegral (timezoneMinutes * 60)}
+-- Take hash and GitObject and save it to .git/objects
+saveGitObject :: ByteString -> GitObject -> IO ()
+saveGitObject hash obj = do
+  let content = compress (BSLC.fromStrict (gitObjectSerialize obj))
+  path <- hashToFilePath (B.unpack (encode hash))
+  createDirectoryIfMissing True (takeDirectory path)
+  BSLC.writeFile path content

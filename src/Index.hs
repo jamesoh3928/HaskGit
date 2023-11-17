@@ -35,8 +35,7 @@ data GitIndexEntry = GitIndexEntry
 newtype GitIndex = GitIndex [GitIndexEntry]
   deriving (Show)
 
--- Convert integer to string
--- Opposite of parseInt function
+-- Convert integer to string (opposite of parseInt function in GitParser.hs).
 intToBytes :: Int -> Int -> String
 intToBytes length n = reverse (aux length n)
   where
@@ -44,15 +43,15 @@ intToBytes length n = reverse (aux length n)
     aux length 0 = replicate length '\0'
     aux length n = chr (n `mod` 256) : aux (length - 1) (n `div` 256)
 
--- Convert int to 4 bytes string
+-- Convert int to 4 bytes string.
 intTo4Bytes :: Int -> String
 intTo4Bytes = intToBytes 4
 
--- Convert int to 2 bytes string
+-- Convert int to 2 bytes string.
 intTo2Bytes :: Int -> String
 intTo2Bytes = intToBytes 2
 
--- Serialize GitIndexEntry to ByteString
+-- Serialize GitIndexEntry to ByteString.
 gitIndexEntrySerialize :: GitIndexEntry -> ByteString
 gitIndexEntrySerialize entry =
   mconcat
@@ -88,7 +87,8 @@ gitIndexEntrySerialize entry =
             ]
     )
 
--- Header: 12 bytes - "DIRC" + version (4 bytes - always 2 for mvp) + number of entries (4 bytes)
+-- Serialize GitIndex to ByteString.
+-- Header: 12 bytes - "DIRC" + version (4 bytes - always 2 for mvp) + number of entries (4 bytes).
 gitIndexSerialize :: GitIndex -> ByteString
 gitIndexSerialize (GitIndex entries) = content <> checkSum
   where
