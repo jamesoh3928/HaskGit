@@ -230,8 +230,16 @@ This was one of the most challenging parts of the project so far because it was 
 TODO: Review Chen
 Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):"
 
+Example:
 ```
-.stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show faf353d2a79d5103cea4090c9d66db3124629d38
+PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
+commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
+Author: James Oh <jo9347@cs.rit.edu>
+Date:   Thu Nov  9 14:33:38 2023 -0500
+
+    Change content to bytestring
+
+PS C:\Users\james\Documents\CS541\HaskGit>
 ```
 
 10. Testing Infrastructure
