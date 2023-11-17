@@ -237,27 +237,46 @@ This was one of the most challenging parts of the project so far because it was 
 
 
 9. Command Line Parsing
-TODO: Review Chen
-Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):"
+Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):
 
 Example (note - if you are using non-Windows machine, you may find executable in differetn folder):
-```
-PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
-commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
-Author: James Oh <jo9347@cs.rit.edu>
-Date:   Thu Nov  9 14:33:38 2023 -0500
 
-    Change content to bytestring
-
-PS C:\Users\james\Documents\CS541\HaskGit>
+```sh
+# NOTE: the hash value need to be one placed in the `.haskgit` directory
+stack exec haskgit-exe -- show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
+# OR
+.stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
 ```
 
-10. Testing Infrastructure
-TODO: Review Chen
+`CmdArgs` serves well for accepting input and parsing help messages;
+however, it comes with some limitations as it operates as a template with restricted custom behavior.
+For instance, the recommended implementation is similar to `hlint`, which accepts sub-commands as flags only, like this: "hlint -r="report_for_parser.html" src/GitParser.hs".
+Since `git` consists of a suite of commands, using flags alone cannot meet the practical requirements.
+`haskgit` is configured as multi-mode program, allowing each command to work with its own set of flags.
+In this project range, we don't consider flag uses and make arguments with its position.
+
+In `CmdArgs`, the default value for input is confined to common data types, such as String.
+If we need to use a command function with a *ByteString* argument (e.g., gitShow),
+  the input with *String* type must be converted to *ByteString* before executing the command.
+Since the CLI can execute commands directly,
+  it can be utilized to test internal commands, such as `hashgit` from `Experiment.hs`, which combines the head and content hash for a gitObject.
+For future improvements, a convention for input and output types might be necessary.
+
+
+9. Testing Infrastructure
 We haven't added too many tests yet, but we have set up the testing infrastructure using the Tasty framework. We plan to add more unit tests in the future for each porcelain command we implement. For example, to test `haskgit show`, we will include test git object files and an expected output file to compare if the command produces the expected output.
 
-
 **Note**: We are aware that the current state of the project may contain some non-clean code. This is because we were focused on exploring different options and implemented the show command first to identify some patterns. In the future, we plan to clean up the code.
+
+The operation of `Git` is based on file system.
+  It is hard to void the challenge of designing expected behaviors and results for target functions.
+  And the unfamiliarity to `tasty` framework enhances the difficulty.
+
+We decide to start from small points, and use exist data (i.e., our `.git`) for testing.
+For example, there is a bash script called `test.sh` under test directory,
+  it simply calls `git show` and `hashgit show` for comparisons.
+For later testing, our plan is generating detailed data of GitObject with blob, tree, and commit,
+then formatting them to fit the uses of specific functions and tasty framework.
 
 ## Additional Details
 

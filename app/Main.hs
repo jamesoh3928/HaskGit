@@ -19,7 +19,7 @@ writeTreeMode = WriteTree {filename = def &= typFile &= argPos 0} &=
   help "haskgit writeTree <filename>\nCreate a tree object from the current index"
 
 showMode :: HaskGit
-showMode = Show {hash = def &= argPos 0}&=
+showMode = Show {hash = def &= argPos 0} &= 
   help "haskgit show <object>\nShows various types of git objects" 
 
 hashObjectMode :: HaskGit
