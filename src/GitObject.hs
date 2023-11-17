@@ -4,7 +4,7 @@ module GitObject
   ( GitBlob,
     GitTree,
     GitCommit,
-    GitObject(..),
+    GitObject (..),
     GitObjectHash,
     newGitObjectHash,
     gitObjectSerialize,
@@ -13,6 +13,7 @@ module GitObject
 where
 
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16 as B16 (decode)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -66,10 +67,15 @@ gitObjectSerialize (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob "
 -- (header + concatenation of Blobs and subtrees within Tree)
 gitObjectSerialize (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
   where
+    decodHash :: ByteString -> ByteString
+    decodHash hash = case B16.decode hash of
+      Left err -> error err
+      Right x -> x
+
     content :: [(String, String, ByteString)] -> String
     content [] = ""
-    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash
-    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BS.unpack hash ++ content xxs
+    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ (BS.unpack . decodHash) hash
+    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ (BS.unpack . decodHash) hash ++ content xxs
 -- Commit: header + concatenation of content inside
 gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committerObj, message)) = BSL.toStrict (BSLC.pack ("commit " ++ show byteSize ++ "\0" ++ content))
   where

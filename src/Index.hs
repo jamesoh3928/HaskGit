@@ -24,7 +24,7 @@ data GitIndexEntry = GitIndexEntry
     uid :: Int,
     gid :: Int,
     fsize :: Int,
-    sha :: String,
+    sha :: ByteString,
     flagAssumeValid :: Bool,
     flagStage :: Int,
     name :: String
@@ -69,7 +69,7 @@ gitIndexEntrySerialize entry =
               intTo4Bytes (gid entry),
               intTo4Bytes (fsize entry),
               -- Decode the sha string to ByteString
-              case B16.decode (BC.pack (sha entry)) of
+              case B16.decode (sha entry) of
                 Left err -> error err
                 Right result -> BC.unpack result,
               -- Concat flagAssumeValid, flagStage, and nameLength
