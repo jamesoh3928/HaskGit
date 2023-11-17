@@ -140,9 +140,40 @@ In order to run Git commands, we need to be able to locate the `.git` directory.
 
 7. Implementing `Ref`:
 
-    Git ref is a file that contains a Git commit hash, we can think this as a pointer to a commit. For example, `.git/refs/heads/main` will store a commit hash main branch is pointing to. Ref will be used in lots of other commands such as `git branch`, `git checkout` and etc to update the commit branch is pointing to.
+    Git ref is a file that contains a git commit hash, we can think of this as a pointer to a commit. For example, `.git/refs/heads/main` will store a commit hash the main branch is pointing to. Ref will be used in lots of other commands such as `git branch`, `git checkout` etc to update the commit branch is pointing to.
 
-    To work with ref, `gitRefUpdate` function was implemented. This funcition takes
+    There are two types of refs, regular ref and symbolic ref. Regular ref contains hash commit directly while symbolic ref points to another ref. The most common symbolic ref is HEAD where later it will be used to point to the latest commit of the current branch. For example,
+    ```
+    > cat .git/refs/heads/main
+      f6f754dbe0808826bed2237eb651558f75215cc6
+
+    > cat .git/HEAD
+      ref: refs/heads/main
+    ```
+    The first example shows the regular ref which directly contains the commit hash while the second example shows the symbolic ref which points to refs/heads/main. To work with the ref, we need to implement two commands, `gitRefUpdate` and `gitSymbolicRef`. `gitRefUpdate` will update or create a ref with commit hash while `gitSymbolicRef` will create or update symbolic-ref. For this checkpoint, we have completed the implementation of `gitRefUpdate`, and `gitSymbolicRef` will be implemented later. 
+
+   The `gitRefUpdate` function takes <destination refname> and <commit hash or source refname> as input and updates the content of <refname> to commit hash. If the second argument is a committed hash, it will simply save the hash value to the destination refname. If the second argument is refname, it will recurse the ref until it finds the commit hash. 
+    
+    For example,
+
+    ```
+    -- Case1: refname, hash-value
+    -- .haskgit/refs/heads/main will contain f6f754dbe0808826bed2237eb651558f75215cc6
+    gitRefUpdate "refs/heads/main" "f6f754dbe0808826bed2237eb651558f75215cc6"
+
+
+    -- Case2: refname, refname
+    -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
+    gitRefUpdate "refs/heads/test" "refs/heads/main"
+
+    -- Case3: symbolic-ref, hash-value
+    -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
+    gitRefUpdate "HEAD" "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
+    ```
+
+    The `gitRefUpdate` function uses the helper function `gitRefToCommit` in Util.hs which finds the commit hash of the ref and returns `IO (Maybe String)`. Since ref can point to another ref, it will recurse until it reaches the hash value. If there were some issue encountered(such as the commit hash object does not exist), the helper function will return Nothing. `gitRefUpdate` uses the value returned from `gitRefToCommit` and saves it in the source ref file.
+
+    Note: We initially thought we would need a new Ref type which is defined in Ref.hs but since ref is a path name, we did not need to use this type as we defined a function that returns commit hash from ref. We are still keeping Ref.hs in case we need it in the future but as of now, this is not being used.
 
 
 
