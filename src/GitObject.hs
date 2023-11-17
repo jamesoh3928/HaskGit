@@ -85,9 +85,9 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
 -- Take hash and GitObject and save it to .git/objects
-saveGitObject :: ByteString -> GitObject -> IO ()
-saveGitObject hash obj = do
-  let content = compress (BSLC.fromStrict (gitObjectSerialize obj))
+saveGitObject :: ByteString -> ByteString -> IO ()
+saveGitObject hash content = do
+  let obj = compress (BSLC.fromStrict content)
   path <- hashToFilePath (B.unpack (encode hash))
   createDirectoryIfMissing True (takeDirectory path)
-  BSLC.writeFile path content
+  BSLC.writeFile path obj
