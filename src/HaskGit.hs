@@ -1,16 +1,18 @@
 module HaskGit
   ( gitShow,
     gitHashCommand,
+    gitHashObject,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
+import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
-import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, newGitObjectHash)
+import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject)
 import Index (GitIndex, gitIndexSerialize)
 import Ref (GitRef)
@@ -40,6 +42,12 @@ gitHashCommand obj b = do
     else do
       return hash
 
+-------------------------- List of plumbing commands --------------------------
+
+-- This command computes the SHA-1 hash of Git objects.
+gitHashObject :: GitObject -> ByteString
+gitHashObject obj = SHA1.hash (gitObjectSerialize obj)
+
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: GitIndex -> IO ()
 gitWriteTree = undefined
@@ -52,12 +60,9 @@ gitReadTree = undefined
 gitCommitTree :: GitTree -> [GitCommit] -> String -> String -> String -> UTCTime -> GitCommit
 gitCommitTree = undefined
 
--- Update the object name stored in a ref safely
--- Ref mostly contains hash but can also store symbolic ref
+-- Update the object name stored in a ref safely.
 -- git update-ref <refname> <new-object-name>
--- ref can be also symbolic ref such as HEAD
--- gitUpdateRef "refs/heads/main" hashvalue
--- gitUpdateRef "refs/heads/main" "refs/heads/test"
+-- e.g. gitUpdateRef "refs/heads/main" hashvalue
 gitUpdateRef :: String -> String -> IO ()
 gitUpdateRef ref obj = do
   path <- refToFilePath ref
@@ -88,7 +93,7 @@ gitReadCache = undefined
 gitRevList :: ByteString -> [GitCommit]
 gitRevList = undefined
 
--- List of porcelain commands
+-------------------------- List of porcelain commands --------------------------
 gitAdd :: ByteString -> IO ()
 gitAdd = undefined
 
@@ -111,6 +116,8 @@ gitBranch = undefined
 -- Blob: gitShow (B.pack "f6f754dbe0808826bed2237eb651558f75215cc6")
 -- Tree: gitShow (B.pack "f6e1af0b636897ed62c8c6dad0828f1172b9b82a")
 -- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
+--
+-- Display the contents of the git object for the given hash.
 gitShow :: ByteString -> IO ()
 gitShow hash = do
   -- 2 hexadecimal = 4 bytes
@@ -120,7 +127,7 @@ gitShow hash = do
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
-    Right gitObj -> Prelude.putStrLn $ gitShowStr (newGitObjectHash gitObj hash)
+    Right gitObj -> Prelude.putStrLn $ gitShowStr (gitObj, hash)
 
 gitLog :: ByteString -> IO String
 gitLog = undefined

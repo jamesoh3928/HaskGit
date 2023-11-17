@@ -15,9 +15,11 @@ import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
+-- Helper function to get byte size of string
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
 
+-- Parse the blob object.
 parseBlob :: Parser GitObject
 parseBlob = do
   _ <- string "blob "
@@ -31,7 +33,7 @@ parseBlob = do
         then fail "Byte size does not match in blob file"
         else return (Blob (bytesize, content))
 
--- Tree is binary object unlike commit
+-- Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
@@ -51,7 +53,7 @@ parseTree = do
       sha' <- B16.encode . BC.pack <$> count 20 anyChar
       return (filemode, filename, sha')
 
--- GitCommit = (tree, parent, author, committer, message, timestamp)
+-- Parse the commit object.
 parseCommit :: Parser GitObject
 parseCommit = do
   _ <- string "commit "
@@ -83,6 +85,7 @@ parseCommit = do
       return
         (Commit (bytesize, BC.pack rootTree, [BC.pack parent], authorInfo, committerInfo, message))
 
+-- Parse the git object.
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
 
@@ -176,12 +179,3 @@ parseIndexFile = do
   numEntries <- parseInt32
   entries <- count numEntries parseGitIndexEntry
   return (GitIndex entries)
-
--- refParser :: Parser String
--- refParser = do
---   _ <- string "refs: "
---   s <- many anyChar
---   refToCommitHash s
-
--- refToCommitHash :: String -> Parser String
--- refToCommitHash ref = choice [refParser, many anyChar]
