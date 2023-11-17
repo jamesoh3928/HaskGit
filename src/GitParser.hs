@@ -176,3 +176,12 @@ parseIndexFile = do
   numEntries <- parseInt32
   entries <- count numEntries parseGitIndexEntry
   return (GitIndex entries)
+
+-- refParser :: Parser String
+-- refParser = do
+--   _ <- string "refs: "
+--   s <- many anyChar
+--   refToCommitHash s
+
+-- refToCommitHash :: String -> Parser String
+-- refToCommitHash ref = choice [refParser, many anyChar]
