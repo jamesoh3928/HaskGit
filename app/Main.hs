@@ -5,6 +5,7 @@ import HaskGit
 
 import System.Console.CmdArgs
 import qualified Data.ByteString.Char8 as B
+import Experiment
 
 data HaskGit
   = Show {hash :: String}
@@ -21,12 +22,17 @@ showMode :: HaskGit
 showMode = Show {hash = def &= argPos 0}&=
   help "haskgit show <object>\nShows various types of git objects" 
 
+hashObjectMode :: HaskGit
+hashObjectMode = HashObject {filename = def &= typFile &= argPos 0} &=
+  help "haskgit hashobject <filename>\nCompute object ID" 
+
 cmdModes :: HaskGit
-cmdModes = modes [showMode, writeTreeMode]
+cmdModes = modes [showMode, hashObjectMode]
 
 runCommand :: HaskGit -> IO ()
 runCommand cmd = case cmd of
   Show hash -> gitShow (B.pack hash)
+  HashObject filename -> testHash filename
 
 main :: IO ()
 main = do

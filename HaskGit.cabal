@@ -29,6 +29,7 @@ library
       Index
       Lib
       Ref
+      Experiment
   other-modules:
       Paths_HaskGit
   autogen-modules:
@@ -75,6 +76,7 @@ test-suite HaskGit-test
       HaskGit
     , base >=4.7 && <5
     , bytestring
+    , shelly
     , tasty
     , tasty-hunit
     , tasty-quickcheck

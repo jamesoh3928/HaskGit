@@ -6,7 +6,25 @@ import GitObject
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
+import Shelly -- not used, but it can call shell command;
 
+
+---------------------------Test for git Show------------------------------------
+-- 0. cp .git to .haskgit (bcs, `git` only use .git)
+-- 1. get a list of git object paths
+-- 2. call git
+-- 3. compare git show <object> with haskgit show <object>
+-- see `test.sh`
+-- NOTE: this approach is easier to do with bash.
+-- for later unit test, there will be a .dat file stores all result
+-- of `git show` then do comparison
+
+main :: IO ()
+main = someFunc
+
+
+{-
+----------------------Abandoned tests (for review only)-------------------------
 main :: IO ()
 main = defaultMain tests
 
@@ -64,4 +82,4 @@ tests = adjustOption @QuickCheckTests (* 10) $
 --         actualHash = gitHashObject obj False
 --       assertEqual "" expectedHash actualHash
 --   ]
-
+-}

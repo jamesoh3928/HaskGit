@@ -18,6 +18,7 @@ library:
     - Index
     - Lib
     - Ref
+    - Experiment
   other-modules:
     - Paths_HaskGit
   dependencies:
@@ -50,3 +51,4 @@ tests:
       - tasty
       - tasty-hunit
       - tasty-quickcheck
+      - shelly

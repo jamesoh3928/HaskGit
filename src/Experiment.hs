@@ -1,3 +1,4 @@
+module Experiment (module Experiment) where
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
@@ -24,8 +25,8 @@ saveGitObject :: String -> String -> IO ()
 saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
-gitShow :: String -> IO ()
-gitShow filename = do
+testGitShow :: String -> IO ()
+testGitShow filename = do
   x <- BSLC.readFile filename
   case parse parseGitObject "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
