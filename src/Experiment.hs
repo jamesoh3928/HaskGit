@@ -25,20 +25,20 @@ saveGitObject :: String -> String -> IO ()
 saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
--- gitShow :: String -> IO ()
--- gitShow filename = do
---   x <- BSLC.readFile filename
---   case parse parseGitObject "" (unpack (decompress x)) of
---     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---     Right result -> print result
+gitShow :: String -> IO ()
+gitShow filename = do
+  x <- BSLC.readFile filename
+  case parse parseGitObject "" (unpack (decompress x)) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
 
--- -- Test: ".git/index"
--- testParseIndex :: String -> IO ()
--- testParseIndex s = do
---   x <- BSLC.readFile s
---   case parse parseIndexFile "" (unpack x) of
---     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
---     Right result -> print result
+-- Test: ".git/index"
+testParseIndex :: String -> IO ()
+testParseIndex s = do
+  x <- BSLC.readFile s
+  case parse parseIndexFile "" (unpack x) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> print result
 
 testSaveIndex :: IO ()
 testSaveIndex = do
@@ -64,7 +64,7 @@ decompressPrint filename = do
 decompressSave filename newName = do
   x <- BSLC.readFile filename
   BSLC.writeFile newName (decompress x)
-  
+
 -- .git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a
 readIndexFile :: IO ()
 readIndexFile = do

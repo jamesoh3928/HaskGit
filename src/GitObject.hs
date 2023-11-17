@@ -41,16 +41,16 @@ type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
-type GitObjectHash = (GitObject, ByteString)
-
-newGitObjectHash :: GitObject -> ByteString -> GitObjectHash
-newGitObjectHash obj objHash = (obj, objHash)
-
 instance Show GitObject where
   show :: GitObject -> String
   show (Tree tree) = "Tree " ++ show tree
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
+
+type GitObjectHash = (GitObject, ByteString)
+
+newGitObjectHash :: GitObject -> ByteString -> GitObjectHash
+newGitObjectHash obj objHash = (obj, objHash)
 
 -- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
