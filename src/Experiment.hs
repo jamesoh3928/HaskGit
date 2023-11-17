@@ -77,12 +77,12 @@ readIndexFile = do
 testHash :: String -> IO ()
 testHash filename = do
   content <- BSLC.readFile filename
-
   -- hashing without the header
   case parse parseGitObject "" (BSLC.unpack (decompress content)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
-      print (encode (gitHashObject result))
+      tmp <- gitHashObject result False
+      print (encode tmp)
 
 testHashCommand :: String -> IO ()
 testHashCommand filename = do
@@ -92,5 +92,5 @@ testHashCommand filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> do
       -- print (gitHashObject result)
-      hash <- gitHashCommand result True
+      hash <- gitHashObject result True
       print (encode hash)

@@ -90,77 +90,125 @@ We implemented a parser that reads various types of Git objects (blob, tree, and
 3. `haskgit show` command
 The `haskgit show` command is equivalent to the `git show` command with some restrictions (it takes only a hash value as an argument and does not show any diff). This command was the first function we implemented to explore how we could implement other Git commands. The example outputs of the `haskgit show` command are as follows:"
 
-An example of tree show
-```
-PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show f6e1af0b636897ed62c8c6dad0828f1172b9b82a
-tree f6e1af0b636897ed62c8c6dad0828f1172b9b82a
+    An example of tree show
+    ```
+    PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show f6e1af0b636897ed62c8c6dad0828f1172b9b82a
+    tree f6e1af0b636897ed62c8c6dad0828f1172b9b82a
 
-.gitattributes
-.gitignore
-README.md
-assets
-docs
-```
+    .gitattributes
+    .gitignore
+    README.md
+    assets
+    docs
+    ```
 
-An example of commit show
-```
-PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
-commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
-Author: James Oh <jo9347@cs.rit.edu>
-Date:   Thu Nov  9 14:33:38 2023 -0500
+    An example of commit show
+    ```
+    PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
+    commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
+    Author: James Oh <jo9347@cs.rit.edu>
+    Date:   Thu Nov  9 14:33:38 2023 -0500
 
-    Change content to bytestring
+        Change content to bytestring
 
-PS C:\Users\james\Documents\CS541\HaskGit> 
-```
+    PS C:\Users\james\Documents\CS541\HaskGit> 
+    ```
 
 4. Read/write index file
 This was one of the most challenging parts of the project so far because it was difficult to debug what went wrong when dealing with the binary file. If we misinterpret one byte, the parser will simply fail, and the output binary file will be completely different from the expected output (at least when you look at the encoded version of the file). However, we were able to successfully parse the git version 2 index file (we are not considering any other version for MVP) and reproduce the same index file by parsing the index file and saving it. These functions will be useful for any command that interacts with the index file (e.g., git add, git status, etc).
 
-If you use the `testSaveIndex` file in `Experiment.hs`, it will read the `.git/index` file and load it into memory, and then save it in the `testIndex` file. We were able to reproduce the same index file (if you are testing this locally, make sure your index file is not corrupted or in use).
+    If you use the `testSaveIndex` file in `Experiment.hs`, it will read the `.git/index` file and load it into memory, and then save it in the `testIndex` file. We were able to reproduce the same index file (if you are testing this locally, make sure your index file is not corrupted or in use).
 
-The Diff command on original index file and reproduced index file:
-```
-james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
-$ diff .git/index testIndex 
+    The Diff command on original index file and reproduced index file:
+    ```
+    james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
+    $ diff .git/index testIndex 
 
-james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
-```
+    james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
+    ```
 
 
-5. `hashObject` function
-TODO: Review Jack
-The `hashObject` function takes the gitObject as an argument and returns the hash value of the content. This function will be useful when we are implementing the commit command.
+5. `hashObject` function:
 
-6. Locate `.git` directory
-TODO: Review Jack
-In order to run Git commands, we need to be able to locate the `.git` directory. Git clients climb up the directory hierarchy until they find the `.git` directory. Our `getGitDirectory` function achieves this and will be one of the functions repeatedly used in Git command functions. To keep the original `.git` directory clean, the function will return `.haskgit` directory.
+    The `hashObject` function takes two arguments: the gitObject and a boolean flag. It returns the hash value of the object as a bytestring. If the flag is true, it also saves the git object in the `.haskgit/object/` directory. The return type of this function is `IO ByteString` since it needs to save the git object when the flag is true. This function proves useful when implementing the commit command, as the hash needs to be computed and objects saved.
 
-`gitUpdateRef` function is implemented to update the ref in .haskgit file. 
+    The `hashObject` is implemented as follows:
+    * Serialize the git object using `gitObjectSerialize` in `GitObject.hs`. This function serializes the git object by concatenating the header and appropriate content format based on the git object type as a bytestring.
+    * Apply SHA1.Hash to the serialized content to obtain the hash value.
+    * If the flag is true, save the object by calling `saveGitObject` in `GitObject.hs`. The directory is `.haskgit/objects/(first two of hash)/(rest of hash)`. For example, if the hash is `f6e1af0b636897ed62c8c6dad0828f1172b9b82a`, the object will be saved at `.haskgit/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a`.
 
-7. Implementing `Ref`:
+    ```haskell
+    -- Example usage of gitHashObject in Haskell code
+    -- gitHashObject :: GitObject -> Bool -> IO ByteString
 
-    Git ref is a file that contains a git commit hash, we can think of this as a pointer to a commit. For example, `.git/refs/heads/main` will store a commit hash the main branch is pointing to. Ref will be used in lots of other commands such as `git branch`, `git checkout` etc to update the commit branch is pointing to.
+    -- Code below will save the git hash object to the .haskgit/objects directory and return the hash value
+    do 
+      ...
+      -- Assume 'obj' is some git object
+      hash <- gitHashObject obj True
+      return hash
+    ```
 
-    There are two types of refs, regular ref and symbolic ref. Regular ref contains hash commit directly while symbolic ref points to another ref. The most common symbolic ref is HEAD where later it will be used to point to the latest commit of the current branch. For example,
+6. Locate `.haskgit` directory:
+
+    To execute Git commands, locating the `.git` directory is crucial. Git clients ascend the directory hierarchy until they encounter the `.git` directory. Our `getGitDirectory` function accomplishes this and will be a frequently used function in Git command operations.
+
+    To maintain the cleanliness of the original `.git` directory, the function returns the `.haskgit` directory. The helper function `findGitDirectory` takes a filepath as an argument and recursively traverses parent directories until it finds `.haskgit`. The `getGitDirectory` function simply obtains the current directory and passes it to `findGitDirectory` to locate the `.haskgit` directory.
+
+    While we currently assume that the `.haskgit` directory will always exist, if `findGitDirectory` cannot locate it, it will return ~ or /, representing the home or root directory.
+
+7. Helper functions in Util.hs
+
+    There are helper functions other than `getGitDirectory` located in Util.hs that will be used in other functions, both presently and in the future.
+
+    * hashToFilePath: Given a hash value, it returns the file path to the Git object. For example:
+    ```haskell
+    hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
+    -- output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+    ```
+    * refToFilePath: Given a ref, it returns the path to the Git ref.
+    ```
+    refToFilePath refs/heads/main
+    -- ".haskgit/refs/heads/main"
+
+    refToFilePath HEAD
+    -- ".haskgit/HEAD"
+    ```
+    * findGitDirectory: Given a filepath, it recurses through parent directories until it finds the .haskgit directory.
+    * gitRefToCommit: Given a ref, it returns the hash that it points to. If the ref is a symbolic ref, it recurses until it finds the commit hash.
+    ```
+    gitRefToCommit "HEAD"
+    -- if HEAD is pointint to refs/heads/main, returns commit of refs/heads/main
+    ```
+    * unixToUTCTime: Convert unix time integer value to UTCTime
+    * formatUTCTimeWithTimeZone: Format UTCTime with timezone offset
+
+
+8. Implementing `Ref`:
+
+    A Git ref is a file that contains a Git commit hash; we can think of this as a pointer to a commit. For example, .git/refs/heads/main will store the commit hash the main branch is pointing to. Ref will be used in many other commands, such as git branch, git checkout, etc., to update the commit the branch is pointing to.
+
+    There are two types of refs: regular refs and symbolic refs. A regular ref contains the commit hash directly, while a symbolic ref points to another ref. The most common symbolic ref is HEAD, which will later be used to point to the latest commit of the current branch. For example:
+
     ```
     > cat .git/refs/heads/main
       f6f754dbe0808826bed2237eb651558f75215cc6
 
     > cat .git/HEAD
       ref: refs/heads/main
-    ```
-    The first example shows the regular ref which directly contains the commit hash while the second example shows the symbolic ref which points to refs/heads/main. To work with the ref, we need to implement two commands, `gitRefUpdate` and `gitSymbolicRef`. `gitRefUpdate` will update or create a ref with commit hash while `gitSymbolicRef` will create or update symbolic-ref. For this checkpoint, we have completed the implementation of `gitRefUpdate`, and `gitSymbolicRef` will be implemented later. 
 
-   The `gitRefUpdate` function takes <destination refname> and <commit hash or source refname> as input and updates the content of <refname> to commit hash. If the second argument is a committed hash, it will simply save the hash value to the destination refname. If the second argument is refname, it will recurse the ref until it finds the commit hash. 
-    
-    For example,
+    ```
+
+    The first example shows the regular ref, which directly contains the commit hash, while the second example shows the symbolic ref pointing to refs/heads/main. To work with the ref, we need to implement two commands: `gitRefUpdate` and `gitSymbolicRef`. `gitRefUpdate` will update or create a ref with a commit hash, while `gitSymbolicRef` will create or update symbolic refs. For this checkpoint, we have completed the implementation of `gitRefUpdate`, and `gitSymbolicRef` will be implemented later.
+
+    The `gitRefUpdate` function takes <destination refname> and <commit hash or source refname> as input and updates the content of <refname> to the commit hash. If the second argument is a committed hash, it will simply save the hash value to the destination refname. If the second argument is a refname, it will recurse the ref until it finds the commit hash.
+
+    For example:
 
     ```
     -- Case1: refname, hash-value
     -- .haskgit/refs/heads/main will contain f6f754dbe0808826bed2237eb651558f75215cc6
     gitRefUpdate "refs/heads/main" "f6f754dbe0808826bed2237eb651558f75215cc6"
-
 
     -- Case2: refname, refname
     -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
@@ -169,15 +217,16 @@ In order to run Git commands, we need to be able to locate the `.git` directory.
     -- Case3: symbolic-ref, hash-value
     -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
     gitRefUpdate "HEAD" "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
+
     ```
 
-    The `gitRefUpdate` function uses the helper function `gitRefToCommit` in Util.hs which finds the commit hash of the ref and returns `IO (Maybe String)`. Since ref can point to another ref, it will recurse until it reaches the hash value. If there were some issue encountered(such as the commit hash object does not exist), the helper function will return Nothing. `gitRefUpdate` uses the value returned from `gitRefToCommit` and saves it in the source ref file.
+    The `gitRefUpdate` function uses the helper function `gitRefToCommit` in Util.hs, which finds the commit hash of the ref and returns IO (Maybe String). Since a ref can point to another ref, it will recurse until it reaches the hash value. If there were some issues encountered (such as the commit hash object does not exist), the helper function will return Nothing. `gitRefUpdate` uses the value returned from `gitRefToCommit` and saves it in the source ref file.
 
-    Note: We initially thought we would need a new Ref type which is defined in Ref.hs but since ref is a path name, we did not need to use this type as we defined a function that returns commit hash from ref. We are still keeping Ref.hs in case we need it in the future but as of now, this is not being used.
+    Note: Initially, we thought we would need a new Ref type defined in Ref.hs, but since a ref is a pathname, we did not need to use this type. Instead, we defined a function that returns the commit hash from a ref. We are still keeping Ref.hs in case we need it in the future, but as of now, it is not being used.
 
 
 
-8. Command Line Parsing
+9. Command Line Parsing
 Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):"
 
 ```sh
