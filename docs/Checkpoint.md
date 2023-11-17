@@ -87,6 +87,18 @@ A lot of things are happening inside Git, so we had to spend a lot of time resea
 2. Load/Save GitObjects
 We implemented a parser that reads various types of Git objects (blob, tree, and commit objects) and created a function to save Git objects from memory to disk. These functions serve as foundational elements, as they can be utilized in any Git command functions that interact with Git objects. The names of these functions are `GitParser.parseGitObject` and `HaskGit.saveGitObject`.
 
+One might realize that if we read in the git object and save the object with these functions, the saved file is different than the original file. For instance, `experiments/testSaveBlob` file is read and saved git object file of `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`, and if you see two files, you can see they are different. We had to sepnd significant amount of time debugging this but all of the logic seemd to be correct. We decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`), but the outputs were exactly same. After researching a bit, we concluded that compression algorithm may output different files in different conditions (based on OS, compression level, etc): https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses. We may need to do more research to exactly understand what is happening inside the zlib (maybe intersting topic to read in the future), but we decided to assume our current implementation is correct since decompressed data are the same. 
+
+One might realize that if we read in the Git object and save it using these functions, the resulting file is different from the original file. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file at `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic seemed to be correct.
+
+To investigate further, we decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`). Surprisingly, the outputs were exactly the same. After conducting some research, we concluded that the compression algorithm may produce different files under various conditions, such as the operating system and compression level. More information on this behavior can be found here: https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses.
+
+While we may need to conduct additional research to precisely understand what is happening inside zlib (potentially an interesting topic for future reading), we have decided to assume that our current implementation is correct since the decompressed data is identical. 
+
+**LESSON**: never assume that compressed data will be always the same just because input are same.
+
+![Decompressed data comparison](../assets/test_blob_save.png)
+
 3. `haskgit show` command
 The `haskgit show` command is equivalent to the `git show` command with some restrictions (it takes only a hash value as an argument and does not show any diff). This command was the first function we implemented to explore how we could implement other Git commands. The example outputs of the `haskgit show` command are as follows:"
 
@@ -176,12 +188,11 @@ In order to run Git commands, we need to be able to locate the `.git` directory.
     Note: We initially thought we would need a new Ref type which is defined in Ref.hs but since ref is a path name, we did not need to use this type as we defined a function that returns commit hash from ref. We are still keeping Ref.hs in case we need it in the future but as of now, this is not being used.
 
 
-
 8. Command Line Parsing
 TODO: Review Chen
 Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):"
 
-Example:
+Example (note - if you are using non-Windows machine, you may find executable in differetn folder):
 ```
 PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
 commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
