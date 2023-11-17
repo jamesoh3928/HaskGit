@@ -19,6 +19,7 @@ library:
     - Lib
     - Ref
     - Util
+    - Experiment
   other-modules:
     - Paths_HaskGit
   dependencies:
@@ -47,4 +48,8 @@ tests:
     dependencies:
       - base >= 4.7 && < 5
       - HaskGit
-      - Tasty
+      - bytestring
+      - tasty
+      - tasty-hunit
+      - tasty-quickcheck
+      - shelly

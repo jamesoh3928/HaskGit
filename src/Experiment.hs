@@ -1,6 +1,7 @@
 -- NOTE: This file is just for a playground for experiment. Do not use any function in this file in any
 -- other places. This file will be deleted in the future.
 
+module Experiment (module Experiment) where
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
@@ -27,8 +28,8 @@ saveGitObject :: String -> String -> IO ()
 saveGitObject filename content = BSLC.writeFile filename (compress (BSLC.pack content))
 
 --  Just a test function
-gitShow :: String -> IO ()
-gitShow filename = do
+testGitShow :: String -> IO ()
+testGitShow filename = do
   x <- BSLC.readFile filename
   case parse parseGitObject "" (unpack (decompress x)) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
