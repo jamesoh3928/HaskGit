@@ -296,6 +296,8 @@ app/
 ```
 
 3. Questions/Feedback
+- Do you think our assumption on zlib library is valid (even though inputs are same, the compressed data may differ based on condition)? 
+
 - While we were implementing the parser, we realized it was challenging to pinpoint which step of the parsing failed. Do you have any tips on this?
 
 - Are there specific commands you think will be interesting or challenging? What challenges do you foresee?
@@ -303,3 +305,5 @@ app/
 - What are your thoughts on the new scope of the project?
 
 - Feel free to provide any other feedback you have on our project! We aim to create an awesome and interesting project, so criticism is welcomed!
+
+- Fun fact: During our testing with the actual `.git` directory, we accidentally corrupted the data, causing the Git client to throw a segmentation fault for all commands. If you decide to run haskgit locally, be aware of this fact. We will modify our program to interact exclusively with the `.haskgit` directory. However, some functions may still interact with the `.git` directory.
