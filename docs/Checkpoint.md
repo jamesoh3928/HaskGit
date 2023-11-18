@@ -92,14 +92,15 @@ After adjusting our approach to explore with small commands and then building up
 
     We implemented a parser that reads various types of Git objects (blob, tree, and commit objects) and created a function to save Git objects from memory to disk. These functions serve as foundational elements, as they can be utilized in any Git command functions that interact with Git objects. The names of these functions are `GitParser.parseGitObject` and `HaskGit.saveGitObject`.
 
-    One might realize that if we read in the Git object and save it using these functions, the resulting file is different from the original file. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file at `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic seemed to be correct.
+    You might realize that when we read in the Git object and save it using the functions we mentioned above, the resulting file is **different** from the original file, which is unexpected. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file using `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic in our code seemed to be correct.
 
     To investigate further, we decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`). Surprisingly, the outputs were exactly the same. After conducting some research, we concluded that the compression algorithm may produce different files under various conditions, such as the operating system and compression level. More information on this behavior can be found here: https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses.
 
     While we may need to conduct additional research to precisely understand what is happening inside zlib (potentially an interesting topic for future reading), we have decided to assume that our current implementation is correct since the decompressed data is identical. 
 
-    **LESSON**: Never assume that compressed data will be always the same just because input are same.
+    **LESSON**: Never assume that compressed data will be always the same just because the inputs are same.
 
+    Decompressed version of the files are same:
     ![Decompressed data comparison](../assets/test_blob_save.png)
 
 3. `haskgit show` command
@@ -273,6 +274,8 @@ After adjusting our approach to explore with small commands and then building up
       it simply calls `git show` and `hashgit show` for comparisons.
     For later testing, our plan is generating detailed data of GitObject with blob, tree, and commit,
     then formatting them to fit the uses of specific functions and tasty framework.
+
+    Currently, the `stack test` command in the "main" branch does not work. Various options have been explored in the "test" branch, and it will be merged into "main" once settled.
 
      **LESSON**: Build the test as early as possible! It ends up saving time because less time is spent on manual testing. We will start writing more tests right after the checkpoint feedback.
 
