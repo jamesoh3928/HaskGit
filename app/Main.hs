@@ -24,6 +24,9 @@ showMode :: HaskGit
 showMode =
   Show {hash = def &= argPos 0}
     &= help "haskgit show <object>\nShows various types of git objects"
+showMode =
+  Show {hash = def &= argPos 0}
+    &= help "haskgit show <object>\nShows various types of git objects"
 
 hashObjectMode :: HaskGit
 hashObjectMode =
