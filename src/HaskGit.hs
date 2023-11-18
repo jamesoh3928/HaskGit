@@ -1,6 +1,7 @@
 module HaskGit
   ( gitShow,
     gitHashObject,
+    gitUpdateRef,
   )
 where
 
