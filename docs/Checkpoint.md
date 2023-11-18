@@ -324,6 +324,8 @@ After adjusting our approach to explore with small commands and then building up
 
     - We found that using `cmdargs` package for command line parsing was not easy as we thought. Do you use other package when you are dealing with Haskell command line parsing? Is there any good example you know that deal with command line parsing?
 
+    - We are debating between two testing approaches. One involves testing the IO functions directly (e.g., `gitShow`, `gitAdd`, etc.), while the other involves testing the core helper functions (e.g., `gitShowStr`, etc.) instead. What are your thoughts on these two approaches? We are considering that testing IO functions directly will better assess the full functionality. However, testing core functions may be simpler since it involves less IO.
+
     - While we were implementing the parser, we realized it was challenging to pinpoint which step of the parsing failed. Do you have any tips on this?
 
     - Are there specific commands you think will be interesting or challenging? What challenges do you foresee?
