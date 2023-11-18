@@ -17,10 +17,10 @@ showMode =
   Show {hash = def &= argPos 0}
     &= help "haskgit show <object>\nShows various types of git objects"
 
-hashObjectMode :: HaskGit
-hashObjectMode =
-  HashObject {filename = def &= typFile &= argPos 0}
-    &= help "haskgit hashobject <filename>\nCompute object ID"
+updateRefMod :: HaskGit
+updateRefMod =
+  UpdateRef {refdest = def &= argPos 0, refsrc = def &= argPos 1}
+    &= help "haskgit updateref <ref> <obj>\nUpdate reference to new object"
 
 cmdModes :: HaskGit
 cmdModes = modes [showMode, updateRefMod]
