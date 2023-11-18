@@ -3,7 +3,6 @@
 module Main (main) where
 
 import qualified Data.ByteString.Char8 as B
-import Experiment
 import HaskGit
 import System.Console.CmdArgs
 

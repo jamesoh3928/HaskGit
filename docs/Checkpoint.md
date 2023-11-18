@@ -85,27 +85,29 @@ After adjusting our approach to explore with small commands and then building up
 
     A lot of things are happening inside Git, so we had to spend a lot of time researching the concept. There were many details we did not realize during the proposal, and there were too many I/Os happening inside Git to follow the "Functional core/Imperative shell" design pattern. If we were to follow this design pattern, we would have to read the entire Git directory into memory for every single Git command. This was not ideal, so we decided to reject such a design pattern and instead follow the simple MVC pattern.
 
+    **LESSON**: Always think about the problem we are solving first. Don't try to fit the problem into the design pattern.
+
 
 2. Load/Save GitObjects:
 
     We implemented a parser that reads various types of Git objects (blob, tree, and commit objects) and created a function to save Git objects from memory to disk. These functions serve as foundational elements, as they can be utilized in any Git command functions that interact with Git objects. The names of these functions are `GitParser.parseGitObject` and `HaskGit.saveGitObject`.
 
-One might realize that if we read in the Git object and save it using these functions, the resulting file is different from the original file. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file at `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic seemed to be correct.
+    One might realize that if we read in the Git object and save it using these functions, the resulting file is different from the original file. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file at `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic seemed to be correct.
 
-To investigate further, we decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`). Surprisingly, the outputs were exactly the same. After conducting some research, we concluded that the compression algorithm may produce different files under various conditions, such as the operating system and compression level. More information on this behavior can be found here: https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses.
+    To investigate further, we decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`). Surprisingly, the outputs were exactly the same. After conducting some research, we concluded that the compression algorithm may produce different files under various conditions, such as the operating system and compression level. More information on this behavior can be found here: https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses.
 
-While we may need to conduct additional research to precisely understand what is happening inside zlib (potentially an interesting topic for future reading), we have decided to assume that our current implementation is correct since the decompressed data is identical. 
+    While we may need to conduct additional research to precisely understand what is happening inside zlib (potentially an interesting topic for future reading), we have decided to assume that our current implementation is correct since the decompressed data is identical. 
 
-**LESSON**: never assume that compressed data will be always the same just because input are same.
+    **LESSON**: Never assume that compressed data will be always the same just because input are same.
 
-![Decompressed data comparison](../assets/test_blob_save.png)
+    ![Decompressed data comparison](../assets/test_blob_save.png)
 
 3. `haskgit show` command
 
     The `haskgit show` command is equivalent to the `git show` command with some restrictions (it takes only a hash value as an argument and does not show any diff). This command was the first function we implemented to explore how we could implement other Git commands. The example outputs of the `haskgit show` command are as follows:"
 
-        An example of tree show
-        ```
+      An example of tree show
+      ```
         PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show f6e1af0b636897ed62c8c6dad0828f1172b9b82a
         tree f6e1af0b636897ed62c8c6dad0828f1172b9b82a
 
@@ -114,10 +116,10 @@ While we may need to conduct additional research to precisely understand what is
         README.md
         assets
         docs
-        ```
+      ```
 
-        An example of commit show
-        ```
+      An example of commit show
+      ```
         PS C:\Users\james\Documents\CS541\HaskGit> .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
         commit 562c9c7b09226b6b54c28416d0ac02e0f0336bf6
         Author: James Oh <jo9347@cs.rit.edu>
@@ -126,22 +128,24 @@ While we may need to conduct additional research to precisely understand what is
             Change content to bytestring
 
         PS C:\Users\james\Documents\CS541\HaskGit> 
-        ```
+      ```
 
 4. Read/write index file: 
 
     This was one of the most challenging parts of the project so far because it was difficult to debug what went wrong when dealing with the binary file. If we misinterpret one byte, the parser will simply fail, and the output binary file will be completely different from the expected output (at least when you look at the encoded version of the file). However, we were able to successfully parse the git version 2 index file (we are not considering any other version for MVP) and reproduce the same index file by parsing the index file and saving it. These functions will be useful for any command that interacts with the index file (e.g., git add, git status, etc).
 
-        If you use the `testSaveIndex` file in `Experiment.hs`, it will read the `.git/index` file and load it into memory, and then save it in the `testIndex` file. We were able to reproduce the same index file (if you are testing this locally, make sure your index file is not corrupted or in use).
+    If you use the `testSaveIndex` file in `Experiment.hs`, it will read the `.git/index` file and load it into memory, and then save it in the `testIndex` file. We were able to reproduce the same index file (if you are testing this locally, make sure your index file is not corrupted or in use).
 
-        The Diff command on original index file and reproduced index file:
-        ```
-        james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
-        $ diff .git/index testIndex 
+    The Diff command on original index file and reproduced index file:
 
-        james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
-        ```
+    ```
+      james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
+      $ diff .git/index testIndex 
 
+      james@DESKTOP-531QK4A MINGW64 ~/Documents/CS541/HaskGit (main)
+    ```
+
+     **LESSON**: Converting 23 into "23" will change the underlying byte value. It is simple concept, but don't forget this when you are dealing with binary file.
 
 5. `hashObject` function:
 
@@ -178,6 +182,7 @@ While we may need to conduct additional research to precisely understand what is
 
     * hashToFilePath: Given a hash value, it returns the file path to the Git object. For example:
     ```haskell
+    
     hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
     -- output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
     ```
@@ -216,118 +221,115 @@ While we may need to conduct additional research to precisely understand what is
 
     The first example shows the regular ref, which directly contains the commit hash, while the second example shows the symbolic ref pointing to refs/heads/main. To work with the ref, we need to implement two commands: `gitRefUpdate` and `gitSymbolicRef`. `gitRefUpdate` will update or create a ref with a commit hash, while `gitSymbolicRef` will create or update symbolic refs. For this checkpoint, we have completed the implementation of `gitRefUpdate`, and `gitSymbolicRef` will be implemented later.
 
-    The `gitRefUpdate` function takes <destination refname> and <commit hash or source refname> as input and updates the content of <refname> to the commit hash. If the second argument is a committed hash, it will simply save the hash value to the destination refname. If the second argument is a refname, it will recurse the ref until it finds the commit hash.
+    The `gitUpdateRef` function takes "destination refname" and "commit hash or source refname" as input and updates the content of "refname" to the commit hash. If the second argument is a committed hash, it will simply save the hash value to the destination refname. If the second argument is a refname, it will recurse the ref until it finds the commit hash.
 
     For example:
 
     ```
     -- Case1: refname, hash-value
     -- .haskgit/refs/heads/main will contain f6f754dbe0808826bed2237eb651558f75215cc6
-    gitRefUpdate "refs/heads/main" "f6f754dbe0808826bed2237eb651558f75215cc6"
+    gitUpdateRef "refs/heads/main" "f6f754dbe0808826bed2237eb651558f75215cc6"
 
     -- Case2: refname, refname
     -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
-    gitRefUpdate "refs/heads/test" "refs/heads/main"
+    gitUpdateRef "refs/heads/test" "refs/heads/main"
 
     -- Case3: symbolic-ref, hash-value
     -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
-    gitRefUpdate "HEAD" "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
+    gitUpdateRef "HEAD" "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
 
     ```
 
-    The `gitRefUpdate` function uses the helper function `gitRefToCommit` in Util.hs, which finds the commit hash of the ref and returns IO (Maybe String). Since a ref can point to another ref, it will recurse until it reaches the hash value. If there were some issues encountered (such as the commit hash object does not exist), the helper function will return Nothing. `gitRefUpdate` uses the value returned from `gitRefToCommit` and saves it in the source ref file.
 
-    Note: Initially, we thought we would need a new Ref type defined in Ref.hs, but since a ref is a pathname, we did not need to use this type. Instead, we defined a function that returns the commit hash from a ref. We are still keeping Ref.hs in case we need it in the future, but as of now, it is not being used.
+    Note: Initially, we thought we would need a new Ref type defined in Ref.hs, but since a ref is a simply pathname, we did not need to use this type yet. Instead, we defined a function that returns the commit hash from a ref. We are still keeping `Ref.hs` in case we need it in the future, but as of now, it is not being used.
 
 
 
 9. Command Line Parsing
-Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):
+    Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):
 
-Example (note - if you are using non-Windows machine, you may find executable in differetn folder):
+    Example (note - if you are using non-Windows machine, you may find executable in differetn folder):
 
-```sh
-# NOTE: the hash value need to be one placed in the `.haskgit` directory
-stack exec haskgit-exe -- show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
-# OR
-.stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
-```
+    ```sh
+    # NOTE: the hash value need to be one placed in the `.haskgit` directory
+    stack exec Haskgit-exe -- show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
+    # OR
+    .stack-work/dist/22605e11/build/HaskGit-exe/HaskGit-exe show 0013ee97b010dc8e9646f3c5a9841b62eb754f77
+    ```
 
-`CmdArgs` serves well for accepting input and parsing help messages;
-however, it comes with some limitations as it operates as a template with restricted custom behavior.
-For instance, the recommended implementation is similar to `hlint`, which accepts sub-commands as flags only, like this: "hlint -r="report_for_parser.html" src/GitParser.hs".
-Since `git` consists of a suite of commands, using flags alone cannot meet the practical requirements.
-`haskgit` is configured as multi-mode program, allowing each command to work with its own set of flags.
-In this project range, we don't consider flag uses and make arguments with its position.
+    At this point, `haskgit show` is the only command that works in CLI interface. We have 
+    `haskgit updateref` command added, but currently it is not accepting two arguments, and the issue will be resolved after the checkpoint.
 
-In `CmdArgs`, the default value for input is confined to common data types, such as String.
-If we need to use a command function with a *ByteString* argument (e.g., gitShow),
-  the input with *String* type must be converted to *ByteString* before executing the command.
-Since the CLI can execute commands directly,
-  it can be utilized to test internal commands, such as `hashgit` from `Experiment.hs`, which combines the head and content hash for a gitObject.
-For future improvements, a convention for input and output types might be necessary.
+10. Testing Infrastructure
 
+    We haven't added too many tests yet, but we have set up the testing infrastructure using the Tasty framework. We plan to add more unit tests in the future for each porcelain command we implement. For example, to test `haskgit show`, we will include test git object files and an expected output file to compare if the command produces the expected output.
 
-9. Testing Infrastructure
-We haven't added too many tests yet, but we have set up the testing infrastructure using the Tasty framework. We plan to add more unit tests in the future for each porcelain command we implement. For example, to test `haskgit show`, we will include test git object files and an expected output file to compare if the command produces the expected output.
+    The operation of `Git` is based on file system.
+    It is hard to void the challenge of designing expected behaviors and results for target functions.
+    And the unfamiliarity to `tasty` framework enhances the difficulty.
+
+    We decide to start from small points, and use exist data (i.e., our `.git`) for testing.
+    For example, there is a bash script called `test.sh` under test directory,
+      it simply calls `git show` and `hashgit show` for comparisons.
+    For later testing, our plan is generating detailed data of GitObject with blob, tree, and commit,
+    then formatting them to fit the uses of specific functions and tasty framework.
+
+     **LESSON**: Build the test as early as possible! It ends up saving time because less time is spent on manual testing. We will start writing more tests right after the checkpoint feedback.
+
 
 **Note**: We are aware that the current state of the project may contain some non-clean code. This is because we were focused on exploring different options and implemented the show command first to identify some patterns. In the future, we plan to clean up the code.
 
-The operation of `Git` is based on file system.
-  It is hard to void the challenge of designing expected behaviors and results for target functions.
-  And the unfamiliarity to `tasty` framework enhances the difficulty.
-
-We decide to start from small points, and use exist data (i.e., our `.git`) for testing.
-For example, there is a bash script called `test.sh` under test directory,
-  it simply calls `git show` and `hashgit show` for comparisons.
-For later testing, our plan is generating detailed data of GitObject with blob, tree, and commit,
-then formatting them to fit the uses of specific functions and tasty framework.
 
 ## Additional Details
 
 1. Additional Libraries
-We have been interacting with the ".cabal" file directly. Dependencies we have added to all library, executable, and test are as follows:
 
-- base16-bytestring: Used for base16 encoding for SHA-1 hash.
-- bytestring: Used for interacting with bytestring data.
-- cmdargs: Parsing command line arguments.
-- cryptohash-sha1: SHA-1 hash.
-- directory: Used for finding the current Git directory.
-- filepath: Used for file paths.
-- parsec: Used for parsing Git object files and Git index files.
-- time: Needed for UTC time.
-- Tasty: Testing framework.
-- zlib: Compression library that Git uses.
+    We have been interacting with the ".cabal" file directly. Dependencies we have added to all library, executable, and test are as follows:
+
+    - base16-bytestring: Used for base16 encoding for SHA-1 hash.
+    - bytestring: Used for interacting with bytestring data.
+    - cmdargs: Parsing command line arguments.
+    - cryptohash-sha1: SHA-1 hash.
+    - directory: Used for finding the current Git directory.
+    - filepath: Used for file paths.
+    - parsec: Used for parsing Git object files and Git index files.
+    - time: Needed for UTC time.
+    - Tasty: Testing framework.
+    - zlib: Compression library that Git uses.
 
 2. Code Structure
-As mentioned above, we have decided to move away from the "Functional Core and Imperative Shell" design pattern because there are simply too many I/O operations happening in Git. We are still following the MVC pattern, where Main.hs serves as the command-line interface that the user interacts with, HaskGit is the controller file, and all other files act as models that include business logic.
 
-```
-src/
-|   |-- GitObject.hs -- types and functions related to Git objects
-|   |-- GitParser.hs -- parser for git object files and index file
-|   |-- Refs.hs -- types and functions related to References
-|   |-- Index.hs -- types and functions related to Index
-│   │-- HaskGit.hs -- functions for all git porcleain and plumbing commands
-|   |-- Util.hs -- utility functions that do not fit in other files
-|   |-- Experiment.hs -- just a playground for an experiment (planning to delete it in the future)
-app/
-|
-│   |-- Main.hs -- main executable
-|
-|test/
-│   |-- Spec.hs -- Unit tests (may get separeted into multiple files in the future)
-```
+    As mentioned above, we have decided to move away from the "Functional Core and Imperative Shell" design pattern because there are simply too many I/O operations happening in Git. We are still following the MVC pattern, where Main.hs serves as the command-line interface that the user interacts with, HaskGit is the controller file, and all other files act as models that include business logic.
+
+    ```
+    src/
+    |   |-- GitObject.hs -- types and functions related to Git objects
+    |   |-- GitParser.hs -- parser for git object files and index file
+    |   |-- Refs.hs -- types and functions related to References
+    |   |-- Index.hs -- types and functions related to Index
+    │   │-- HaskGit.hs -- functions for all git porcleain and plumbing commands
+    |   |-- Util.hs -- utility functions that do not fit in other files
+    |   |-- Experiment.hs -- just a playground for an experiment (planning to delete it in the future)
+    app/
+    |
+    │   |-- Main.hs -- main executable
+    |
+    |test/
+    │   |-- Spec.hs -- Unit tests (may get separeted into multiple files in the future)
+    ```
 
 3. Questions/Feedback
-- Do you think our assumption on zlib library is valid (even though inputs are same, the compressed data may differ based on condition)? 
 
-- While we were implementing the parser, we realized it was challenging to pinpoint which step of the parsing failed. Do you have any tips on this?
+    - Do you think our assumption on zlib library is valid (even though inputs are same, the compressed data may differ based on condition)? 
 
-- Are there specific commands you think will be interesting or challenging? What challenges do you foresee?
+    - We found that using `cmdargs` package for command line parsing was not easy as we thought. Do you use other package when you are dealing with Haskell command line parsing? Is there any good example you know that deal with command line parsing?
 
-- What are your thoughts on the new scope of the project?
+    - While we were implementing the parser, we realized it was challenging to pinpoint which step of the parsing failed. Do you have any tips on this?
 
-- Feel free to provide any other feedback you have on our project! We aim to create an awesome and interesting project, so criticism is welcomed!
+    - Are there specific commands you think will be interesting or challenging? What challenges do you foresee?
 
-- Fun fact: During our testing with the actual `.git` directory, we accidentally corrupted the data, causing the Git client to throw a segmentation fault for all commands. If you decide to run haskgit locally, be aware of this fact. We will modify our program to interact exclusively with the `.haskgit` directory. However, some functions may still interact with the `.git` directory.
+    - What are your thoughts on the new scope of the project?
+
+    - Feel free to provide any other feedback you have on our project! We aim to create an awesome and interesting project, so criticism is welcomed!
+
+    - Fun fact (not a question): During our testing with the actual `.git` directory, we accidentally corrupted the data, causing the Git client to throw a segmentation fault for all commands.
