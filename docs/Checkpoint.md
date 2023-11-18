@@ -90,6 +90,16 @@ After adjusting our approach to explore with small commands and then building up
 
     We implemented a parser that reads various types of Git objects (blob, tree, and commit objects) and created a function to save Git objects from memory to disk. These functions serve as foundational elements, as they can be utilized in any Git command functions that interact with Git objects. The names of these functions are `GitParser.parseGitObject` and `HaskGit.saveGitObject`.
 
+One might realize that if we read in the Git object and save it using these functions, the resulting file is different from the original file. For instance, the file `experiments/testSaveBlob` is read and saved as a Git object file at `.git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6`. Upon comparing these two files, it becomes evident that they are different. Although we spent a significant amount of time debugging this, all of the logic seemed to be correct.
+
+To investigate further, we decided to decompress both files and compare the outputs (`experiments/decompActualBlob` and `experiments/decompTestSaveBlob`). Surprisingly, the outputs were exactly the same. After conducting some research, we concluded that the compression algorithm may produce different files under various conditions, such as the operating system and compression level. More information on this behavior can be found here: https://stackoverflow.com/questions/26516369/zlib-gzip-produces-different-results-for-same-input-on-different-oses.
+
+While we may need to conduct additional research to precisely understand what is happening inside zlib (potentially an interesting topic for future reading), we have decided to assume that our current implementation is correct since the decompressed data is identical. 
+
+**LESSON**: never assume that compressed data will be always the same just because input are same.
+
+![Decompressed data comparison](../assets/test_blob_save.png)
+
 3. `haskgit show` command
 
     The `haskgit show` command is equivalent to the `git show` command with some restrictions (it takes only a hash value as an argument and does not show any diff). This command was the first function we implemented to explore how we could implement other Git commands. The example outputs of the `haskgit show` command are as follows:"
@@ -232,7 +242,9 @@ After adjusting our approach to explore with small commands and then building up
 
 
 9. Command Line Parsing
-Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):"
+Our main function can parse the argument and call the function in HaskGit to perform the task. An example command that can be run in the current state of the project is (although you would need to create a `.haskgit` directory in order to test this):
+
+Example (note - if you are using non-Windows machine, you may find executable in differetn folder):
 
 ```sh
 # NOTE: the hash value need to be one placed in the `.haskgit` directory
@@ -308,6 +320,8 @@ app/
 ```
 
 3. Questions/Feedback
+- Do you think our assumption on zlib library is valid (even though inputs are same, the compressed data may differ based on condition)? 
+
 - While we were implementing the parser, we realized it was challenging to pinpoint which step of the parsing failed. Do you have any tips on this?
 
 - Are there specific commands you think will be interesting or challenging? What challenges do you foresee?
@@ -315,3 +329,5 @@ app/
 - What are your thoughts on the new scope of the project?
 
 - Feel free to provide any other feedback you have on our project! We aim to create an awesome and interesting project, so criticism is welcomed!
+
+- Fun fact: During our testing with the actual `.git` directory, we accidentally corrupted the data, causing the Git client to throw a segmentation fault for all commands. If you decide to run haskgit locally, be aware of this fact. We will modify our program to interact exclusively with the `.haskgit` directory. However, some functions may still interact with the `.git` directory.
