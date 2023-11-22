@@ -41,7 +41,7 @@ commits can have multiple parents, so it might be more like:
 
 You may not want to use `instance Show` for `GitObject` for their
 console representations; in Haskell, the `Show` type class is really
-more like Rust's `Debut` trait --- it is meant to display in a form
+more like Rust's `Debug` trait --- it is meant to display in a form
 that could be pasted back into a Haskell source file to recreate the
 data.
 

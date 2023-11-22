@@ -1,0 +1,100 @@
+Excellent checkpoint.
+
+Seems as though a significant amount of progress has been made.
+
+Very reasonable to adjust the MVP.  Omitting `git init` and `git
+rebase` are fine.  I think that you will find that `git revert` has
+the possibility of introducing a merge conflict.
+
+Agreed that the "functional core/imperative shell" design pattern may
+not work well.  But, it is also questionable whether or not the MVC
+(model-view-controller) design pattern would work well.  What is the
+"model" and what is the "view"?  MVC seems better suited to an ongoing
+interaction with a system, rather than the atomic action of a git
+command.
+
+Overall design seems well thought out.  Some minor questions:
+
+ * Why are `parseGitObject` and `saveGitObject` in different modules?
+
+ * The boolean flag to `hashGitObject` seems strange, particularly
+   since the function is pure if the flag is `False` and impure if the
+   flag is `True`.  I suppose that there is some "safety" in not
+   requiring the user to correctly pass the original GitObject along
+   with the computed hash value when saving.  But, perhaps two
+   separate functions with two different types would be better:
+
+    hashObject :: GitObject -> ByteString
+    hashAndSaveObject :: GitObject -> IO ByteString
+
+ * Surprising not to see a distinguished `GitHash` type.  Using
+   `ByteString` as the hash value admits many "bad" values.
+
+Response to questions:
+
+> Do you think our assumption on zlib library is valid (even though
+  inputs are same, the compressed data may differ based on condition)?
+
+Seems likely.  Git is not sensitive to the exact bytes of the stored
+blobs, only to their (decompressed) contents, so different choices in
+zlib compression should not effect the behavior.
+
+> We found that using cmdargs package for command line parsing was not
+  easy as we thought. Do you use other package when you are dealing
+  with Haskell command line parsing? Is there any good example you
+  know that deal with command line parsing?
+
+Sorry, I don't have any experience with command-line parsing libraries
+in Haskell.  Neil Mitchell (author of `cmdargs`) has authored a number
+of high-quality Haskell libraries.
+
+> We are debating between two testing approaches. One involves testing
+  the IO functions directly (e.g., gitShow, gitAdd, etc.), while the
+  other involves testing the core helper functions (e.g., gitShowStr,
+  etc.) instead. What are your thoughts on these two approaches? We
+  are considering that testing IO functions directly will better
+  assess the full functionality. However, testing core functions may
+  be simpler since it involves less IO.
+
+You might look into how other git projects (git, gitoxide) organize
+their tests.  I suspect that many of them are organized around unit
+tests, where the input is explicit .git and working directories and
+some representation of the git command(s) to execute and the expeted
+output is additional .git and working directories and the stdout of
+the command.  You might be able to do something like that with Tasty,
+especially the `tasty-golden` library.
+
+For the pure functions, you should be able to write simpler unit
+tests, though it will probably be difficult to use something like
+QuickCheck.
+
+> While we were implementing the parser, we realized it was
+  challenging to pinpoint which step of the parsing failed. Do you
+  have any tips on this?
+
+Most "real" parse combinator libraries include some error reporting
+facilities.  In parsec, you might want to look into the `(<?>)`
+operator.
+
+> Are there specific commands you think will be interesting or
+  challenging? What challenges do you foresee?
+
+As noted above, I think that `revert` may be challenging, since it may
+yield conflicts.
+
+A simple `log` command should be straightforward, though not trivial.
+Think about how you will handle logs that encounter merge commits
+(i.e., commits with multiple parents) and how you will organize and
+orchestrate the logging.
+
+Error handling will be interesting.  For example, what if someone
+makes a file read-only and then a `switch` command is executed, which
+cannot adjust the file.  How will that be reported and how to ensure
+that the repository remains in a valid (if possibly unhelpful) state?
+
+> What are your thoughts on the new scope of the project?
+
+See above.
+
+
+Score: 10/10
