@@ -77,7 +77,7 @@ unixToUTCTime unixTime = posixSecondsToUTCTime $ fromInteger unixTime
 
 -- Format UTCTime with timezone offset
 formatUTCTimeWithTimeZone :: String -> UTCTime -> String
-formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %e %T %Y " utcTimeWithTZ ++ timezoneOffset
+formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %-d %T %Y " utcTimeWithTZ ++ timezoneOffset
   where
     -- Parse the timezone offset from the format "-0500"
     hours = read (take 3 timezoneOffset) :: Int

@@ -1,13 +1,18 @@
-{-# LANGUAGE TypeApplications #-}
+-- {-# LANGUAGE TypeApplications #-}
+
+module Main (main) where
+
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import HaskGit
+import qualified Data.ByteString.Char8 as B
 import GitObject
+import HaskGit
+import Shelly -- not used, but it can call shell command;
+import System.IO.Silently (capture)
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
-import Shelly -- not used, but it can call shell command;
 
+-- import Test.Tasty.QuickCheck
 
 ---------------------------Test for git Show------------------------------------
 -- 0. cp .git to .haskgit (bcs, `git` only use .git)
@@ -20,8 +25,42 @@ import Shelly -- not used, but it can call shell command;
 -- of `git show` then do comparison
 
 main :: IO ()
-main = someFunc
+main = tests >>= defaultMain
 
+tests :: IO TestTree
+tests = testGroup "Unit Tests" <$> sequence [showTests]
+
+showTests :: IO TestTree
+showTests = do
+  let blobHash = "04efa50ffad0bc03edea5cbca1936c29aee18553"
+  expectedBlobShow <- readFile "test/TestData/expectedBlobShow.dat"
+  (actualBlobShow, ()) <- capture $ gitShow (B.pack blobHash)
+
+  let treeHash = "0013ee97b010dc8e9646f3c5a9841b62eb754f77"
+  expectedTreeShow <- readFile "test/TestData/expectedTreeShow.dat"
+  (actualTreeShow, ()) <- capture $ gitShow (B.pack treeHash)
+
+  let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
+  (actualCommitShow1, ()) <- capture $ gitShow (B.pack commitHash1)
+  
+  let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
+  (actualCommitShow2, ()) <- capture $ gitShow (B.pack commitHash2)
+  expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
+
+  let showTest =
+        testGroup
+          "gitShow"
+          [ testCase "blob object" $
+              actualBlobShow @?= expectedBlobShow,
+            testCase "tree object" $
+              actualTreeShow @?= expectedTreeShow,
+            testCase "commit object 1" $
+              actualCommitShow1 @?= expectedCommitShow1,
+            testCase "commit object 2" $
+              actualCommitShow2 @?= expectedCommitShow2
+          ]
+  return showTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------

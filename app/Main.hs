@@ -1,5 +1,3 @@
--- {-# LANGUAGE DeriveDataTypeable #-}
-
 module Main (main) where
 
 import qualified Data.ByteString.Char8 as B
@@ -24,7 +22,7 @@ processArgs args =
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc
         _ -> putStrLn "Usage: UpdateRef refdest refsrc"
-    _ -> putStrLn $ "haskgit: " ++ (head args) ++ " is not a haskgit command"
+    _ -> putStrLn $ "haskgit: " ++ head args ++ " is not a haskgit command"
 
 -- data HaskGit
 --   = Show {hash :: String}
