@@ -10,6 +10,7 @@ import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
 import Data.Char (ord)
+import GitHash (GitHash, gitHashValue)
 import GitObject (GitObject (..))
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
@@ -82,8 +83,19 @@ parseCommit = do
       message <- manyTill anyChar eof
       let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
           committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
-      return
-        (Commit (bytesize, BC.pack rootTree, [BC.pack parent], authorInfo, committerInfo, message))
+      case (gitHashValue (BC.pack rootTree), gitHashValue (BC.pack parent)) of
+        (Just rootTreeHash, Just parentHash) ->
+          return
+            ( Commit
+                ( bytesize,
+                  rootTreeHash,
+                  [parentHash],
+                  authorInfo,
+                  committerInfo,
+                  message
+                )
+            )
+        _ -> fail "Invalid hash value in commit file"
 
 -- Parse the git object.
 parseGitObject :: Parser GitObject

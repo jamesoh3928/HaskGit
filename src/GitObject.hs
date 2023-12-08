@@ -23,6 +23,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath
 import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
+import GitHash (GitHash, getHash)
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
@@ -37,7 +38,7 @@ type GitAuthor = (String, String, Int, String)
 type GitCommitter = (String, String, Int, String)
 
 -- GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
-type GitCommit = (Int, ByteString, [ByteString], GitAuthor, GitCommitter, String)
+type GitCommit = (Int, GitHash, [GitHash], GitAuthor, GitCommitter, String)
 
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
@@ -47,15 +48,15 @@ instance Show GitObject where
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
-type GitObjectHash = (GitObject, ByteString)
+type GitObjectHash = (GitObject, GitHash)
 
 -- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
 gitShowStr (Blob (_, content), _) = content
-gitShowStr (Tree (_, elems), treeHash) = "tree " ++ B.unpack treeHash ++ "\n\n" ++ filesDirs
+gitShowStr (Tree (_, elems), treeHash) = "tree " ++ B.unpack (getHash treeHash) ++ "\n\n" ++ filesDirs
   where
     filesDirs = concatMap (\(_, name, _) -> name ++ "\n") elems
-gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ B.unpack commitHash ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
+gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ B.unpack (getHash commitHash) ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
   where
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
@@ -81,7 +82,7 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
   where
     (aName, aEmail, aDate, aTimeStamp) = authorObj
     (cName, cEmail, cDate, cTimeStamp) = committerObj
-    content = "tree " ++ BS.unpack treeHash ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") parentHashes ++ gitAuthor ++ gitCommitter ++ message
+    content = "tree " ++ BS.unpack (getHash treeHash) ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") (map getHash parentHashes) ++ gitAuthor ++ gitCommitter ++ message
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 

@@ -12,6 +12,7 @@ extra-source-files:
 library:
   source-dirs: src
   exposed-modules:
+    - GitHash
     - GitObject
     - GitParser
     - HaskGit

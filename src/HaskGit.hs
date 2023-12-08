@@ -13,6 +13,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
+import GitHash (GitHash, gitHashValue)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject)
 import Index (GitIndex, gitIndexSerialize)
@@ -116,7 +117,9 @@ gitShow hash = do
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
     Left err -> Prelude.putStrLn $ "Git show parse error: " ++ show err
-    Right gitObj -> Prelude.putStrLn $ gitShowStr (gitObj, hash)
+    Right gitObj -> case gitHashValue hash of
+      Nothing -> Prelude.putStrLn "Invalid hash value given"
+      Just hashV -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
 gitLog :: ByteString -> IO String
 gitLog = undefined
