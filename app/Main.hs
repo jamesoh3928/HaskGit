@@ -10,7 +10,12 @@ main = do
   argsRaw <- getArgs
   processArgs argsRaw
 
-processArgs :: [String] -> IO ()  
+processArgs :: [String] -> IO ()
+processArgs [] =
+  do
+  putStrLn $ helpMsg "Show"
+  putStrLn $ helpMsg "UpdateRef"
+
 processArgs args =
   case head args of
     "Show" ->
@@ -22,32 +27,15 @@ processArgs args =
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc
         _ -> putStrLn "Usage: UpdateRef refdest refsrc"
+    "help" ->
+      case tail args of
+        [cmd] -> putStrLn $ helpMsg cmd
+        _ -> putStrLn "Error: haskgit help only has one argument <command-name>"
     _ -> putStrLn $ "haskgit: " ++ head args ++ " is not a haskgit command"
 
--- data HaskGit
---   = Show {hash :: String}
---   | UpdateRef {refdest :: String, refsrc :: String}
---   deriving (Data, Typeable, Show, Eq)
-
--- showMode :: HaskGit
--- showMode =
---   Show {hash = def &= argPos 0}
---     &= help "haskgit show <object>\nShows various types of git objects"
-
--- updateRefMod :: HaskGit
--- updateRefMod =
---   UpdateRef {refdest = def &= argPos 0, refsrc = def &= argPos 1}
---     &= help "haskgit updateref <ref> <obj>\nUpdate reference to new object"
-
--- cmdModes :: HaskGit
--- cmdModes = modes [showMode, updateRefMod]
-
--- runCommand :: HaskGit -> IO ()
--- runCommand cmd = case cmd of
---   Show hash -> gitShow (B.pack hash)
---   UpdateRef refdest refsrc -> gitUpdateRef refdest refsrc
-
--- main :: IO ()
--- main = do
---   cmd <- cmdArgs cmdModes
---   runCommand cmd
+helpMsg :: String -> String
+helpMsg cmd =
+  case cmd of
+    "Show" -> "haskgit Show - Show various types of objects"
+    "UpdateRef" -> "haskgit UpdateRef - Update the object name stored in a ref safely"
+    _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"
