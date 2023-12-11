@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -48,7 +48,6 @@ library
     , parsec
     , time
     , zlib
-    , text
   default-language: Haskell2010
 
 executable HaskGit-exe
@@ -80,12 +79,12 @@ test-suite HaskGit-test
     , base >=4.7 && <5
     , base16-bytestring
     , bytestring
+    , parsec
     , shelly
     , silently
     , tasty
     , tasty-hunit
     , tasty-quickcheck
     , text
-    , parsec
     , zlib
   default-language: Haskell2010

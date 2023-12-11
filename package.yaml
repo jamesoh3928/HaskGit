@@ -53,5 +53,9 @@ tests:
       - tasty
       - tasty-hunit
       - tasty-quickcheck
+      - text
+      - parsec
+      - zlib
+      - base16-bytestring
       - shelly
       - silently
