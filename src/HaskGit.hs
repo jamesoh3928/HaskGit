@@ -1,6 +1,7 @@
 module HaskGit
   ( gitShow,
-    gitHashObject,
+    hashObject,
+    hashAndSaveObject,
     gitUpdateRef,
   )
 where
@@ -13,7 +14,7 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
-import GitHash (GitHash, gitHashValue)
+import GitHash (GitHash, bsToHash, gitHashValue)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject)
 import Index (GitIndex, gitIndexSerialize)
@@ -23,18 +24,17 @@ import System.FilePath
 import Text.Parsec (parse)
 import Util
 
--- This command computes the SHA-1 hash of Git objects.
--- If flag is true, save the object in .haskgit/objects directory
-gitHashObject :: GitObject -> Bool -> IO ByteString
-gitHashObject obj b = do
+-- Computes the SHA-1 hash of Git objects.
+hashObject :: GitObject -> GitHash
+hashObject obj = bsToHash (SHA1.hash (gitObjectSerialize obj))
+
+-- Computes the SHA-1 hash of Git objects and save it.
+hashAndSaveObject :: GitObject -> IO GitHash
+hashAndSaveObject obj = do
   let content = gitObjectSerialize obj
   let hash = SHA1.hash content
-  if b
-    then do
-      saveGitObject hash content
-      return hash
-    else do
-      return hash
+  saveGitObject hash content
+  return (bsToHash hash)
 
 -------------------------- List of plumbing commands --------------------------
 

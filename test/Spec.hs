@@ -2,19 +2,23 @@
 
 module Main (main) where
 
+import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as B
--- not used, but it can call shell command;
-
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import GitHash
 import GitObject
+import GitParser (parseGitObject)
 import HaskGit
-import Shelly -- not used, but it can call shell command;
+import Shelly
 import System.IO.Silently (capture)
 import Test.Tasty
 import Test.Tasty.HUnit
+import Text.Parsec (parse)
 
 -- import Test.Tasty.QuickCheck
 
@@ -32,7 +36,7 @@ main :: IO ()
 main = tests >>= defaultMain
 
 tests :: IO TestTree
-tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest]
+tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest, hashObjectTest]
 
 showTests :: IO TestTree
 showTests = do
@@ -69,8 +73,6 @@ showTests = do
 -- Add test for updateRef
 updateRefTest :: IO TestTree
 updateRefTest = do
-  -- let refMain = "refs/heads/main"
-  -- let refTest = ".haskgit/refs/heads/test"
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
   originalMainRef <- TIO.readFile ".haskgit/refs/heads/main"
@@ -82,7 +84,6 @@ updateRefTest = do
   actualCase1 <- TIO.readFile ".haskgit/refs/heads/test"
 
   -- Case2: refname, refname
-  -- This will create new ref 'test'
   -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
   gitUpdateRef "refs/heads/main" "refs/heads/test"
   let expectedCase2 = T.pack (hash1 ++ "\n")
@@ -96,9 +97,7 @@ updateRefTest = do
 
   let updateRefTest =
         testGroup
-          -- sequentialTestGroup
           "gitUpdateRef"
-          -- AllSucceed
           [ testCase "refname hash-value" $
               actualCase1 @?= expectedCase1,
             testCase "refname refname" $
@@ -112,6 +111,43 @@ updateRefTest = do
   TIO.writeFile ".haskgit/HEAD" originalHeadRef
 
   return updateRefTest
+
+-- Add test for hashObject
+
+-- Test for hashObject
+-- read content from real ".git" and see if hashvalue is the same as expected.
+hashObjectTest :: IO TestTree
+hashObjectTest = do
+  let actualBlobHash = "f6f754dbe0808826bed2237eb651558f75215cc6"
+  contentBlob <- BSLC.readFile ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+  let expectedBlob = case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
+        Left err -> Nothing
+        Right result -> Just (encode (getHash (hashObject result)))
+
+  let actualTreeHash = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
+  contentTree <- BSLC.readFile ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+  let expectedTree = case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
+        Left err -> Nothing
+        Right result -> Just (encode (getHash (hashObject result)))
+
+  let actualCommitHash = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  contentCommit <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  let expectedCommit = case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
+        Left err -> Nothing
+        Right result -> Just (encode (getHash (hashObject result)))
+
+  let hashObjectTest =
+        testGroup
+          "hashObejct"
+          [ testCase "blob object" $
+              (Just (B.pack actualBlobHash)) @?= expectedBlob,
+            testCase "tree object" $
+              (Just (B.pack actualTreeHash)) @?= expectedTree,
+            testCase "commit object" $
+              (Just (B.pack actualCommitHash)) @?= expectedCommit
+          ]
+
+  return hashObjectTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------

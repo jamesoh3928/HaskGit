@@ -2,6 +2,7 @@
 -- other places. This file will be deleted in the future.
 
 module Experiment (module Experiment) where
+
 import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
@@ -73,24 +74,3 @@ readIndexFile :: IO ()
 readIndexFile = do
   x <- BSLC.readFile ".git/index"
   Prelude.putStrLn (BSLC.unpack x)
-
-testHash :: String -> IO ()
-testHash filename = do
-  content <- BSLC.readFile filename
-  -- hashing without the header
-  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> do
-      tmp <- gitHashObject result False
-      print (encode tmp)
-
-testHashCommand :: String -> IO ()
-testHashCommand filename = do
-  content <- BSLC.readFile filename
-  -- hashing without the header
-  case parse parseGitObject "" (BSLC.unpack (decompress content)) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> do
-      -- print (gitHashObject result)
-      hash <- gitHashObject result True
-      print (encode hash)
