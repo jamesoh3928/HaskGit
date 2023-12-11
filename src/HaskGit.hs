@@ -56,7 +56,7 @@ gitCommitTree = undefined
 gitUpdateRef :: String -> String -> IO ()
 gitUpdateRef ref obj = do
   path <- refToFilePath ref
-  -- Check if obj is alreayd commit hash
+  -- Check if obj is already commit hash
   hashPath <- hashToFilePath obj
   hashExist <- doesFileExist hashPath
   if hashExist

@@ -5,6 +5,10 @@ module Main (main) where
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B
+-- not used, but it can call shell command;
+
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import GitObject
 import HaskGit
 import Shelly -- not used, but it can call shell command;
@@ -28,7 +32,7 @@ main :: IO ()
 main = tests >>= defaultMain
 
 tests :: IO TestTree
-tests = testGroup "Unit Tests" <$> sequence [showTests]
+tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest]
 
 showTests :: IO TestTree
 showTests = do
@@ -43,7 +47,7 @@ showTests = do
   let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
   expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
   (actualCommitShow1, ()) <- capture $ gitShow (B.pack commitHash1)
-  
+
   let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
   (actualCommitShow2, ()) <- capture $ gitShow (B.pack commitHash2)
   expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
@@ -61,6 +65,53 @@ showTests = do
               actualCommitShow2 @?= expectedCommitShow2
           ]
   return showTest
+
+-- Add test for updateRef
+updateRefTest :: IO TestTree
+updateRefTest = do
+  -- let refMain = "refs/heads/main"
+  -- let refTest = ".haskgit/refs/heads/test"
+  let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
+  let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
+  originalMainRef <- TIO.readFile ".haskgit/refs/heads/main"
+  originalHeadRef <- TIO.readFile ".haskgit/HEAD"
+
+  -- Case1: refname, hash-value
+  gitUpdateRef "refs/heads/test" hash1
+  let expectedCase1 = T.pack (hash1 ++ "\n")
+  actualCase1 <- TIO.readFile ".haskgit/refs/heads/test"
+
+  -- Case2: refname, refname
+  -- This will create new ref 'test'
+  -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
+  gitUpdateRef "refs/heads/main" "refs/heads/test"
+  let expectedCase2 = T.pack (hash1 ++ "\n")
+  actualCase2 <- TIO.readFile ".haskgit/refs/heads/main"
+
+  -- Case3: symbolic-ref, hash-value
+  -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
+  gitUpdateRef "HEAD" hash2
+  let expectedCase3 = T.pack (hash2 ++ "\n")
+  actualCase3 <- TIO.readFile ".haskgit/HEAD"
+
+  let updateRefTest =
+        testGroup
+          -- sequentialTestGroup
+          "gitUpdateRef"
+          -- AllSucceed
+          [ testCase "refname hash-value" $
+              actualCase1 @?= expectedCase1,
+            testCase "refname refname" $
+              actualCase1 @?= expectedCase1,
+            testCase "symbolic-ref hash-value" $
+              actualCase1 @?= expectedCase1
+          ]
+
+  -- Go back to original ref
+  TIO.writeFile ".haskgit/refs/heads/main" originalMainRef
+  TIO.writeFile ".haskgit/HEAD" originalHeadRef
+
+  return updateRefTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------
