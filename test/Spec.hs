@@ -15,6 +15,7 @@ import GitObject
 import GitParser (parseGitObject)
 import HaskGit
 import Shelly
+import System.Directory (removeFile)
 import System.IO.Silently (capture)
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -36,7 +37,7 @@ main :: IO ()
 main = tests >>= defaultMain
 
 tests :: IO TestTree
-tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest, hashObjectTest]
+tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest, hashObjectTest, saveObjectTest]
 
 showTests :: IO TestTree
 showTests = do
@@ -140,14 +141,72 @@ hashObjectTest = do
         testGroup
           "hashObejct"
           [ testCase "blob object" $
-              (Just (B.pack actualBlobHash)) @?= expectedBlob,
+              Just (B.pack actualBlobHash) @?= expectedBlob,
             testCase "tree object" $
-              (Just (B.pack actualTreeHash)) @?= expectedTree,
+              Just (B.pack actualTreeHash) @?= expectedTree,
             testCase "commit object" $
-              (Just (B.pack actualCommitHash)) @?= expectedCommit
+              Just (B.pack actualCommitHash) @?= expectedCommit
           ]
 
   return hashObjectTest
+
+-- saveGitObject hash content
+saveObjectTest :: IO TestTree
+saveObjectTest = do
+  -- Blob
+  let blobHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  contentBlob <- BSLC.readFile ".git/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553"
+  case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
+    Left err -> putStrLn "Parse error duing test"
+    Right result -> saveGitObject (B.pack blobHash) (gitObjectSerialize result)
+
+  -- check the strings (need to decompress since compression data might depend on machine)
+  tmpBlob1 <- BSLC.readFile ".haskgit/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  let expectedBlob = decompress tmpBlob1
+  tmpBlob2 <- BSLC.readFile ".git/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553"
+  let actualBlob = decompress tmpBlob2
+
+  -- Tree
+  let treeHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  contentTree <- BSLC.readFile ".git/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77"
+  case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
+    Left err -> putStrLn "Parse error duing test"
+    Right result -> do saveGitObject (B.pack treeHash) (gitObjectSerialize result)
+
+  tmpTree1 <- BSLC.readFile ".haskgit/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  let expectedTree = decompress tmpTree1
+  tmpTree2 <- BSLC.readFile ".git/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77"
+  let actualTree = decompress tmpTree2
+
+  -- Commit
+  let commitHash = "cccccccccccccccccccccccccccccccccccccccc"
+  contentCommit <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
+    Left err -> putStrLn "Parse error duing test"
+    Right result -> do saveGitObject (B.pack commitHash) (gitObjectSerialize result)
+
+  tmpCommit1 <- BSLC.readFile ".haskgit/objects/cc/cccccccccccccccccccccccccccccccccccccc"
+  let expectedCommit = decompress tmpCommit1
+  tmpCommit2 <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  let actualCommit = decompress tmpCommit2
+
+  let saveObjectTest =
+        testGroup
+          "saveObejct"
+          [ testCase "blob object" $
+              actualBlob @?= expectedBlob,
+            testCase "tree object" $
+              actualTree @?= expectedTree,
+            testCase "commit object" $
+              actualCommit @?= expectedCommit
+          ]
+
+  -- remove created directory
+  removeFile ".haskgit/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  removeFile ".haskgit/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  removeFile ".haskgit/objects/cc/cccccccccccccccccccccccccccccccccccccc"
+
+  return saveObjectTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------

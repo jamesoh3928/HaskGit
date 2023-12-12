@@ -7,7 +7,7 @@ newtype GitHash = GitHash ByteString
   deriving (Eq, Ord, Show)
 
 bsToHash :: ByteString -> GitHash
-bsToHash bs = GitHash bs
+bsToHash = GitHash
 
 -- Constructor that takes a ByteString and returns a GitHash
 gitHashValue :: ByteString -> Maybe GitHash

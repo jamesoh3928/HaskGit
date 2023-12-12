@@ -1,8 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module GitObject
-  ( 
-    GitBlob,
+  ( GitBlob,
     GitTree,
     GitCommit,
     GitObject (..),
@@ -20,10 +19,10 @@ import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import GitHash (GitHash, getHash)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath
 import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
-import GitHash (GitHash, getHash)
 
 -- GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
@@ -82,7 +81,7 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
   where
     (aName, aEmail, aDate, aTimeStamp) = authorObj
     (cName, cEmail, cDate, cTimeStamp) = committerObj
-    content = "tree " ++ BS.unpack (getHash treeHash) ++ "\n" ++ concatMap (\x -> "parent " ++ BS.unpack x ++ "\n") (map getHash parentHashes) ++ gitAuthor ++ gitCommitter ++ message
+    content = "tree " ++ BS.unpack (getHash treeHash) ++ "\n" ++ concatMap ((\x -> "parent " ++ BS.unpack x ++ "\n") . getHash) parentHashes ++ gitAuthor ++ gitCommitter ++ message
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
@@ -90,6 +89,6 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
 saveGitObject :: ByteString -> ByteString -> IO ()
 saveGitObject hash content = do
   let obj = compress (BSLC.fromStrict content)
-  path <- hashToFilePath (B.unpack (encode hash))
+  path <- hashToFilePath (B.unpack hash)
   createDirectoryIfMissing True (takeDirectory path)
   BSLC.writeFile path obj
