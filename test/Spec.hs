@@ -33,6 +33,9 @@ import Text.Parsec (parse)
 -- for later unit test, there will be a .dat file stores all result
 -- of `git show` then do comparison
 
+testGitDir :: FilePath
+testGitDir = ".test_haskgit"
+
 main :: IO ()
 main = tests >>= defaultMain
 
@@ -43,18 +46,18 @@ showTests :: IO TestTree
 showTests = do
   let blobHash = "04efa50ffad0bc03edea5cbca1936c29aee18553"
   expectedBlobShow <- readFile "test/TestData/expectedBlobShow.dat"
-  (actualBlobShow, ()) <- capture $ gitShow (B.pack blobHash)
+  (actualBlobShow, ()) <- capture $ gitShow (B.pack blobHash) testGitDir
 
   let treeHash = "0013ee97b010dc8e9646f3c5a9841b62eb754f77"
   expectedTreeShow <- readFile "test/TestData/expectedTreeShow.dat"
-  (actualTreeShow, ()) <- capture $ gitShow (B.pack treeHash)
+  (actualTreeShow, ()) <- capture $ gitShow (B.pack treeHash) testGitDir
 
   let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
   expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
-  (actualCommitShow1, ()) <- capture $ gitShow (B.pack commitHash1)
+  (actualCommitShow1, ()) <- capture $ gitShow (B.pack commitHash1) testGitDir
 
   let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
-  (actualCommitShow2, ()) <- capture $ gitShow (B.pack commitHash2)
+  (actualCommitShow2, ()) <- capture $ gitShow (B.pack commitHash2) testGitDir
   expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
 
   let showTest =
@@ -76,25 +79,27 @@ updateRefTest :: IO TestTree
 updateRefTest = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
-  originalMainRef <- TIO.readFile ".haskgit/refs/heads/main"
+  let refMainPath = ".haskgit/refs/heads/main"
+  originalMainRef <- TIO.readFile refMainPath
   originalHeadRef <- TIO.readFile ".haskgit/HEAD"
 
   -- Case1: refname, hash-value
-  gitUpdateRef "refs/heads/test" hash1
+  let refTestPath = ".test_haskgit/refs/heads/test"
+  gitUpdateRef "refs/heads/test" hash1 testGitDir
   let expectedCase1 = T.pack (hash1 ++ "\n")
-  actualCase1 <- TIO.readFile ".haskgit/refs/heads/test"
+  actualCase1 <- TIO.readFile refTestPath
 
   -- Case2: refname, refname
   -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
-  gitUpdateRef "refs/heads/main" "refs/heads/test"
+  gitUpdateRef "refs/heads/main" "refs/heads/test" testGitDir
   let expectedCase2 = T.pack (hash1 ++ "\n")
-  actualCase2 <- TIO.readFile ".haskgit/refs/heads/main"
+  actualCase2 <- TIO.readFile refMainPath
 
   -- Case3: symbolic-ref, hash-value
   -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
-  gitUpdateRef "HEAD" hash2
+  gitUpdateRef "HEAD" hash2 testGitDir
   let expectedCase3 = T.pack (hash2 ++ "\n")
-  actualCase3 <- TIO.readFile ".haskgit/HEAD"
+  actualCase3 <- TIO.readFile (testGitDir ++ "/HEAD")
 
   let updateRefTest =
         testGroup
@@ -108,7 +113,7 @@ updateRefTest = do
           ]
 
   -- Go back to original ref
-  TIO.writeFile ".haskgit/refs/heads/main" originalMainRef
+  TIO.writeFile refMainPath originalMainRef
   TIO.writeFile ".haskgit/HEAD" originalHeadRef
 
   return updateRefTest
@@ -120,19 +125,19 @@ updateRefTest = do
 hashObjectTest :: IO TestTree
 hashObjectTest = do
   let actualBlobHash = "f6f754dbe0808826bed2237eb651558f75215cc6"
-  contentBlob <- BSLC.readFile ".git/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+  contentBlob <- BSLC.readFile (testGitDir ++ "/objects/f6/f754dbe0808826bed2237eb651558f75215cc6")
   let expectedBlob = case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
         Left err -> Nothing
         Right result -> Just (encode (getHash (hashObject result)))
 
   let actualTreeHash = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
-  contentTree <- BSLC.readFile ".git/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a"
+  contentTree <- BSLC.readFile (testGitDir ++ "/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a")
   let expectedTree = case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
         Left err -> Nothing
         Right result -> Just (encode (getHash (hashObject result)))
 
   let actualCommitHash = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
-  contentCommit <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   let expectedCommit = case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
         Left err -> Nothing
         Right result -> Just (encode (getHash (hashObject result)))
@@ -155,39 +160,42 @@ saveObjectTest :: IO TestTree
 saveObjectTest = do
   -- Blob
   let blobHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  contentBlob <- BSLC.readFile ".git/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553"
+  let blobTempPath = testGitDir ++ "/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> saveGitObject (B.pack blobHash) (gitObjectSerialize result)
+    Right result -> saveGitObject (B.pack blobHash) (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
-  tmpBlob1 <- BSLC.readFile ".haskgit/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  tmpBlob1 <- BSLC.readFile blobTempPath
   let expectedBlob = decompress tmpBlob1
-  tmpBlob2 <- BSLC.readFile ".git/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553"
+  tmpBlob2 <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   let actualBlob = decompress tmpBlob2
 
   -- Tree
   let treeHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  contentTree <- BSLC.readFile ".git/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77"
+  let treeTempPath = testGitDir ++ "/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (B.pack treeHash) (gitObjectSerialize result)
+    Right result -> do saveGitObject (B.pack treeHash) (gitObjectSerialize result) testGitDir
 
-  tmpTree1 <- BSLC.readFile ".haskgit/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  tmpTree1 <- BSLC.readFile treeTempPath
   let expectedTree = decompress tmpTree1
-  tmpTree2 <- BSLC.readFile ".git/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77"
+  tmpTree2 <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   let actualTree = decompress tmpTree2
 
   -- Commit
   let commitHash = "cccccccccccccccccccccccccccccccccccccccc"
-  contentCommit <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  let commitTempPath = testGitDir ++ "/objects/cc/cccccccccccccccccccccccccccccccccccccc"
+  contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (B.pack commitHash) (gitObjectSerialize result)
+    Right result -> do saveGitObject (B.pack commitHash) (gitObjectSerialize result) testGitDir
 
-  tmpCommit1 <- BSLC.readFile ".haskgit/objects/cc/cccccccccccccccccccccccccccccccccccccc"
+  tmpCommit1 <- BSLC.readFile commitTempPath
   let expectedCommit = decompress tmpCommit1
-  tmpCommit2 <- BSLC.readFile ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
+  tmpCommit2 <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   let actualCommit = decompress tmpCommit2
 
   let saveObjectTest =
@@ -201,10 +209,11 @@ saveObjectTest = do
               actualCommit @?= expectedCommit
           ]
 
+  -- TODO: double check later
   -- remove created directory
-  removeFile ".haskgit/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  removeFile ".haskgit/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  removeFile ".haskgit/objects/cc/cccccccccccccccccccccccccccccccccccccc"
+  -- removeFile blobTempPath
+  -- removeFile treeTempPath
+  -- removeFile commitTempPath
 
   return saveObjectTest
 

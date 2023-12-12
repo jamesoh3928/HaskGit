@@ -24,18 +24,16 @@ import System.FilePath
 -- Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
 -- Example output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
-hashToFilePath :: String -> IO FilePath
-hashToFilePath hash = do
-  gitdir <- getGitDirectory
-  return (gitdir ++ "/objects/" ++ take 2 hash ++ "/" ++ drop 2 hash)
+hashToFilePath :: String -> FilePath -> IO FilePath
+hashToFilePath hash gitDir = do
+  return (gitDir ++ "/objects/" ++ take 2 hash ++ "/" ++ drop 2 hash)
 
 -- Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
-refToFilePath :: String -> IO FilePath
-refToFilePath ref = do
-  gitdir <- getGitDirectory
-  return (gitdir ++ "/" ++ ref)
+refToFilePath :: String -> FilePath -> IO FilePath
+refToFilePath ref gitDir = do
+  return (gitDir ++ "/" ++ ref)
 
 -- Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- If it cannot find .haskgit directory, return "/" or "~".
@@ -57,16 +55,16 @@ findGitDirectory fp = do
 
 -- Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
-gitRefToCommit :: String -> IO (Maybe String)
-gitRefToCommit ref = do
-  refPath <- refToFilePath ref
+gitRefToCommit :: String -> FilePath -> IO (Maybe String)
+gitRefToCommit ref gitDir = do
+  refPath <- refToFilePath ref gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then do
       content <- readFile refPath
       let obj = head (lines content)
       if take 5 obj == "ref: "
-        then gitRefToCommit (drop 5 obj)
+        then gitRefToCommit (drop 5 obj) gitDir
         else return (Just obj)
     else do
       return Nothing

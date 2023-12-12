@@ -4,28 +4,29 @@ import qualified Data.ByteString.Char8 as B
 import HaskGit
 -- import System.Console.CmdArgs
 import System.Environment (getArgs)
+import Util (getGitDirectory)
 
 main :: IO ()
 main = do
   argsRaw <- getArgs
-  processArgs argsRaw
+  gitDir <- getGitDirectory
+  processArgs argsRaw gitDir
 
-processArgs :: [String] -> IO ()
-processArgs [] =
+processArgs :: [String] -> FilePath -> IO ()
+processArgs [] _ =
   do
   putStrLn $ helpMsg "Show"
   putStrLn $ helpMsg "UpdateRef"
-
-processArgs args =
+processArgs args gitDir =
   case head args of
     "Show" ->
       case tail args of
         [] -> putStrLn "Error: haskgit Show requires an argument <object>"
-        [object] -> gitShow (B.pack object)
+        [object] -> gitShow (B.pack object) gitDir
         _ -> putStrLn "Error: haskgit Show only has one argument <object>"
     "UpdateRef" ->
       case tail args of
-        [refdest, refsrc] -> gitUpdateRef refdest refsrc
+        [refdest, refsrc] -> gitUpdateRef refdest refsrc gitDir
         _ -> putStrLn "Usage: UpdateRef refdest refsrc"
     "help" ->
       case tail args of

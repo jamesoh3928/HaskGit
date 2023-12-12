@@ -29,11 +29,11 @@ hashObject :: GitObject -> GitHash
 hashObject obj = bsToHash (SHA1.hash (gitObjectSerialize obj))
 
 -- Computes the SHA-1 hash of Git objects and save it.
-hashAndSaveObject :: GitObject -> IO GitHash
-hashAndSaveObject obj = do
+hashAndSaveObject :: GitObject -> FilePath -> IO GitHash
+hashAndSaveObject obj gitDir = do
   let content = gitObjectSerialize obj
   let hash = SHA1.hash content
-  saveGitObject hash content
+  saveGitObject hash content gitDir
   return (bsToHash hash)
 
 -------------------------- List of plumbing commands --------------------------
@@ -53,17 +53,17 @@ gitCommitTree = undefined
 -- Update the object name stored in a ref safely.
 -- git update-ref <refname> <new-object-name>
 -- e.g. gitUpdateRef "refs/heads/main" hashvalue
-gitUpdateRef :: String -> String -> IO ()
-gitUpdateRef ref obj = do
-  path <- refToFilePath ref
+gitUpdateRef :: String -> String -> FilePath -> IO ()
+gitUpdateRef ref obj gitDir = do
+  path <- refToFilePath ref gitDir
   -- Check if obj is already commit hash
-  hashPath <- hashToFilePath obj
+  hashPath <- hashToFilePath obj gitDir
   hashExist <- doesFileExist hashPath
   if hashExist
     then writeFile path (obj ++ "\n")
     else -- else save commit hash that ref is pointing
     do
-      objHash <- gitRefToCommit obj
+      objHash <- gitRefToCommit obj gitDir
       case objHash of
         Nothing -> putStrLn "Invalid argument. Provided object doesn't exist."
         Just hash ->
@@ -108,10 +108,9 @@ gitBranch = undefined
 -- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
 --
 -- Display the contents of the git object for the given hash.
-gitShow :: ByteString -> IO ()
-gitShow hash = do
+gitShow :: ByteString -> FilePath -> IO ()
+gitShow hash gitdir = do
   -- 2 hexadecimal = 4 bytes
-  gitdir <- getGitDirectory
   let hashHex = B.unpack hash
   let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
   filecontent <- BSLC.readFile filename
