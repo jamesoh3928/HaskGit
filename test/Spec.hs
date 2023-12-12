@@ -6,14 +6,15 @@ import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encode)
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GitHash
 import GitObject
-import GitParser (parseGitObject)
+import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
+import Index (saveIndexFile)
 import Shelly
 import System.Directory (removeFile)
 import System.IO.Silently (capture)
@@ -40,24 +41,33 @@ main :: IO ()
 main = tests >>= defaultMain
 
 tests :: IO TestTree
-tests = testGroup "Unit Tests" <$> sequence [showTests, updateRefTest, hashObjectTest, saveObjectTest]
+tests =
+  testGroup "Unit Tests"
+    <$> sequence
+      [ showTests,
+        updateRefTest,
+        hashObjectTest,
+        saveObjectTest,
+        parseSaveIndexTest
+      ]
 
+-- Make sure if haskgit show produces expected output
 showTests :: IO TestTree
 showTests = do
   let blobHash = "04efa50ffad0bc03edea5cbca1936c29aee18553"
   expectedBlobShow <- readFile "test/TestData/expectedBlobShow.dat"
-  (actualBlobShow, ()) <- capture $ gitShow (B.pack blobHash) testGitDir
+  (actualBlobShow, ()) <- capture $ gitShow (BSC.pack blobHash) testGitDir
 
   let treeHash = "0013ee97b010dc8e9646f3c5a9841b62eb754f77"
   expectedTreeShow <- readFile "test/TestData/expectedTreeShow.dat"
-  (actualTreeShow, ()) <- capture $ gitShow (B.pack treeHash) testGitDir
+  (actualTreeShow, ()) <- capture $ gitShow (BSC.pack treeHash) testGitDir
 
   let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
   expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
-  (actualCommitShow1, ()) <- capture $ gitShow (B.pack commitHash1) testGitDir
+  (actualCommitShow1, ()) <- capture $ gitShow (BSC.pack commitHash1) testGitDir
 
   let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
-  (actualCommitShow2, ()) <- capture $ gitShow (B.pack commitHash2) testGitDir
+  (actualCommitShow2, ()) <- capture $ gitShow (BSC.pack commitHash2) testGitDir
   expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
 
   let showTest =
@@ -74,7 +84,6 @@ showTests = do
           ]
   return showTest
 
--- Add test for updateRef
 updateRefTest :: IO TestTree
 updateRefTest = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -118,8 +127,6 @@ updateRefTest = do
 
   return updateRefTest
 
--- Add test for hashObject
-
 -- Test for hashObject
 -- read content from real ".git" and see if hashvalue is the same as expected.
 hashObjectTest :: IO TestTree
@@ -146,11 +153,11 @@ hashObjectTest = do
         testGroup
           "hashObejct"
           [ testCase "blob object" $
-              Just (B.pack actualBlobHash) @?= expectedBlob,
+              Just (BSC.pack actualBlobHash) @?= expectedBlob,
             testCase "tree object" $
-              Just (B.pack actualTreeHash) @?= expectedTree,
+              Just (BSC.pack actualTreeHash) @?= expectedTree,
             testCase "commit object" $
-              Just (B.pack actualCommitHash) @?= expectedCommit
+              Just (BSC.pack actualCommitHash) @?= expectedCommit
           ]
 
   return hashObjectTest
@@ -164,7 +171,7 @@ saveObjectTest = do
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> saveGitObject (B.pack blobHash) (gitObjectSerialize result) testGitDir
+    Right result -> saveGitObject (BSC.pack blobHash) (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
   tmpBlob1 <- BSLC.readFile blobTempPath
@@ -178,7 +185,7 @@ saveObjectTest = do
   contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (B.pack treeHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (BSC.pack treeHash) (gitObjectSerialize result) testGitDir
 
   tmpTree1 <- BSLC.readFile treeTempPath
   let expectedTree = decompress tmpTree1
@@ -191,7 +198,7 @@ saveObjectTest = do
   contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (B.pack commitHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (BSC.pack commitHash) (gitObjectSerialize result) testGitDir
 
   tmpCommit1 <- BSLC.readFile commitTempPath
   let expectedCommit = decompress tmpCommit1
@@ -216,6 +223,27 @@ saveObjectTest = do
   -- removeFile commitTempPath
 
   return saveObjectTest
+
+-- Parsed and saved index file is exactly equal to the orginal index file
+parseSaveIndexTest :: IO TestTree
+parseSaveIndexTest = do
+  let expectedIndexFile = testGitDir ++ "/expected_index"
+  let actualIndexFile = testGitDir ++ "/index"
+  x <- BSC.readFile expectedIndexFile
+  case parse parseIndexFile "" (BSC.unpack x) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right result -> saveIndexFile x testGitDir
+
+  -- Read both files and compare contents
+  expected <- BSC.readFile expectedIndexFile
+  actual <- BSC.readFile actualIndexFile
+  let parseSaveIndexTest =
+        testGroup
+          "parseSaveIndex"
+          [ testCase "parseSaveIndex" $
+              actual @?= expected
+          ]
+  return parseSaveIndexTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------

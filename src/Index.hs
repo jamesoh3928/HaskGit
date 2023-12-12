@@ -3,6 +3,7 @@ module Index
     GitIndexEntry (..),
     gitIndexSerialize,
     intToBytes,
+    saveIndexFile,
   )
 where
 
@@ -95,3 +96,7 @@ gitIndexSerialize (GitIndex entries) = content <> checkSum
     content = BC.pack "DIRC" <> BC.pack "\0\0\0\2" <> BC.pack (intTo4Bytes (length entries)) <> mconcat (fmap gitIndexEntrySerialize entries)
     -- hash the content at the end of index file
     checkSum = SHA1.hash content
+
+saveIndexFile :: ByteString -> FilePath -> IO ()
+saveIndexFile content gitDir = do
+  BC.writeFile (gitDir ++ "/index") content

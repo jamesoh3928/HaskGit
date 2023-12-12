@@ -46,7 +46,7 @@ testParseIndex s = do
 
 testSaveIndex :: IO ()
 testSaveIndex = do
-  x <- BSLC.readFile ".git/index"
+  x <- BSLC.readFile ".haskgit/index"
   case parse parseIndexFile "" (unpack x) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> BSLC.writeFile "testIndex" (fromStrict (gitIndexSerialize result))
