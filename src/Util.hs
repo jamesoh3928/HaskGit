@@ -14,8 +14,6 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)

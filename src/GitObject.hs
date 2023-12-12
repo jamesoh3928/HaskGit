@@ -16,7 +16,7 @@ import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import GitHash (GitHash, getHash)
@@ -63,9 +63,9 @@ gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++
 -- Convert the gitObject (this function does not compress with zllib)
 gitObjectSerialize :: GitObject -> ByteString
 -- Blob: Header + filecontent
-gitObjectSerialize (Blob (byteSize, content)) = BSL.toStrict (BSLC.pack ("blob " ++ show byteSize ++ "\0" ++ content))
+gitObjectSerialize (Blob (byteSize, content)) = BSC.pack ("blob " ++ show byteSize ++ "\0" ++ content)
 -- (header + concatenation of Blobs and subtrees within Tree)
-gitObjectSerialize (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs))
+gitObjectSerialize (Tree (byteSize, xs)) = BSC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs)
   where
     decodHash :: ByteString -> ByteString
     decodHash hash = case B16.decode hash of
@@ -74,14 +74,14 @@ gitObjectSerialize (Tree (byteSize, xs)) = BSL.toStrict (BSLC.pack ("tree " ++ s
 
     content :: [(String, String, ByteString)] -> String
     content [] = ""
-    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ (BS.unpack . decodHash) hash
-    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ (BS.unpack . decodHash) hash ++ content xxs
+    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodHash) hash
+    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodHash) hash ++ content xxs
 -- Commit: header + concatenation of content inside
-gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committerObj, message)) = BSL.toStrict (BSLC.pack ("commit " ++ show byteSize ++ "\0" ++ content))
+gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committerObj, message)) = BSC.pack ("commit " ++ show byteSize ++ "\0" ++ content)
   where
     (aName, aEmail, aDate, aTimeStamp) = authorObj
     (cName, cEmail, cDate, cTimeStamp) = committerObj
-    content = "tree " ++ BS.unpack (getHash treeHash) ++ "\n" ++ concatMap ((\x -> "parent " ++ BS.unpack x ++ "\n") . getHash) parentHashes ++ gitAuthor ++ gitCommitter ++ message
+    content = "tree " ++ BSC.unpack (getHash treeHash) ++ "\n" ++ concatMap ((\x -> "parent " ++ BSC.unpack x ++ "\n") . getHash) parentHashes ++ gitAuthor ++ gitCommitter ++ message
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 

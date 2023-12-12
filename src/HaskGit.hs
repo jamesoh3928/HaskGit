@@ -10,7 +10,7 @@ import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
-import qualified Data.ByteString.Char8 as B
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
@@ -111,7 +111,7 @@ gitBranch = undefined
 gitShow :: ByteString -> FilePath -> IO ()
 gitShow hash gitdir = do
   -- 2 hexadecimal = 4 bytes
-  let hashHex = B.unpack hash
+  let hashHex = BSC.unpack hash
   let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
   filecontent <- BSLC.readFile filename
   case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
