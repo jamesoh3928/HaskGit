@@ -39,6 +39,7 @@ hashAndSaveObject obj gitDir = do
 -------------------------- List of plumbing commands --------------------------
 
 -- This command creates a tree object from the current index (staging area).
+-- TODO: James
 gitWriteTree :: GitIndex -> IO ()
 gitWriteTree = undefined
 
