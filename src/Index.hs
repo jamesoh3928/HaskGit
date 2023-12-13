@@ -97,6 +97,41 @@ gitIndexSerialize (GitIndex entries) = content <> checkSum
     -- hash the content at the end of index file
     checkSum = SHA1.hash content
 
+-- Save the index file to {gitDir}/index
 saveIndexFile :: ByteString -> FilePath -> IO ()
 saveIndexFile content gitDir = do
   BC.writeFile (gitDir ++ "/index") content
+
+-- Check if the entry is the same file
+isEntrySameFile :: GitIndexEntry -> FilePath -> Bool
+isEntrySameFile entry path = name entry == path
+
+-- Remove the file if it exists in the index
+removeEntry :: FilePath -> GitIndex -> GitIndex
+removeEntry path (GitIndex entries) = GitIndex (filter (`isEntrySameFile` path) entries)
+
+-- Remove the files from the index if they exist
+removeEntries :: [FilePath] -> GitIndex -> GitIndex
+removeEntries paths index = foldr removeEntry index paths
+
+-- Add the file to the index
+addEntry :: FilePath -> GitIndex -> IO ()
+addEntry path (GitIndex entries) = undefined
+
+-- do
+-- Get the metadata of the file (ctime_s, ctime_ns, mtime_s, mtime_ns, dev, ino, mode, uid, gid, fsize, and sha)
+-- metadata <- getFileMetadata path
+-- Get the hash of the file
+-- Read the file content
+
+-- getIndexEntry :: FilePath -> IO GitIndexEntry
+-- getIndexEntry path = do
+--   -- Get the metadata of the file (ctime_s, ctime_ns, mtime_s, mtime_ns, dev, ino, mode, uid, gid, fsize, and sha)
+--   metadata <- getFileMetadata path
+--   -- Get the hash of the file
+--   -- Read the file content
+
+--   hash <- getHashOfFile path
+--   -- Add the entry to the index
+--   let newEntry = GitIndexEntry (ctimeS metadata) (ctimeNs metadata) (mtimeS metadata) (mtimeNs metadata) (dev metadata) (ino metadata) (modeType metadata) (modePerms metadata) (uid metadata) (gid metadata) (fsize metadata) hash False 0 path
+--   return newEntry

@@ -171,7 +171,7 @@ saveObjectTest = do
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> saveGitObject (BSC.pack blobHash) (gitObjectSerialize result) testGitDir
+    Right result -> saveGitObject (bsToHash (BSC.pack blobHash)) (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
   tmpBlob1 <- BSLC.readFile blobTempPath
@@ -185,7 +185,7 @@ saveObjectTest = do
   contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (BSC.pack treeHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash (BSC.pack treeHash)) (gitObjectSerialize result) testGitDir
 
   tmpTree1 <- BSLC.readFile treeTempPath
   let expectedTree = decompress tmpTree1
@@ -198,7 +198,7 @@ saveObjectTest = do
   contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
     Left err -> putStrLn "Parse error duing test"
-    Right result -> do saveGitObject (BSC.pack commitHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash (BSC.pack commitHash)) (gitObjectSerialize result) testGitDir
 
   tmpCommit1 <- BSLC.readFile commitTempPath
   let expectedCommit = decompress tmpCommit1

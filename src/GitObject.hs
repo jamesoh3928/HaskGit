@@ -60,23 +60,22 @@ gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
 
--- Convert the gitObject (this function does not compress with zllib)
-gitObjectSerialize :: GitObject -> ByteString
+-- Convert the gitObject to content of object file (this function does not compress with zllib)
 -- Blob: Header + filecontent
+-- Tree: Header + concatenation of Blobs and subtrees within Tree
+-- Commit: header + concatenation of contents inside
+gitObjectSerialize :: GitObject -> ByteString
 gitObjectSerialize (Blob (byteSize, content)) = BSC.pack ("blob " ++ show byteSize ++ "\0" ++ content)
--- (header + concatenation of Blobs and subtrees within Tree)
 gitObjectSerialize (Tree (byteSize, xs)) = BSC.pack ("tree " ++ show byteSize ++ "\0" ++ content xs)
   where
-    decodHash :: ByteString -> ByteString
-    decodHash hash = case B16.decode hash of
+    decodeHash :: ByteString -> ByteString
+    decodeHash hash = case B16.decode hash of
       Left err -> error err
       Right x -> x
-
     content :: [(String, String, ByteString)] -> String
     content [] = ""
-    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodHash) hash
-    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodHash) hash ++ content xxs
--- Commit: header + concatenation of content inside
+    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodeHash) hash
+    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ (BSC.unpack . decodeHash) hash ++ content xxs
 gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committerObj, message)) = BSC.pack ("commit " ++ show byteSize ++ "\0" ++ content)
   where
     (aName, aEmail, aDate, aTimeStamp) = authorObj
@@ -86,9 +85,9 @@ gitObjectSerialize (Commit (byteSize, treeHash, parentHashes, authorObj, committ
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
 -- Take hash and GitObject and save it to .haskgit/objects
-saveGitObject :: ByteString -> ByteString -> FilePath -> IO ()
+saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
   let obj = compress (BSLC.fromStrict content)
-  path <- hashToFilePath (B.unpack hash) gitDir
+  path <- hashToFilePath (B.unpack (getHash hash)) gitDir
   createDirectoryIfMissing True (takeDirectory path)
   BSLC.writeFile path obj

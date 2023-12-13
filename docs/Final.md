@@ -1,10 +1,10 @@
-# Project Title
+# HaskGit
 
 Team members:
 
-- Name1
-- Name2
-- Name3
+- James Oh
+- Jack Oh
+- Chen Guo
 
 ## Summary Description
 
@@ -40,3 +40,12 @@ Note: Be sure that all `.hs` source files and any supporting files (e.g.,
 ## Challenges
 - When working on the test, there were cases where we needed to read and write to the same file to preserve the original content (such as in gitUpdateRef, etc.). However, due to lazy evaluation in Haskell, errors occurred because the file was being accessed while still in the process of being updated. For this reason, we opted to use strict IO in these cases.
 https://stackoverflow.com/questions/5053135/resource-busy-file-is-locked-error-in-haskell
+
+
+<!-- Proving the IO heavy application can still have benefits by using Haskell as implementation language -->
+
+
+Note:
+git add
+- Only take files as command line arguments
+- Cross platform functionality
