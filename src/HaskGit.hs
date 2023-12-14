@@ -1,5 +1,6 @@
 module HaskGit
-  ( gitShow,
+  ( gitAdd,
+    gitShow,
     hashObject,
     hashAndSaveObject,
     gitUpdateRef,
@@ -21,7 +22,7 @@ import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, gitHashValue)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject, parseIndexFile)
-import Index (GitIndex, gitIndexSerialize)
+import Index (GitIndex, addOrUpdateEntries, gitIndexSerialize, saveIndexFile)
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath
@@ -136,23 +137,15 @@ gitRevList = undefined
 
 -------------------------- List of porcelain commands --------------------------
 gitAdd :: [FilePath] -> FilePath -> IO ()
-gitAdd = undefined
-
--- Read in the index file
--- Recursively check if the current file path is equal to one of the name in index entry (when doing this, need to compare the absolute paths since the user can call this command in any directory)
--- If equal, update the index entry with the new hash value,   (use System.Directory to get the metadata of the file)
--- If not equal, add the file to the index file
--- TODO: continue and uncomment
--- gitAdd paths gitDir = do
---   -- Read in the index file located in gitDir/.haskgit/index
---   indexContent <- BSC.readFile (gitDir ++ "/index")
---   case parse parseIndexFile "" (BSC.unpack indexContent) of
---     Left err -> Prelude.putStrLn $ "haskgit add parse error: " ++ show err
---     Right index -> addEntry paths index
---   where
---     addEntry :: [FilePath] -> GitIndex -> IO ()
---     addEntry [] _ = return ()
---     addEntry (x : xs) index = addEntry xs (gitUpdateIndex index (BSC.pack x))
+gitAdd paths gitDir = do
+  -- Read in the index file located in gitDir/.haskgit/index
+  indexContent <- BSC.readFile (gitDir ++ "/index")
+  case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> Prelude.putStrLn $ "haskgit add parse error: " ++ show err
+    -- Remove the files from the index if they exist and add given files to the index
+    Right index -> do
+      newIndex <- addOrUpdateEntries paths index
+      saveIndexFile (gitIndexSerialize newIndex) gitDir
 
 gitStatus :: ByteString -> IO ()
 gitStatus = undefined

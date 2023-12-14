@@ -14,7 +14,7 @@ import GitHash
 import GitObject
 import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
-import Index (saveIndexFile)
+import Index (gitIndexSerialize, saveIndexFile)
 import Shelly
 import System.Directory (removeFile)
 import System.IO.Silently (capture)
@@ -217,11 +217,11 @@ saveObjectTest = do
               actualCommit @?= expectedCommit
           ]
 
-  -- TODO: double check later
+  -- TODO: double check later Windows vs Unix
   -- remove created directory
-  -- removeFile blobTempPath
-  -- removeFile treeTempPath
-  -- removeFile commitTempPath
+  removeFile blobTempPath
+  removeFile treeTempPath
+  removeFile commitTempPath
 
   return saveObjectTest
 
@@ -232,8 +232,8 @@ parseSaveIndexTest = do
   let actualIndexFile = testGitDir ++ "/index"
   x <- BSC.readFile expectedIndexFile
   case parse parseIndexFile "" (BSC.unpack x) of
-    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
-    Right result -> saveIndexFile x testGitDir
+    Left err -> assertFailure (show err)
+    Right result -> saveIndexFile (gitIndexSerialize result) testGitDir
 
   -- Read both files and compare contents
   expected <- BSC.readFile expectedIndexFile
@@ -281,7 +281,7 @@ listBranchTest = do
 
 -- check when HEAD is detached
 
---
+-- TODO: git add test
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------

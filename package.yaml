@@ -33,6 +33,7 @@ library:
     - time
     - directory
     - filepath
+    - unix
 executables:
   HaskGit-exe:
     main: Main.hs

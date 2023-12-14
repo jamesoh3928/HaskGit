@@ -74,3 +74,14 @@ readIndexFile :: IO ()
 readIndexFile = do
   x <- BSLC.readFile ".git/index"
   Prelude.putStrLn (BSLC.unpack x)
+
+-- Test git add command
+testGitAdd :: [FilePath] -> FilePath -> IO ()
+testGitAdd paths gitDir = do
+  -- First add the paths with git add commands
+  gitAdd paths gitDir
+  -- Read the updated index file and print
+  indexContent <- BSLC.readFile (gitDir ++ "/index")
+  case parse parseIndexFile "" (BSLC.unpack indexContent) of
+    Left err -> Prelude.putStrLn $ "haskgit add parse error: " ++ show err
+    Right index -> print index

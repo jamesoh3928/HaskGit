@@ -15,16 +15,20 @@ main = do
 processArgs :: [String] -> FilePath -> IO ()
 processArgs [] _ =
   do
-  putStrLn $ helpMsg "Show"
-  putStrLn $ helpMsg "UpdateRef"
+    putStrLn $ helpMsg "show"
+    putStrLn $ helpMsg "updateRef"
 processArgs args gitDir =
   case head args of
-    "Show" ->
+    "show" ->
       case tail args of
-        [] -> putStrLn "Error: haskgit Show requires an argument <object>"
+        [] -> putStrLn "Error: haskgit show requires an argument <object>"
         [object] -> gitShow (B.pack object) gitDir
-        _ -> putStrLn "Error: haskgit Show only has one argument <object>"
-    "UpdateRef" ->
+        _ -> putStrLn "Error: haskgit show only has one argument <object>"
+    "add" ->
+      case tail args of
+        [] -> putStrLn "Error: haskgit Add requires an argument <file>"
+        files -> gitAdd files gitDir
+    "updateRef" ->
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc gitDir
         _ -> putStrLn "Usage: UpdateRef refdest refsrc"
@@ -37,6 +41,7 @@ processArgs args gitDir =
 helpMsg :: String -> String
 helpMsg cmd =
   case cmd of
-    "Show" -> "haskgit Show - Show various types of objects"
-    "UpdateRef" -> "haskgit UpdateRef - Update the object name stored in a ref safely"
+    "show" -> "haskgit Show - Show various types of objects"
+    "updateRef" -> "haskgit UpdateRef - Update the object name stored in a ref safely"
+    "add" -> "haskgit Add - Add file contents to the index"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"
