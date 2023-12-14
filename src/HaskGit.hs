@@ -3,15 +3,19 @@ module HaskGit
     hashObject,
     hashAndSaveObject,
     gitUpdateRef,
+    gitUpdateSymbRef,
+    gitListBranch,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
+import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.List
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, gitHashValue)
@@ -19,7 +23,7 @@ import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitSho
 import GitParser (parseGitObject, parseIndexFile)
 import Index (GitIndex, gitIndexSerialize)
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath
 import Text.Parsec (parse)
 import Util
@@ -71,6 +75,52 @@ gitUpdateRef ref obj gitDir = do
           do
             createDirectoryIfMissing True (takeDirectory path)
             writeFile path (hash ++ "\n")
+
+-- Given name and ref, update the symbolic ref.
+-- e.g. gitUpdateSymbRef HEAD "refs/head/main"
+gitUpdateSymbRef :: String -> String -> FilePath -> IO ()
+gitUpdateSymbRef symb ref gitDir = do
+  let path = gitDir ++ "/" ++ symb
+  refPath <- refToFilePath ref gitDir
+  fileExist <- doesFileExist refPath
+  if fileExist
+    then writeFile path ("ref: " ++ ref)
+    else putStrLn "Ref does not exist."
+
+-- List all the branch
+-- print "*" next to current branch
+-- If current HEAD is detacahed, print "* (no branch)" on top
+gitListBranch :: FilePath -> IO ()
+gitListBranch gitdir = do
+  let branchPath = gitdir ++ "/refs/heads"
+  branches <- listDirectory branchPath
+  -- Different cases when symbolic ref
+  head <- readFile (gitdir ++ "/HEAD")
+  -- If HEAD is not pointing to symbolic link, print * (no branch) on top
+  Control.Monad.when (take 5 head /= "ref: ") $ putStrLn "* (no branch)"
+  -- Print branches
+  printBranch (sort branches) head
+  where
+    printBranch [] _ = return ()
+    printBranch (x : xs) head = do
+      if drop 5 head == ("refs/heads/" ++ x) then putStrLn ("* " ++ x) else putStrLn ("  " ++ x)
+      printBranch xs head
+
+-- Create a new branch which will point to commit that HEAD is currently pointing.
+-- If branch aleready exists, just update the branch pointer.
+-- If HEAD is pointing ref, find the commit that ref is pointing and let branch point
+-- If HEAD is pointing hash, let branch point to hash.
+gitCreateBranch :: String -> FilePath -> IO ()
+gitCreateBranch name gitDir = do
+  let path = gitDir ++ "/refs/heads/" ++ name
+  head <- readFile (gitDir ++ "/HEAD")
+  if take 5 head == "ref: "
+    then do
+      hash <- gitRefToCommit (drop 5 head) gitDir
+      case hash of
+        Nothing -> putStrLn "HEAD is pointing to invalid ref."
+        Just h -> writeFile path h
+    else writeFile path head
 
 -- This command is used to add or update index entries (staging area).
 gitUpdateIndex :: GitIndex -> ByteString

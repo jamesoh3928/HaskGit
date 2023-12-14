@@ -48,7 +48,8 @@ tests =
         updateRefTest,
         hashObjectTest,
         saveObjectTest,
-        parseSaveIndexTest
+        parseSaveIndexTest,
+        listBranchTest
       ]
 
 -- Make sure if haskgit show produces expected output
@@ -244,6 +245,43 @@ parseSaveIndexTest = do
               actual @?= expected
           ]
   return parseSaveIndexTest
+
+listBranchTest :: IO TestTree
+listBranchTest = do
+  -- Case1: when HEAD is pointing main (default)
+  gitUpdateSymbRef "HEAD" "refs/heads/main" testGitDir
+  expectedMainBranch <- readFile "test/TestData/expectedMainBranch.dat"
+  (actualMainBranch, ()) <- capture (gitListBranch testGitDir)
+
+  -- Case2: when HEAD is pointing test
+  gitUpdateSymbRef "HEAD" "refs/heads/test" testGitDir
+  expectedTestBranch <- readFile "test/TestData/expectedTestBranch.dat"
+  (actualTestBranch, ()) <- capture (gitListBranch testGitDir)
+
+  -- Case3: when HEAD is pointing to hash
+  let blobHash = "f6f754dbe0808826bed2237eb651558f75215cc6"
+  gitUpdateRef "HEAD" blobHash testGitDir
+  expectedNoBranch <- readFile "test/TestData/expectedNoBranch.dat"
+  (actualNoBranch, ()) <- capture (gitListBranch testGitDir)
+
+  let gitListBarnchTest =
+        testGroup
+          "gitListBranchTest"
+          [ testCase "gitListBranchTest" $
+              actualMainBranch @?= expectedMainBranch,
+            testCase "gitListBranchTest" $
+              actualTestBranch @?= expectedTestBranch,
+            testCase "gitListBranchTest" $
+              actualNoBranch @?= expectedNoBranch
+          ]
+
+  -- go back to original ref
+  gitUpdateSymbRef "HEAD" "refs/head/main" testGitDir
+  return gitListBarnchTest
+
+-- check when HEAD is detached
+
+--
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------
