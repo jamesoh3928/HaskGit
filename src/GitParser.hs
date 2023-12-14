@@ -190,4 +190,5 @@ parseIndexFile = do
   _ <- string "\0\0\0\2"
   numEntries <- parseInt32
   entries <- count numEntries parseGitIndexEntry
+  -- Ignoring the extensions and cache tree
   return (GitIndex entries)
