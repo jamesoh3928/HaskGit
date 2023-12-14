@@ -4,17 +4,16 @@ module Index
     gitIndexSerialize,
     intToBytes,
     saveIndexFile,
-    addOrUpdateEntries
+    addOrUpdateEntries,
   )
 where
 
 import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 as B16 (decode)
+import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
-import qualified GHC.Read as BSC
 import System.Posix.Files
 
 -- Based on the documentation: https://github.com/vaibhavsagar/duffer/blob/master/duffer/src/Duffer/Plumbing.hs
@@ -107,12 +106,12 @@ saveIndexFile content gitDir = do
   BSC.writeFile (gitDir ++ "/index") content
 
 -- Check if the entry is the same file
-isEntrySameFile :: GitIndexEntry -> FilePath -> Bool
-isEntrySameFile entry path = name entry == path
+isEntryNotSameFile :: GitIndexEntry -> FilePath -> Bool
+isEntryNotSameFile entry path = name entry /= path
 
 -- Remove the file if it exists in the index
 removeEntry :: FilePath -> GitIndex -> GitIndex
-removeEntry path (GitIndex entries) = GitIndex (filter (`isEntrySameFile` path) entries)
+removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` path) entries)
 
 -- Remove the files from the index if they exist
 removeEntries :: [FilePath] -> GitIndex -> GitIndex
@@ -137,7 +136,7 @@ addEntry (GitIndex entries) path = do
       fsize = fromIntegral (fileSize metadata)
   file <- BSC.readFile path
   -- -- Hash the ("blob" + bytesize + file content)
-  let sha = SHA1.hash (BSC.pack ("blob " ++ show (BSC.length file) ++ "\0") <> file)
+  let sha = (B16.encode . SHA1.hash) (BSC.pack ("blob " ++ show (BSC.length file) ++ "\0") <> file)
 
   -- -- Add the entry to the index
   return $ GitIndex (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize sha False 0 path : entries)
