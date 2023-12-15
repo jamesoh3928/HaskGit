@@ -49,3 +49,6 @@ Note:
 git add
 - Only take files as command line arguments
 - Cross platform functionality
+
+Useful during develpment:
+- Copying the executable: `cp .stack-work/dist/x86_64-linux/ghc-9.4.7/build/HaskGit-exe/HaskGit-exe haskgit`

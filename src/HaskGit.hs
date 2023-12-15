@@ -150,15 +150,26 @@ gitRevList hash gitdir = do
     else print $ show hash ++ " is not a commit"
 
 -------------------------- List of porcelain commands --------------------------
+
+-- | Add the given files to the index.
+-- | The git add can be ran in the any directory in the repository.
+-- | The given paths must be relative to the current directory.
 gitAdd :: [FilePath] -> FilePath -> IO ()
 gitAdd paths gitDir = do
+  -- Convert all the paths to path relative to the repository
+  repoDirectory <- getRepoDirectory
+  absPaths <- mapM relativeToAbolutePath paths
+  -- (strip of repository path in the beginning)
+  let pathsWithMaybe = map (stripPrefix repoDirectory) absPaths
+  let relativePaths = map (\(Just x) -> x) pathsWithMaybe
+
   -- Read in the index file located in gitDir/.haskgit/index
   indexContent <- BSC.readFile (gitDir ++ "/index")
   case parse parseIndexFile "" (BSC.unpack indexContent) of
     Left err -> Prelude.putStrLn $ "haskgit add parse error: " ++ show err
     -- Remove the files from the index if they exist and add given files to the index
     Right index -> do
-      newIndex <- addOrUpdateEntries paths index
+      newIndex <- addOrUpdateEntries relativePaths index
       saveIndexFile (gitIndexSerialize newIndex) gitDir
 
 gitStatus :: ByteString -> IO ()
