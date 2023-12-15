@@ -5,6 +5,7 @@ module Index
     intToBytes,
     saveIndexFile,
     addOrUpdateEntries,
+    removeEntries,
   )
 where
 
@@ -14,6 +15,7 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
+import GitObject (GitObject (..), GitTree)
 import System.Posix.Files
 
 -- Based on the documentation: https://github.com/vaibhavsagar/duffer/blob/master/duffer/src/Duffer/Plumbing.hs
@@ -150,3 +152,11 @@ addOrUpdateEntries :: [FilePath] -> GitIndex -> IO GitIndex
 addOrUpdateEntries paths index = do
   let index' = removeEntries paths index
   addEntries paths index'
+
+extractHashIndex :: GitIndex -> [ByteString]
+extractHashIndex (GitIndex []) = []
+extractHashIndex (GitIndex (x : xs)) = sha x : extractHashIndex (GitIndex xs)
+
+extractNameIndex :: GitIndex -> [String]
+extractNameIndex (GitIndex []) = []
+extractNameIndex (GitIndex (x : xs)) = name x : extractNameIndex (GitIndex xs)

@@ -2,16 +2,20 @@ module GitParser
   ( parseGitObject,
     parseInt32,
     parseIndexFile,
+    readObjectByHash,
   )
 where
 
+import Codec.Compression.Zlib (decompress)
 import Data.Bits
 import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Char (ord)
 import GitHash (GitHash, gitHashValue)
-import GitObject (GitObject (..))
+import GitObject (GitObject (..), GitObjectHash)
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
@@ -192,3 +196,22 @@ parseIndexFile = do
   entries <- count numEntries parseGitIndexEntry
   -- Ignoring the extensions and cache tree
   return (GitIndex entries)
+
+-- Given hash value, return corresponding git object
+-- Use maybe type to indicate parse failure
+readObjectByHash :: ByteString -> FilePath -> IO (Maybe GitObjectHash)
+readObjectByHash hash gitdir = do
+  case gitHashValue hash of
+    Nothing -> do
+      Prelude.putStrLn "Invalid hash value given."
+      return Nothing
+    Just hashV -> do
+      -- 2 hexadecimal = 4 bytes
+      let hashHex = BSC.unpack hash
+      let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+      filecontent <- BSLC.readFile filename
+      case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+        Left err -> do
+          Prelude.putStrLn $ "Git parse error: " ++ show err
+          return Nothing
+        Right gitObj -> return (Just (gitObj, hashV))

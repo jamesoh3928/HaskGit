@@ -97,6 +97,7 @@ updateRefTest = do
   let refTestPath = ".test_haskgit/refs/heads/test"
   gitUpdateRef "refs/heads/test" hash1 testGitDir
   let expectedCase1 = T.pack (hash1 ++ "\n")
+  -- Use strick IO to prevent access to same file due Haskell lazy eval
   actualCase1 <- TIO.readFile refTestPath
 
   -- Case2: refname, refname

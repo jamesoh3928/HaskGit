@@ -36,7 +36,7 @@ testGitShow filename = do
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right result -> print result
 
--- Test: ".git/index"
+-- Test: "./test_git/index"
 testParseIndex :: String -> IO ()
 testParseIndex s = do
   x <- BSLC.readFile s
