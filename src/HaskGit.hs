@@ -7,6 +7,7 @@ module HaskGit
     gitUpdateSymbRef,
     gitListBranch,
     gitRevList,
+    gitLog,
   )
 where
 
@@ -133,6 +134,7 @@ gitReadCache :: ByteString -> GitIndex
 gitReadCache = undefined
 
 -- | return a list of parents (commit type only)
+-- haskgit revList 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitRevList :: ByteString -> FilePath -> IO ()
 gitRevList hash gitdir = do
   parents <- gitParentList hash gitdir
@@ -239,8 +241,16 @@ hash2CommitObj hash gitdir = do
           _ -> return Nothing
       _ -> return Nothing
 
-gitLog :: ByteString -> IO String
-gitLog = undefined
+-- | a list of Commit w/ git show, start from provided hash
+-- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
+gitLog :: ByteString -> FilePath -> IO ()
+gitLog hash gitdir = do
+  parents <- gitParentList hash gitdir
+  mapM_
+    ( \cmt@(Commit (_, hs, _, _, _, _)) ->
+        putStrLn $ gitShowStr (cmt, hs)
+    )
+    parents
 
 gitRevert :: ByteString -> IO ()
 gitRevert = undefined
