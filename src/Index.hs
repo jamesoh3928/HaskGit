@@ -16,6 +16,7 @@ import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
 import System.Posix.Files
+import Util
 
 -- Based on the documentation: https://github.com/vaibhavsagar/duffer/blob/master/duffer/src/Duffer/Plumbing.hs
 data GitIndexEntry = GitIndexEntry
@@ -127,7 +128,9 @@ removeEntries paths index = foldr removeEntry index paths
 addEntry :: GitIndex -> FilePath -> IO GitIndex
 addEntry (GitIndex entries) path = do
   -- Get the metadata of the file (ctime_s, ctime_ns, mtime_s, mtime_ns, dev, ino, mode, uid, gid, fsize, and sha)
-  metadata <- getFileStatus path
+  repoDirectory <- getRepoDirectory
+  let absolutePath = repoDirectory ++ "/" ++ path
+  metadata <- getFileStatus absolutePath
   let ctime = floor (statusChangeTimeHiRes metadata * 1e9)
       ctimeS = ctime `div` (10 ^ 9)
       ctimeNS = ctime `mod` (10 ^ 9)
@@ -140,19 +143,20 @@ addEntry (GitIndex entries) path = do
       uid = fromIntegral (fileOwner metadata)
       gid = fromIntegral (fileGroup metadata)
       fsize = fromIntegral (fileSize metadata)
-  file <- BSC.readFile path
+  file <- BSC.readFile absolutePath
   -- -- Hash the ("blob" + bytesize + file content)
   let sha = (B16.encode . SHA1.hash) (BSC.pack ("blob " ++ show (BSC.length file) ++ "\0") <> file)
 
   -- -- Add the entry to the index
   return $ GitIndex (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize sha False 0 path : entries)
 
+-- | Call add entry for each path and then save the final index file
 addEntries :: [FilePath] -> GitIndex -> IO GitIndex
--- Call add entry for each path and then save the final index file
 addEntries paths index = foldM addEntry index paths
 
+-- | Add or update given file paths to the index
+-- | The given paths must be relative to the repository
 addOrUpdateEntries :: [FilePath] -> GitIndex -> IO GitIndex
--- First remove all existing entries and then add the entries
 addOrUpdateEntries paths index = do
   let index' = removeEntries paths index
   addEntries paths index'

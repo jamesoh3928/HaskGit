@@ -5,6 +5,8 @@ module Util
     gitRefToCommit,
     unixToUTCTime,
     formatUTCTimeWithTimeZone,
+    relativeToAbolutePath,
+    getRepoDirectory,
   )
 where
 
@@ -80,3 +82,13 @@ formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale 
     minutes = read (drop 3 timezoneOffset) :: Int
     timezoneMinutes = hours * 60 + minutes
     utcTimeWithTZ = utcTime {utctDayTime = utctDayTime utcTime + fromIntegral (timezoneMinutes * 60)}
+
+-- | Convert a relative path to an absolute path
+relativeToAbolutePath :: FilePath -> IO FilePath
+relativeToAbolutePath relativePath = do
+  currentDir <- getCurrentDirectory
+  return $ normalise $ currentDir </> relativePath
+
+-- | Get the directory of the repository
+getRepoDirectory :: IO FilePath
+getRepoDirectory = takeDirectory <$> getGitDirectory
