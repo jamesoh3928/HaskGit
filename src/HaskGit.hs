@@ -6,6 +6,7 @@ module HaskGit
     gitUpdateRef,
     gitUpdateSymbRef,
     gitListBranch,
+    gitRevList,
   )
 where
 
@@ -19,7 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.List
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
-import GitHash (GitHash, bsToHash, gitHashValue)
+import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject, parseIndexFile)
 import Index (GitIndex, addOrUpdateEntries, gitIndexSerialize, saveIndexFile)
@@ -131,9 +132,22 @@ gitUpdateIndex = undefined
 gitReadCache :: ByteString -> GitIndex
 gitReadCache = undefined
 
--- This command provides a way to traverse and filter the commit history in various ways
-gitRevList :: ByteString -> [GitCommit]
-gitRevList = undefined
+-- | return a list of parents (commit type only)
+gitRevList :: ByteString -> FilePath -> IO ()
+gitRevList hash gitdir = do
+  parents <- gitParentList hash gitdir
+  hashList <-
+    concat
+      <$> Control.Monad.forM
+        parents
+        ( \(Commit (_, _, ps, _, _, _)) ->
+            Control.Monad.forM ps (return . getHash)
+        )
+  if not (null hashList)
+    then do
+      putStrLn $ BSC.unpack hash
+      mapM_ (putStrLn . BSC.unpack) hashList
+    else print $ show hash ++ " is not a commit"
 
 -------------------------- List of porcelain commands --------------------------
 gitAdd :: [FilePath] -> FilePath -> IO ()
@@ -179,6 +193,40 @@ gitShow hash gitdir = do
     Right gitObj -> case gitHashValue hash of
       Nothing -> Prelude.putStrLn "Invalid hash value given"
       Just hashV -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
+
+-- | Get a list of parent (Git Object) in the tree
+gitParentList :: ByteString -> FilePath -> IO [GitObject]
+gitParentList hash gitdir = do
+  obj <- hash2CommitObj hash gitdir
+  case obj of
+    Nothing -> return []
+    Just cmt@(Commit (_, _, parents, _, _, _)) -> do
+      recur <- Control.Monad.forM parents (\p -> gitParentList (getHash p) gitdir)
+      return (cmt : concat recur)
+    _ -> return []
+
+-- |
+-- decompress gitObject and unpack ByteString to String
+gitObjectContent :: ByteString -> FilePath -> IO String
+gitObjectContent hash gitdir = do
+  let hashHex = BSC.unpack hash
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+  filecontent <- BSLC.readFile filename
+  return (BSLC.unpack (decompress filecontent))
+
+-- |
+-- Convert the hash to Git Object of Commit (only)
+hash2CommitObj :: ByteString -> FilePath -> IO (Maybe GitObject)
+hash2CommitObj hash gitdir = do
+  content <- gitObjectContent hash gitdir
+  case parse parseGitObject "" content of
+    Left error -> return Nothing
+    Right gitObject -> case gitHashValue hash of
+      Just _ ->
+        case gitObject of
+          Commit (_, _, _, _, _, _) -> return (Just gitObject)
+          _ -> return Nothing
+      _ -> return Nothing
 
 gitLog :: ByteString -> IO String
 gitLog = undefined
