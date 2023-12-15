@@ -16,11 +16,11 @@ import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
--- Helper function to get byte size of string
+-- | Helper function to get byte size of string
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
 
--- Parse the blob object.
+-- | Parse the blob object.
 parseBlob :: Parser GitObject
 parseBlob = do
   _ <- string "blob "
@@ -34,7 +34,7 @@ parseBlob = do
         then fail "Byte size does not match in blob file"
         else return (Blob (bytesize, content))
 
--- Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
+-- | Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
@@ -54,7 +54,7 @@ parseTree = do
       sha' <- B16.encode . BC.pack <$> count 20 anyChar
       return (filemode, filename, sha')
 
--- Parse the commit object.
+-- | Parse the commit object.
 parseCommit :: Parser GitObject
 parseCommit = do
   _ <- string "commit "
@@ -97,26 +97,26 @@ parseCommit = do
             )
         _ -> fail "Invalid hash value in commit file"
 
--- Parse the git object.
+-- | Parse the git object.
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
 
--- Parse n-byte integer in network byte order (big-endian)
+-- | Parse n-byte integer in network byte order (big-endian)
 parseInt :: Int -> Parser Int
 parseInt n = do
   ints <- (ord <$>) <$> count n anyChar
   -- Loop through int list and get actualy decimal value
   return (foldl (\v x -> v * 256 + x) 0 ints)
 
--- Parse 4-byte integer in network byte order (big-endian)
+-- | Parse 4-byte integer in network byte order (big-endian)
 parseInt32 :: Parser Int
 parseInt32 = parseInt 4
 
--- Parse 2-byte integer in network byte order (big-endian)
+-- | Parse 2-byte integer in network byte order (big-endian)
 parseInt16 :: Parser Int
 parseInt16 = parseInt 2
 
--- Parse a Git index entry (for mvp, assuming version 2)
+-- | Parse a Git index entry (for mvp, assuming version 2)
 -- Followed git index format documentation: https://github.com/git/git/blob/master/Documentation/gitformat-index.txt
 parseGitIndexEntry :: Parser GitIndexEntry
 parseGitIndexEntry = do
@@ -180,7 +180,7 @@ parseGitIndexEntry = do
       flagStage'
       name'
 
--- Parse index file (which is in binary format)
+-- | Parse index file (which is in binary format)
 -- Ignoring the extension data for now
 parseIndexFile :: Parser GitIndex
 parseIndexFile = do

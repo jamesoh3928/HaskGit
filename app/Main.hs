@@ -29,6 +29,10 @@ processArgs args gitDir =
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc gitDir
         _ -> putStrLn "Usage: UpdateRef refdest refsrc"
+    "revList" ->
+      case tail args of
+        [object] -> gitRevList (B.pack object) gitDir
+        _ -> putStrLn "Usage: revList <commit-object>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
