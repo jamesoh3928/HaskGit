@@ -13,10 +13,7 @@ main = do
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
-processArgs [] _ =
-  do
-    putStrLn $ helpMsg "show"
-    putStrLn $ helpMsg "updateRef"
+processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add"]
 processArgs args gitDir =
   case head args of
     "show" ->
@@ -26,12 +23,20 @@ processArgs args gitDir =
         _ -> putStrLn "Error: haskgit show only has one argument <object>"
     "add" ->
       case tail args of
-        [] -> putStrLn "Error: haskgit Add requires an argument <file>"
+        [] -> putStrLn "Error: haskgit add requires an argument <files>"
         files -> gitAdd files gitDir
     "updateRef" ->
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc gitDir
-        _ -> putStrLn "Usage: UpdateRef refdest refsrc"
+        _ -> putStrLn "Usage: updateRef refdest refsrc"
+    "revList" ->
+      case tail args of
+        [object] -> gitRevList (B.pack object) gitDir
+        _ -> putStrLn "Usage: revList <commit-object>"
+    "log" ->
+      case tail args of
+        [object] -> gitLog (B.pack object) gitDir
+        _ -> putStrLn "Usage: log <commit-object>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
@@ -41,7 +46,9 @@ processArgs args gitDir =
 helpMsg :: String -> String
 helpMsg cmd =
   case cmd of
-    "show" -> "haskgit Show - Show various types of objects"
-    "updateRef" -> "haskgit UpdateRef - Update the object name stored in a ref safely"
-    "add" -> "haskgit Add - Add file contents to the index"
+    "show" -> "haskgit show - Show various types of objects"
+    "updateRef" -> "haskgit updateRef - Update the object name stored in a ref safely"
+    "add" -> "haskgit add - Add file contents to the index"
+    "revList" -> "haskgit revList - list commit objects in reverse chronological order"
+    "log" -> "haskgit log - show commit logs"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"
