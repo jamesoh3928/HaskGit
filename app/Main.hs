@@ -13,10 +13,7 @@ main = do
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
-processArgs [] _ =
-  do
-    putStrLn $ helpMsg "show"
-    putStrLn $ helpMsg "updateRef"
+processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add"]
 processArgs args gitDir =
   case head args of
     "show" ->
@@ -26,7 +23,7 @@ processArgs args gitDir =
         _ -> putStrLn "Error: haskgit show only has one argument <object>"
     "add" ->
       case tail args of
-        [] -> putStrLn "Error: haskgit Add requires an argument <file>"
+        [] -> putStrLn "Error: haskgit Add requires an argument <files>"
         files -> gitAdd files gitDir
     "updateRef" ->
       case tail args of

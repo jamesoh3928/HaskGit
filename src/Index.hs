@@ -5,6 +5,7 @@ module Index
     intToBytes,
     saveIndexFile,
     addOrUpdateEntries,
+    hasFile,
   )
 where
 
@@ -109,7 +110,12 @@ saveIndexFile content gitDir = do
 isEntryNotSameFile :: GitIndexEntry -> FilePath -> Bool
 isEntryNotSameFile entry path = name entry /= path
 
+-- Check if the index has the file
+hasFile :: GitIndex -> FilePath -> Bool
+hasFile (GitIndex entries) path = any (\x -> name x == path) entries
+
 -- Remove the file if it exists in the index
+-- TODO: get the absolute paths from the relative paths
 removeEntry :: FilePath -> GitIndex -> GitIndex
 removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` path) entries)
 

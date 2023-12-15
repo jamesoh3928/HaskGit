@@ -14,7 +14,7 @@ import GitHash
 import GitObject
 import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
-import Index (gitIndexSerialize, saveIndexFile)
+import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, saveIndexFile)
 import Shelly
 import System.Directory (removeFile)
 import System.IO.Silently (capture)
@@ -45,11 +45,12 @@ tests =
   testGroup "Unit Tests"
     <$> sequence
       [ showTests,
-        updateRefTest,
-        hashObjectTest,
-        saveObjectTest,
-        parseSaveIndexTest,
-        listBranchTest
+        updateRefTests,
+        hashObjectTests,
+        saveObjectTests,
+        parseSaveIndexTests,
+        listBranchTests,
+        addOrUpdateEntriesTests
       ]
 
 -- Make sure if haskgit show produces expected output
@@ -85,8 +86,8 @@ showTests = do
           ]
   return showTest
 
-updateRefTest :: IO TestTree
-updateRefTest = do
+updateRefTests :: IO TestTree
+updateRefTests = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
   let refMainPath = ".haskgit/refs/heads/main"
@@ -111,7 +112,7 @@ updateRefTest = do
   let expectedCase3 = T.pack (hash2 ++ "\n")
   actualCase3 <- TIO.readFile (testGitDir ++ "/HEAD")
 
-  let updateRefTest =
+  let updateRefTests =
         testGroup
           "gitUpdateRef"
           [ testCase "refname hash-value" $
@@ -126,12 +127,12 @@ updateRefTest = do
   TIO.writeFile refMainPath originalMainRef
   TIO.writeFile ".haskgit/HEAD" originalHeadRef
 
-  return updateRefTest
+  return updateRefTests
 
 -- Test for hashObject
 -- read content from real ".git" and see if hashvalue is the same as expected.
-hashObjectTest :: IO TestTree
-hashObjectTest = do
+hashObjectTests :: IO TestTree
+hashObjectTests = do
   let actualBlobHash = "f6f754dbe0808826bed2237eb651558f75215cc6"
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/f6/f754dbe0808826bed2237eb651558f75215cc6")
   let expectedBlob = case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
@@ -150,7 +151,7 @@ hashObjectTest = do
         Left err -> Nothing
         Right result -> Just (encode (getHash (hashObject result)))
 
-  let hashObjectTest =
+  let hashObjectTests =
         testGroup
           "hashObejct"
           [ testCase "blob object" $
@@ -161,11 +162,11 @@ hashObjectTest = do
               Just (BSC.pack actualCommitHash) @?= expectedCommit
           ]
 
-  return hashObjectTest
+  return hashObjectTests
 
 -- saveGitObject hash content
-saveObjectTest :: IO TestTree
-saveObjectTest = do
+saveObjectTests :: IO TestTree
+saveObjectTests = do
   -- Blob
   let blobHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   let blobTempPath = testGitDir ++ "/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -206,7 +207,7 @@ saveObjectTest = do
   tmpCommit2 <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   let actualCommit = decompress tmpCommit2
 
-  let saveObjectTest =
+  let saveObjectTests =
         testGroup
           "saveObejct"
           [ testCase "blob object" $
@@ -223,34 +224,34 @@ saveObjectTest = do
   removeFile treeTempPath
   removeFile commitTempPath
 
-  return saveObjectTest
+  return saveObjectTests
 
 -- Parsed and saved index file is exactly equal to the orginal index file
-parseSaveIndexTest :: IO TestTree
-parseSaveIndexTest = do
-  let expectedIndexFile = testGitDir ++ "/expected_index"
+parseSaveIndexTests :: IO TestTree
+parseSaveIndexTests = do
+  let originalIndexFile = testGitDir ++ "/original_index"
   let actualIndexFile = testGitDir ++ "/index"
-  x <- BSC.readFile expectedIndexFile
+  x <- BSC.readFile originalIndexFile
   case parse parseIndexFile "" (BSC.unpack x) of
     Left err -> assertFailure (show err)
     Right result -> saveIndexFile (gitIndexSerialize result) testGitDir
 
   -- Read both files and compare contents
-  expected <- BSC.readFile expectedIndexFile
+  expected <- BSC.readFile originalIndexFile
   actual <- BSC.readFile actualIndexFile
   -- Remove the checksum at the end
   let actualContent = BS.take (BS.length actual - 40) actual
-  let parseSaveIndexTest =
+  let parseSaveIndexTests =
         testGroup
           "parseSaveIndex"
           [ testCase "parseSaveIndex" $
               -- We are ignoring extensions and cache at the end so just checking if it is prefix
               isPrefixOf actualContent expected @?= True
           ]
-  return parseSaveIndexTest
+  return parseSaveIndexTests
 
-listBranchTest :: IO TestTree
-listBranchTest = do
+listBranchTests :: IO TestTree
+listBranchTests = do
   -- Case1: when HEAD is pointing main (default)
   gitUpdateSymbRef "HEAD" "refs/heads/main" testGitDir
   expectedMainBranch <- readFile "test/TestData/expectedMainBranch.dat"
@@ -282,20 +283,56 @@ listBranchTest = do
   gitUpdateSymbRef "HEAD" "refs/head/main" testGitDir
   return gitListBarnchTest
 
--- check when HEAD is detached
+addOrUpdateEntriesTests :: IO TestTree
+addOrUpdateEntriesTests = do
+  let paths = ["test/TestData/add_test1.txt", "test/TestData/add_test2.txt", "test/TestData/add_test3.txt"]
+  indexContent <- BSC.readFile (testGitDir ++ "/index")
+  newIndex <- case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> assertFailure (show err)
+    -- Remove the files from the index if they exist and add given files to the index
+    Right index -> addOrUpdateEntries paths index
+  let addOrUpdateEntriesTests =
+        testGroup
+          "addOrUpdateEntriesTests"
+          [ testCase "addOrUpdateEntriesTests" $
+              -- Check if files in paths are in the new index
+              all (hasFile newIndex) paths @?= True
+          ]
+  return addOrUpdateEntriesTests
 
--- TODO: git add test
+-- TODO: Delete tests
 -- addTests :: IO TestTree
 -- addTests = do
---   let originalIndexFile = testGitDir ++ "/expected_index"
---   let expectedAddIndexFile = testGitDir ++ "/expected_add_index"
---   let parseSaveIndexTest =
+--   let actualIndexFile = testGitDir ++ "/index"
+--   let expectedAdd1IndexFile = testGitDir ++ "/expected_add1_index"
+--   let expectedAddMultipleIndexFile = testGitDir ++ "/expected_add_multiple_index"
+--   let originalIndexFile = testGitDir ++ "/original_index"
+--   originalIndex <- BSC.readFile originalIndexFile
+
+--   -- Adding one file
+--   gitAdd ["test/TestData/add_test1.txt"] testGitDir
+--   actual1 <- readFile actualIndexFile
+--   expected1 <- readFile expectedAdd1IndexFile
+--   -- Make index file to original
+--   -- BSC.writeFile actualIndexFile originalIndex
+
+--   -- -- Adding multiple files
+--   -- gitAdd ["test/TestData/add_test1.txt", "test/TestData/add_test2.txt", "test/TestData/add_test2.txt"] testGitDir
+--   -- actualMultiple <- readFile actualIndexFile
+--   -- expectedMultiple <- readFile expectedAddMultipleIndexFile
+--   -- -- Make index file to original
+--   -- BSC.writeFile actualIndexFile originalIndex
+
+--   let gitAddTest =
 --         testGroup
---           "parseSaveIndex"
---           [ testCase "parseSaveIndex" $
---               actual @?= expected
+--           "gitAddTest"
+--           [ testCase "gitAdd for 1 file" $
+--               actual1 @?= expected1
+--               -- testCase "gitAdd for multiple files" $
+--               --   actualMultiple @?= expectedMultiple
 --           ]
---   return parseSaveIndexTest
+
+--   return gitAddTest
 
 {-
 ----------------------Abandoned tests (for review only)-------------------------
