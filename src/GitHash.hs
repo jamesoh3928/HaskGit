@@ -4,6 +4,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 
 -- | GitHash is simply a wraper for "ByteString"
+-- Invariant: the bytestring must be encoded in hexadecimal format to be stored in GitHash
 newtype GitHash = GitHash ByteString
   deriving (Eq, Ord, Show)
 

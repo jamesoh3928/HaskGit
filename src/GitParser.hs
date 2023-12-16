@@ -2,16 +2,21 @@ module GitParser
   ( parseGitObject,
     parseInt32,
     parseIndexFile,
+    readObjectByHash,
+    parseTree,
   )
 where
 
+import Codec.Compression.Zlib (decompress)
 import Data.Bits
 import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Char (ord)
-import GitHash (GitHash, gitHashValue)
-import GitObject (GitObject (..))
+import GitHash (GitHash, bsToHash, gitHashValue)
+import GitObject (GitObject (..), GitObjectHash)
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
@@ -38,7 +43,6 @@ parseBlob = do
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
-  -- TODO: check data integrity of byte size in the future, but for now assume the syze is cofrect
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in tree file"
@@ -46,13 +50,13 @@ parseTree = do
       elems <- manyTill parseGitTreeEntry eof
       return (Tree (bytesize, elems))
   where
-    parseGitTreeEntry :: Parser (String, String, ByteString)
+    parseGitTreeEntry :: Parser (String, String, GitHash)
     parseGitTreeEntry = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha' <- B16.encode . BC.pack <$> count 20 anyChar
-      return (filemode, filename, sha')
+      sha' <- BC.pack <$> count 20 anyChar
+      return (filemode, filename, bsToHash sha')
 
 -- | Parse the commit object.
 parseCommit :: Parser GitObject
@@ -134,7 +138,9 @@ parseGitIndexEntry = do
   uid' <- parseInt32
   gid' <- parseInt32
   fsize' <- parseInt32
-  sha' <- B16.encode . BC.pack <$> count 20 anyChar
+  -- Encode it to hexadecimal representation because index is storing not encoded hash
+  shaBS <- B16.encode . BC.pack <$> count 20 anyChar
+  let sha' = bsToHash shaBS
   flags <- parseInt16
   let flagAssumeValid' = flags .&. 0x8000 /= 0
       -- flagExtended, ignoring for mvp
@@ -192,3 +198,22 @@ parseIndexFile = do
   entries <- count numEntries parseGitIndexEntry
   -- Ignoring the extensions and cache tree
   return (GitIndex entries)
+
+-- Given hash value, return corresponding git object
+-- Use maybe type to indicate parse failure
+readObjectByHash :: ByteString -> FilePath -> IO (Maybe GitObjectHash)
+readObjectByHash hash gitdir = do
+  case gitHashValue hash of
+    Nothing -> do
+      Prelude.putStrLn "Invalid hash value given."
+      return Nothing
+    Just hashV -> do
+      -- 2 hexadecimal = 4 bytes
+      let hashHex = BSC.unpack hash
+      let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+      filecontent <- BSLC.readFile filename
+      case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+        Left err -> do
+          Prelude.putStrLn $ "Git parse error: " ++ show err
+          return Nothing
+        Right gitObj -> return (Just (gitObj, hashV))
