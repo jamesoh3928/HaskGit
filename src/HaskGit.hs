@@ -5,6 +5,8 @@ module HaskGit
     gitUpdateSymbRef,
     gitListBranch,
     gitLog,
+    gitCommit,
+    gitRevList,
     gitHeadCommit,
   )
 where
