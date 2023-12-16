@@ -55,7 +55,7 @@ parseTree = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha' <- BC.pack <$> count 20 anyChar
+      sha' <- encode . BC.pack <$> count 20 anyChar
       return (filemode, filename, bsToHash sha')
 
 -- | Parse the commit object.

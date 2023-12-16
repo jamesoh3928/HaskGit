@@ -19,7 +19,7 @@ where
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 as B16 (encode)
+import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
@@ -76,10 +76,15 @@ gitObjectSerialize :: GitObject -> ByteString
 gitObjectSerialize (Blob (_, content)) = BSC.pack ("blob " ++ show (length content) ++ "\0" ++ content)
 gitObjectSerialize (Tree (_, xs)) = BSC.pack ("tree " ++ show (length treeContent) ++ "\0" ++ treeContent)
   where
+    -- Based on GitHash invariant, decoding should never fail
+    decodeHash :: GitHash -> String
+    decodeHash gh = case decode (getHash gh) of
+      Left err -> ""
+      Right h -> BSC.unpack h
     content :: [(String, String, GitHash)] -> String
     content [] = ""
-    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BSC.unpack (getHash hash)
-    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ BSC.unpack (getHash hash) ++ content xxs
+    content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ decodeHash hash
+    content ((permission_bit, name, hash) : xxs) = permission_bit ++ " " ++ name ++ "\0" ++ decodeHash hash ++ content xxs
     treeContent = content xs
 gitObjectSerialize (Commit (_, treeHash, parentHashes, authorObj, committerObj, message)) = BSC.pack ("commit " ++ show (length content) ++ "\0" ++ content)
   where

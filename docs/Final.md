@@ -45,12 +45,13 @@ https://stackoverflow.com/questions/5053135/resource-busy-file-is-locked-error-i
 Solved by using strict IO: readfile' - https://hackage.haskell.org/package/base-4.19.0.0/docs/System-IO.html#:~:text=The%20readFile%27-,function,-reads%20a%20file
 
 ### Base 16 Encoding
-We experienced multiple bugs related to the representation of the SHA-1 hash for several days. Apparently, the reason was that all Git object files store a base16-encoded hash value, while the index file stores a non-encoded hash value. This led to incorrect hash values in multiple places when staging files to the index. We learned, in a painful way, to have a really good understanding of how binary data is actually stored when interacting with it.
+We experienced multiple bugs related to the representation of the SHA-1 hash for several days. Apparently, the reason was that some Git objects (aka commit objects) store a base16-encoded hash value, while the index file and other Git objects (aka tree objects) store a non-encoded hash value. This led to incorrect hash values in multiple places when staging files to the index. We learned, in a painful way, to have a really good understanding of how binary data is actually stored when interacting with it.
 
 To resolve this issue, we decided to follow the invariant that the `GitHash` type will always contain a ByteString that is encoded in base16. This means that we need to perform encoding/decoding when parsing/writing to the index file. The representation of the hash value in our system can be summarized as follows:
 
 - The SHA function returns a ByteString that is not encoded in base16.
-- All Git object files store the hash that is encoded in base16.
+- Commit object files store the hash that is encoded in base16.
+- Tree object files store the hash that is not encoded in base16.
 - The index stores the hash value that is not encoded in base16.
 - Our invariant: `GitHash` stores the ByteString that is encoded in base16.
 
