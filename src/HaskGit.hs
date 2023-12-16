@@ -245,6 +245,10 @@ hash2CommitObj hash gitdir = do
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitLog :: ByteString -> FilePath -> IO ()
 gitLog hash gitdir = do
+  cmt <- hash2CommitObj hash gitdir
+  case cmt of
+    Nothing -> print "GitLog Error: the inputted hash is not commit"
+    Just cmt -> putStrLn $ gitShowStr (cmt, bsToHash hash)
   parents <- gitParentList hash gitdir
   mapM_
     ( \cmt@(Commit (_, hs, _, _, _, _)) ->
