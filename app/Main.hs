@@ -2,7 +2,6 @@ module Main (main) where
 
 import qualified Data.ByteString.Char8 as B
 import HaskGit
--- import System.Console.CmdArgs
 import System.Environment (getArgs)
 import Util (getGitDirectory)
 

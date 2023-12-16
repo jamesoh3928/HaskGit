@@ -98,6 +98,7 @@ updateRefTests = do
   let refTestPath = ".test_haskgit/refs/heads/test"
   gitUpdateRef "refs/heads/test" hash1 testGitDir
   let expectedCase1 = T.pack (hash1 ++ "\n")
+  -- Use strick IO to prevent access to same file due Haskell lazy eval
   actualCase1 <- TIO.readFile refTestPath
 
   -- Case2: refname, refname
@@ -137,29 +138,29 @@ hashObjectTests = do
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/f6/f754dbe0808826bed2237eb651558f75215cc6")
   let expectedBlob = case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
         Left err -> Nothing
-        Right result -> Just (encode (getHash (hashObject result)))
+        Right result -> Just (getHash (hashObject result))
 
   let actualTreeHash = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
   contentTree <- BSLC.readFile (testGitDir ++ "/objects/f6/e1af0b636897ed62c8c6dad0828f1172b9b82a")
   let expectedTree = case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
         Left err -> Nothing
-        Right result -> Just (encode (getHash (hashObject result)))
+        Right result -> Just (getHash (hashObject result))
 
   let actualCommitHash = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
   contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   let expectedCommit = case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
         Left err -> Nothing
-        Right result -> Just (encode (getHash (hashObject result)))
+        Right result -> Just (getHash (hashObject result))
 
   let hashObjectTests =
         testGroup
           "hashObejct"
           [ testCase "blob object" $
-              Just (BSC.pack actualBlobHash) @?= expectedBlob,
+              Just (BSC.pack actualBlobHash) @?= encode <$> expectedBlob,
             testCase "tree object" $
-              Just (BSC.pack actualTreeHash) @?= expectedTree,
+              Just (BSC.pack actualTreeHash) @?= encode <$> expectedTree,
             testCase "commit object" $
-              Just (BSC.pack actualCommitHash) @?= expectedCommit
+              Just (BSC.pack actualCommitHash) @?= encode <$> expectedCommit
           ]
 
   return hashObjectTests
@@ -167,13 +168,13 @@ hashObjectTests = do
 -- saveGitObject hash content
 saveObjectTests :: IO TestTree
 saveObjectTests = do
-  -- Blob
-  let blobHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  -- Blob (bytestring of "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+  let blobHash = BSC.pack (replicate 20 '\170')
   let blobTempPath = testGitDir ++ "/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
     Left err -> assertFailure (show err)
-    Right result -> saveGitObject (bsToHash (BSC.pack blobHash)) (gitObjectSerialize result) testGitDir
+    Right result -> saveGitObject (bsToHash $ encode blobHash) (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
   tmpBlob1 <- BSLC.readFile blobTempPath
@@ -181,26 +182,26 @@ saveObjectTests = do
   tmpBlob2 <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   let actualBlob = decompress tmpBlob2
 
-  -- Tree
-  let treeHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  -- Tree (byteString of "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+  let treeHash = BSC.pack (replicate 20 '\187')
   let treeTempPath = testGitDir ++ "/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash (BSC.pack treeHash)) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash $ encode treeHash) (gitObjectSerialize result) testGitDir
 
   tmpTree1 <- BSLC.readFile treeTempPath
   let expectedTree = decompress tmpTree1
   tmpTree2 <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   let actualTree = decompress tmpTree2
 
-  -- Commit
-  let commitHash = "cccccccccccccccccccccccccccccccccccccccc"
+  -- Commit (bytestring of "cccccccccccccccccccccccccccccccccccccc"")
+  let commitHash = BSC.pack (replicate 20 '\204')
   let commitTempPath = testGitDir ++ "/objects/cc/cccccccccccccccccccccccccccccccccccccc"
   contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash (BSC.pack commitHash)) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash $ encode commitHash) (gitObjectSerialize result) testGitDir
 
   tmpCommit1 <- BSLC.readFile commitTempPath
   let expectedCommit = decompress tmpCommit1
@@ -286,111 +287,24 @@ listBranchTests = do
 addOrUpdateEntriesTests :: IO TestTree
 addOrUpdateEntriesTests = do
   let paths = ["test/TestData/add_test1.txt", "test/TestData/add_test2.txt", "test/TestData/add_test3.txt"]
+  let blobPath1 = ".test_haskgit/objects/07/23bccca901088280aa4713451f8c209c49172f"
+  let blobPath2 = ".test_haskgit/objects/57/85a4e736f26aba8027f1ff87eaa9e7c5d2f785"
+  let blobPath3 = ".test_haskgit/objects/8b/fc9d730d801f5f439e83b895bc0d5cb1b64b14"
   indexContent <- BSC.readFile (testGitDir ++ "/index")
   newIndex <- case parse parseIndexFile "" (BSC.unpack indexContent) of
     Left err -> assertFailure (show err)
     -- Remove the files from the index if they exist and add given files to the index
-    Right index -> addOrUpdateEntries paths index
+    Right index -> addOrUpdateEntries paths index testGitDir
   let addOrUpdateEntriesTests =
         testGroup
           "addOrUpdateEntriesTests"
-          [ testCase "addOrUpdateEntriesTests" $
+          [ testCase "added files to the entries" $
               -- Check if files in paths are in the new index
               all (hasFile newIndex) paths @?= True
           ]
+  -- Remove all the files created
+  removeFile blobPath1
+  removeFile blobPath2
+  removeFile blobPath3
+
   return addOrUpdateEntriesTests
-
--- TODO: Delete tests
--- addTests :: IO TestTree
--- addTests = do
---   let actualIndexFile = testGitDir ++ "/index"
---   let expectedAdd1IndexFile = testGitDir ++ "/expected_add1_index"
---   let expectedAddMultipleIndexFile = testGitDir ++ "/expected_add_multiple_index"
---   let originalIndexFile = testGitDir ++ "/original_index"
---   originalIndex <- BSC.readFile originalIndexFile
-
---   -- Adding one file
---   gitAdd ["test/TestData/add_test1.txt"] testGitDir
---   actual1 <- readFile actualIndexFile
---   expected1 <- readFile expectedAdd1IndexFile
---   -- Make index file to original
---   -- BSC.writeFile actualIndexFile originalIndex
-
---   -- -- Adding multiple files
---   -- gitAdd ["test/TestData/add_test1.txt", "test/TestData/add_test2.txt", "test/TestData/add_test2.txt"] testGitDir
---   -- actualMultiple <- readFile actualIndexFile
---   -- expectedMultiple <- readFile expectedAddMultipleIndexFile
---   -- -- Make index file to original
---   -- BSC.writeFile actualIndexFile originalIndex
-
---   let gitAddTest =
---         testGroup
---           "gitAddTest"
---           [ testCase "gitAdd for 1 file" $
---               actual1 @?= expected1
---               -- testCase "gitAdd for multiple files" $
---               --   actualMultiple @?= expectedMultiple
---           ]
-
---   return gitAddTest
-
-{-
-----------------------Abandoned tests (for review only)-------------------------
-main :: IO ()
-main = defaultMain tests
-
-tests :: TestTree
-tests = adjustOption @QuickCheckTests (* 10) $
-  testGroup "HaskGit"
-      [ testGroup "GitObject"
-          [
-            -- return $ localOption @QuickCheckTests 1000 $ propNewBlob
-            -- testProperty "propNewBlob@Int@String" $ propNewBlob,
-            -- testProperty "propNewTree@Int@[(String, String, ByteString)]" $ propNewTree,
-            -- testProperty "propNewCommit@Int@ByteString@[ByteString]@GitAuthor@GitCommitter@String" $ propNewCommit
-            -- newGitObjectHash,
-            -- gitObjectSerialize,
-            -- gitShowStr,
-            -- getBlobContent,
-          ]
-        -- serializeGitObject
-        -- core data structures
-        -- deserializeGitObject
-        -- gitShow
-      ]
-
--- instance Arbitrary ByteString where
---   arbitrary = BS.pack <$> arbitrary
-
--- propNewBlob :: Int -> String -> Property
--- propNewBlob size content = size >= 0 ==> getBlobContent (newBlob size content) == content
-
--- propNewTree :: Int -> [(String, String, ByteString)] -> Property
--- propNewTree size entries = size >= 0 ==> f (newTree size entries)
---   where
---     f (Tree (s, e)) = s == size && length e == length entries
-
--- propNewCommit :: Int -> ByteString -> [ByteString] -> GitAuthor -> GitCommitter -> String -> Property
--- propNewCommit bytesize tree parents authorInfo committerInfo message =
---   bytesize >= 0 ==>
---   gitHashObject (newCommit bytesize tree parents authorInfo committerInfo message) True
---     == gitHashObject obj True
---     where
---       obj = Commit (bytesize, tree, parents, authorInfo, committerInfo, message)
-
--- NOTE:
--- An example of assertion test; The challenge is we need a `.dat` file that contains numerous test
--- gitHashObject :: GitObject -> Bool -> ByteString
--- gitHashObject obj _ = SHA1.hash (gitObjectSerialize obj)
--- gitHashObjectTest :: IO TestTree
--- gitHashObjectTest = testGroup "gitHashObject"
---   [ testCase "gitHashObject" $
---     do
---       let
---         obj = Blob (_, "This is an example of Hash")
---          -- maybe not right
---         expectedHash = "ce013625030ba8dba906f756967f9e9ca394464a"
---         actualHash = gitHashObject obj False
---       assertEqual "" expectedHash actualHash
---   ]
--}

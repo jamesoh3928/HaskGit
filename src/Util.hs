@@ -13,27 +13,26 @@ where
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 (encode)
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Char8 as BSC
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 
 -- | Given hash value, return corresponding git directory
--- - Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
--- - Example output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
-hashToFilePath :: String -> FilePath -> IO FilePath
+-- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
+-- Example output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
+hashToFilePath :: GitHash -> FilePath -> IO FilePath
 hashToFilePath hash gitDir = do
-  return (gitDir ++ "/objects/" ++ take 2 hash ++ "/" ++ drop 2 hash)
+  let hashStr = BSC.unpack (getHash hash)
+  return (gitDir ++ "/objects/" ++ take 2 hashStr ++ "/" ++ drop 2 hashStr)
 
 -- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
 refToFilePath :: String -> FilePath -> IO FilePath
-refToFilePath ref gitDir = do
-  return (gitDir ++ "/" ++ ref)
+refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
 
 -- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- If it cannot find .haskgit directory, return "/" or "~".
