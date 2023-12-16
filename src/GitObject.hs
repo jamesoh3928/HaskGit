@@ -63,7 +63,7 @@ gitShowStr (Blob (_, content), _) = content
 gitShowStr (Tree (_, elems), treeHash) = "tree " ++ BSC.unpack (getHash treeHash) ++ "\n\n" ++ filesDirs
   where
     filesDirs = concatMap (\(_, name, _) -> name ++ "\n") elems
-gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ BSC.unpack (getHash commitHash) ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message
+gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++ BSC.unpack (getHash commitHash) ++ "\nAuthor: " ++ authorName ++ " <" ++ authorEmail ++ ">\nDate:   " ++ authorTS ++ "\n\n    " ++ message ++ "\n"
   where
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))

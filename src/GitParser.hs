@@ -66,19 +66,15 @@ parseCommit = do
   case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in commit file"
     Just bytesize -> do
-      _ <- string "tree "
-      rootTree <- manyTill anyChar (char '\n')
-      --   Assuming only one parent for MVP
-      _ <- string "parent "
-      parent <- manyTill anyChar (char '\n')
-      _ <- string "author "
-      authorNameWithSpace <- manyTill (noneOf "<") (char '<')
+      rootTree <- string "tree " >> manyTill anyChar (char '\n')
+      --   Assuming only one or zero parent for MVP
+      parent <- option "" (string "parent " >> manyTill anyChar (char '\n'))
+      authorNameWithSpace <- string "author " >> manyTill (noneOf "<") (char '<')
       authorEmail <- manyTill (noneOf ">") (char '>')
       spaces
       authorTimestamp <- manyTill digit (char ' ')
       authorTimeZone <- manyTill anyChar newline
-      _ <- string "committer "
-      committerNameWithSpace <- manyTill (noneOf "<") (char '<')
+      committerNameWithSpace <- string "committer " >> manyTill (noneOf "<") (char '<')
       committerEmail <- manyTill (noneOf ">") (char '>')
       _ <- spaces
       committerTimestamp <- manyTill digit (char ' ')

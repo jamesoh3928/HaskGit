@@ -21,6 +21,7 @@ import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import Data.Time.Format
 import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject
@@ -291,10 +292,12 @@ gitCommit message gitDir = do
   -- Get all data we need to create commit object
   utcTime <- getCurrentTime
   timezone <- getCurrentTimeZone
+  -- Convert timezone string in format of "-0500"
+  let timezoneStr = formatTime defaultTimeLocale "%z" timezone
   let unixTS = floor (utcTimeToPOSIXSeconds utcTime) -- Unix time in seconds
   -- TODO: double check
-  let authorInfo = ("author1", "author1@cs.rit.edu", unixTS, show timezone)
-  let committerInfo = ("commiter1", "committer1@cs.rit.edu", unixTS, show timezone)
+  let authorInfo = ("author1", "author1@cs.rit.edu", unixTS, timezoneStr)
+  let committerInfo = ("commiter1", "committer1@cs.rit.edu", unixTS, timezoneStr)
 
   -- Create a new commit object based on the tree object, parent commits, and other data
   newCommitHash <- gitCommitTree treeHash curCommitHash authorInfo committerInfo message utcTime gitDir
