@@ -67,3 +67,7 @@ Useful during develpment:
 
 IMPORTANT
 - All of the bytestring in our memory should be encoded into hexadecimal representation. In GitObject, we don't need to encode or decode because we are always storing as hex representation, but when storing in index or generating new hash, we must encoded to hex representation before creating GitHash type.
+
+
+Notes
+- Some of the metadata are not crucial for our mvp (file mode, byte size, etc). While we read in data correctly if these data are found in the existing files, but when we are creating new git objects or new index entry on our own, we are writing default data. If these data become crucial in the future, we may need to modify our codebase little bit.

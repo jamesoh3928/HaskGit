@@ -118,7 +118,6 @@ hasFile :: GitIndex -> FilePath -> Bool
 hasFile (GitIndex entries) path = any (\x -> name x == path) entries
 
 -- Remove the file if it exists in the index
--- TODO: get the absolute paths from the relative paths
 removeEntry :: FilePath -> GitIndex -> GitIndex
 removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` path) entries)
 

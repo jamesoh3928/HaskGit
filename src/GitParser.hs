@@ -50,13 +50,13 @@ parseTree = do
       elems <- manyTill parseGitTreeEntry eof
       return (Tree (bytesize, elems))
   where
-    parseGitTreeEntry :: Parser (String, String, ByteString)
+    parseGitTreeEntry :: Parser (String, String, GitHash)
     parseGitTreeEntry = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
       sha' <- BC.pack <$> count 20 anyChar
-      return (filemode, filename, sha')
+      return (filemode, filename, bsToHash sha')
 
 -- | Parse the commit object.
 parseCommit :: Parser GitObject

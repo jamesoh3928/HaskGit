@@ -16,6 +16,7 @@ import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.List
+import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
@@ -36,11 +37,13 @@ import Util
 gitWriteTree :: FilePath -> IO GitHash
 gitWriteTree gitDir = undefined
 
--- TODO: continue James
 -- do
--- index <- parseIndexFile (gitDir ++ "/index")
--- -- let tree = GitTree (addOrUpdateEntries [] index)
--- hashAndSaveObject tree gitDir
+-- 1. Parse the index file located in gitDir/.haskgit/index
+-- 2. Traverse the index entries and create a map of directory to files (dict), also store keys in `keys` list
+-- 2.1 The type of the dict will be Map.Map String [(mode bits, name of file/directory, sha1 hash)], (String, String, ByteString)
+-- 3. Sort the `keys` from longest length to shortest length
+-- 4. Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory (delete the key after tree object is saved - or is this necessary? rethinkg)
+-- 5. Return the hash of the root tree object after traversing all the keys
 
 -- This command Reads tree information into the index.
 -- TODO: Test gitReadTree manually and add tasty test
@@ -81,9 +84,9 @@ gitReadTree treeHash gitDir = do
     getIndexEntryToAdd :: GitTree -> GitIndex -> FilePath -> IO [FilePath]
     getIndexEntryToAdd (i, []) _ _ = return []
     getIndexEntryToAdd (i, (fmode, name, hash) : xs) index path =
-      if hashExistIndex hash index
+      if hashExistIndex (getHash hash) index
         then do
-          gitObj <- readObjectByHash hash gitDir
+          gitObj <- readObjectByHash (getHash hash) gitDir
           case gitObj of
             Nothing -> getIndexEntryToAdd (i, xs) index path
             Just (Tree tree, _) -> do
@@ -98,7 +101,7 @@ gitReadTree treeHash gitDir = do
     -- Return true if hash exists in the tree
     hashExistTree :: ByteString -> GitTree -> Bool
     hashExistTree _ (i, []) = False
-    hashExistTree hash (i, (_, _, hashV) : xs) = (hashV == hash) || hashExistTree hash (i, xs)
+    hashExistTree hash (i, (_, _, hashV) : xs) = (hashV == bsToHash hash) || hashExistTree hash (i, xs)
 
     -- Return file paths that need to be removed based on treeobj
     getIndexEntryToRemove :: GitTree -> GitIndex -> [FilePath]
