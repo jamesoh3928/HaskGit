@@ -266,5 +266,9 @@ gitRevert = undefined
 -- see this case
 gitHeadCommit :: FilePath -> IO ByteString
 gitHeadCommit gitdir = do
-  headContent <- readFile $ gitdir </> "HEAD"
-  BSC.readFile $ gitdir </> drop 5 headContent
+  -- headContent <- readFile $ gitdir </> "HEAD"
+  -- let
+  --   path = gitdir </> drop 5 headContent :: FilePath
+  let path = "/Users/cirrus/PL/Haskell/psh2231/HaskGit/.haskgit/refs/heads/main"
+  cmt <- BSC.readFile path
+  return $ BSC.init cmt
