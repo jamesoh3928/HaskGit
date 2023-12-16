@@ -32,6 +32,7 @@ import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
 type GitBlob = (Int, String)
 
 -- | GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
+-- Filemode bits are stored in octal ASCII representation for the tree.
 type GitTree = (Int, [(String, String, GitHash)])
 
 -- | GitAuthor = (name, email, date - unix time in seconds, timezone string)

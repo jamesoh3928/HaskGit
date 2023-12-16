@@ -18,6 +18,7 @@ import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
 import GitHash (GitHash, getHash)
 import GitObject (GitObject (..), GitTree, hashAndSaveObject)
+import System.IO (readFile')
 import System.Posix.Files
 import Util
 
@@ -143,7 +144,7 @@ addEntry gitDir (GitIndex entries) path = do
       uid = fromIntegral (fileOwner metadata)
       gid = fromIntegral (fileGroup metadata)
       fsize = fromIntegral (fileSize metadata)
-  file <- readFile path
+  file <- readFile' path
 
   -- Use hashAndSaveObject to save the blob object as well
   let blob = Blob (0, file)

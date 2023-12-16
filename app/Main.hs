@@ -12,7 +12,7 @@ main = do
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
-processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add"]
+processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add", "commit", "revList", "log"]
 processArgs args gitDir =
   case head args of
     "show" ->
@@ -24,6 +24,13 @@ processArgs args gitDir =
       case tail args of
         [] -> putStrLn "Error: haskgit add requires an argument <files>"
         files -> gitAdd files gitDir
+    "commit" ->
+      case tail args of
+        [flag, message] ->
+          if flag == "-m"
+            then gitCommit message gitDir
+            else putStrLn "Error: haskgit commit must have -m flag enabled to commit"
+        _ -> putStrLn "Error: haskgit commit only has one argument <message>"
     "updateRef" ->
       case tail args of
         [refdest, refsrc] -> gitUpdateRef refdest refsrc gitDir
@@ -48,6 +55,7 @@ helpMsg cmd =
     "show" -> "haskgit show - Show various types of objects"
     "updateRef" -> "haskgit updateRef - Update the object name stored in a ref safely"
     "add" -> "haskgit add - Add file contents to the index"
+    "commit" -> "haskgit commit - Record changes to the repository"
     "revList" -> "haskgit revList - list commit objects in reverse chronological order"
     "log" -> "haskgit log - show commit logs"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"

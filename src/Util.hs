@@ -19,6 +19,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
+import System.IO (readFile')
 
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -60,7 +61,7 @@ gitRefToCommit ref gitDir = do
   fileExist <- doesFileExist refPath
   if fileExist
     then do
-      content <- readFile refPath
+      content <- readFile' refPath
       let obj = head (lines content)
       if take 5 obj == "ref: "
         then gitRefToCommit (drop 5 obj) gitDir
