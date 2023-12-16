@@ -23,7 +23,7 @@ import Data.List
 import Data.Time.Clock (UTCTime)
 import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
-import GitObject (GitCommit, GitObject (..), GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
+import GitObject (GitCommit, GitObject (..), GitObjectHash, GitTree, gitObjectSerialize, gitShowStr, saveGitObject)
 import GitParser (parseGitObject, parseIndexFile)
 import Index (GitIndex, addOrUpdateEntries, gitIndexSerialize, saveIndexFile)
 import Ref (GitRef)
@@ -143,7 +143,7 @@ gitRevList hash gitdir = do
     concat
       <$> Control.Monad.forM
         parents
-        ( \(Commit (_, _, ps, _, _, _)) ->
+        ( \(Commit (_, _, ps, _, _, _), _) ->
             Control.Monad.forM ps (return . getHash)
         )
   if not (null hashList)
@@ -209,14 +209,14 @@ gitShow hash gitdir = do
       Just hashV -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
 -- | Get a list of parent (Git Object) in the tree
-gitParentList :: ByteString -> FilePath -> IO [GitObject]
+gitParentList :: ByteString -> FilePath -> IO [GitObjectHash]
 gitParentList hash gitdir = do
   obj <- hash2CommitObj hash gitdir
   case obj of
     Nothing -> return []
     Just cmt@(Commit (_, _, parents, _, _, _)) -> do
       recur <- Control.Monad.forM parents (\p -> gitParentList (getHash p) gitdir)
-      return (cmt : concat recur)
+      return ((cmt, bsToHash hash) : concat recur)
     _ -> return []
 
 -- |
@@ -246,13 +246,9 @@ hash2CommitObj hash gitdir = do
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitLog :: ByteString -> FilePath -> IO ()
 gitLog hash gitdir = do
-  cmt <- hash2CommitObj hash gitdir
-  case cmt of
-    Nothing -> print "GitLog Error: the inputted hash is not commit"
-    Just cmt -> putStrLn $ gitShowStr (cmt, bsToHash hash)
   parents <- gitParentList hash gitdir
   mapM_
-    ( \cmt@(Commit (_, hs, _, _, _, _)) ->
+    ( \(cmt, hs) ->
         putStrLn $ gitShowStr (cmt, hs)
     )
     parents
