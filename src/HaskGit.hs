@@ -4,10 +4,8 @@ module HaskGit
     gitUpdateRef,
     gitUpdateSymbRef,
     gitListBranch,
-    gitRevList,
     gitLog,
     gitRevList,
-    gitLog,
   )
 where
 
@@ -209,23 +207,6 @@ gitRevList hash gitdir = do
       putStrLn $ BSC.unpack hash
       mapM_ (putStrLn . BSC.unpack) hashList
     else print $ show hash ++ " is not a commit"
--- | return a list of parents (commit type only)
--- haskgit revList 3154bdc4928710b08f61297e87c4900e0f9b5869
-gitRevList :: ByteString -> FilePath -> IO ()
-gitRevList hash gitdir = do
-  parents <- gitParentList hash gitdir
-  hashList <-
-    concat
-      <$> Control.Monad.forM
-        parents
-        ( \(Commit (_, _, ps, _, _, _)) ->
-            Control.Monad.forM ps (return . getHash)
-        )
-  if not (null hashList)
-    then do
-      putStrLn $ BSC.unpack hash
-      mapM_ (putStrLn . BSC.unpack) hashList
-    else print $ show hash ++ " is not a commit"
 
 -------------------------- List of porcelain commands --------------------------
 
@@ -301,27 +282,6 @@ gitBranch = undefined
 --
 -- Display the contents of the git object for the given hash.
 gitShow :: ByteString -> FilePath -> IO ()
-gitShow hash gitDir = do
-  gitObj <- readObjectByHash hash gitDir
-  case gitObj of
-    Nothing -> return ()
-    Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
-
--- | Get a list of parent (Git Object) in the tree
-gitParentList :: ByteString -> FilePath -> IO [GitObject]
-gitParentList hash gitdir = do
-  obj <- hash2CommitObj hash gitdir
-  case obj of
-    Nothing -> return []
-    Just cmt@(Commit (_, _, parents, _, _, _)) -> do
-      recur <- Control.Monad.forM parents (\p -> gitParentList (getHash p) gitdir)
-      return (cmt : concat recur)
-    _ -> return []
-
--- |
--- decompress gitObject and unpack ByteString to String
-gitObjectContent :: ByteString -> FilePath -> IO String
-gitObjectContent hash gitdir = do
 gitShow hash gitDir = do
   gitObj <- readObjectByHash hash gitDir
   case gitObj of

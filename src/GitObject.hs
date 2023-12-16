@@ -103,7 +103,6 @@ saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
   let obj = compress (BSLC.fromStrict content)
   path <- hashToFilePath hash gitDir
-  putStrLn ("In saveGitObject - path: " ++ path)
   createDirectoryIfMissing True (takeDirectory path)
   BSLC.writeFile path obj
 
@@ -116,8 +115,7 @@ hashAndSaveObject :: GitObject -> FilePath -> IO GitHash
 hashAndSaveObject obj gitDir = do
   -- Not calling hashObject function to avoid two serializations
   let content = gitObjectSerialize obj
-  -- TODO: again, check where we need to perform encoding and not
+  -- Need to store encode hash to follow invariant of GitHash
   let hash = bsToHash (encode $ SHA1.hash content)
-  putStrLn ("In hashAndSaveObject - hash: " ++ show hash)
   saveGitObject hash content gitDir
   return hash
