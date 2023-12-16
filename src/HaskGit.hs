@@ -8,6 +8,7 @@ module HaskGit
     gitListBranch,
     gitRevList,
     gitLog,
+    gitHeadCommit,
   )
 where
 
@@ -258,3 +259,12 @@ gitLog hash gitdir = do
 
 gitRevert :: ByteString -> IO ()
 gitRevert = undefined
+
+-- | get the most updated commit
+-- extract ./haskgit/HEAD to get the path that contains the commit
+--   because the path would be different for different branch
+-- see this case
+gitHeadCommit :: FilePath -> IO ByteString
+gitHeadCommit gitdir = do
+  headContent <- readFile $ gitdir </> "HEAD"
+  BSC.readFile $ gitdir </> drop 5 headContent
