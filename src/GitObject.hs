@@ -19,7 +19,7 @@ where
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 as B16 (decode, encode)
+import Data.ByteString.Base16 as B16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
@@ -28,21 +28,22 @@ import System.Directory (createDirectoryIfMissing)
 import System.FilePath
 import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
 
--- GitBlob = (byteSize, file content in binary)
+-- | GitBlob = (byteSize, file content in binary)
 type GitBlob = (Int, String)
 
--- GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
+-- | GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
 type GitTree = (Int, [(String, String, ByteString)])
 
--- GitAuthor = (name, email, date - unix time in seconds, timezone string)
+-- | GitAuthor = (name, email, date - unix time in seconds, timezone string)
 type GitAuthor = (String, String, Int, String)
 
--- GitCommitter = (name, email, date - unix time in seconds, timezone string)
+-- | GitCommitter = (name, email, date - unix time in seconds, timezone string)
 type GitCommitter = (String, String, Int, String)
 
--- GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
+-- | GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
 type GitCommit = (Int, GitHash, [GitHash], GitAuthor, GitCommitter, String)
 
+-- | datatype GitObject: Tree, Commit, Blob
 data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
 
 instance Show GitObject where
@@ -51,8 +52,10 @@ instance Show GitObject where
   show (Blob blob) = "Blob " ++ show blob
   show (Commit commit) = "Commit " ++ show commit
 
+-- | (GitObject, GitHash)
 type GitObjectHash = (GitObject, GitHash)
 
+-- | with a tuple of git object and hash, get decompressed content respect to their type
 -- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
 gitShowStr (Blob (_, content), _) = content
@@ -64,18 +67,14 @@ gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
 
--- Convert the gitObject to content of object file (this function does not compress with zllib)
--- Blob: Header + filecontent
--- Tree: Header + concatenation of Blobs and subtrees within Tree
--- Commit: header + concatenation of contents inside
+-- | Convert the gitObject to content of object file (this function does not compress with zllib)
+-- * Blob: Header + filecontent
+-- * Tree: Header + concatenation of Blobs and subtrees within Tree
+-- * Commit: header + concatenation of contents inside
 gitObjectSerialize :: GitObject -> ByteString
 gitObjectSerialize (Blob (_, content)) = BSC.pack ("blob " ++ show (length content) ++ "\0" ++ content)
 gitObjectSerialize (Tree (_, xs)) = BSC.pack ("tree " ++ show (length treeContent) ++ "\0" ++ treeContent)
   where
-    decodeHash :: ByteString -> ByteString
-    decodeHash hash = case B16.decode hash of
-      Left err -> error err
-      Right x -> x
     content :: [(String, String, ByteString)] -> String
     content [] = ""
     content [(permission_bit, name, hash)] = permission_bit ++ " " ++ name ++ "\0" ++ BSC.unpack hash
@@ -89,7 +88,7 @@ gitObjectSerialize (Commit (_, treeHash, parentHashes, authorObj, committerObj, 
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
--- Take hash and GitObject and save it to .haskgit/objects
+-- | Take hash and GitObject and save it to .haskgit/objects
 saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
   let obj = compress (BSLC.fromStrict content)
@@ -107,7 +106,8 @@ hashAndSaveObject :: GitObject -> FilePath -> IO GitHash
 hashAndSaveObject obj gitDir = do
   -- Not calling hashObject function to avoid two serializations
   let content = gitObjectSerialize obj
-  let hash = bsToHash (SHA1.hash content)
+  -- TODO: again, check where we need to perform encoding and not
+  let hash = bsToHash (encode $ SHA1.hash content)
   putStrLn ("In hashAndSaveObject - hash: " ++ show hash)
   saveGitObject hash content gitDir
   return hash

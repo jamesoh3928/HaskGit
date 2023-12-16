@@ -98,6 +98,7 @@ updateRefTests = do
   let refTestPath = ".test_haskgit/refs/heads/test"
   gitUpdateRef "refs/heads/test" hash1 testGitDir
   let expectedCase1 = T.pack (hash1 ++ "\n")
+  -- Use strick IO to prevent access to same file due Haskell lazy eval
   actualCase1 <- TIO.readFile refTestPath
 
   -- Case2: refname, refname
@@ -168,12 +169,12 @@ hashObjectTests = do
 saveObjectTests :: IO TestTree
 saveObjectTests = do
   -- Blob (bytestring of "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-  let blobHash = BSC.replicate 20 '\170'
+  let blobHash = BSC.pack (replicate 20 '\170')
   let blobTempPath = testGitDir ++ "/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
   case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
     Left err -> assertFailure (show err)
-    Right result -> saveGitObject (bsToHash blobHash) (gitObjectSerialize result) testGitDir
+    Right result -> saveGitObject (bsToHash $ encode blobHash) (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
   tmpBlob1 <- BSLC.readFile blobTempPath
@@ -182,12 +183,12 @@ saveObjectTests = do
   let actualBlob = decompress tmpBlob2
 
   -- Tree (byteString of "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-  let treeHash = BSC.replicate 20 '\187'
+  let treeHash = BSC.pack (replicate 20 '\187')
   let treeTempPath = testGitDir ++ "/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
   case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash treeHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash $ encode treeHash) (gitObjectSerialize result) testGitDir
 
   tmpTree1 <- BSLC.readFile treeTempPath
   let expectedTree = decompress tmpTree1
@@ -195,12 +196,12 @@ saveObjectTests = do
   let actualTree = decompress tmpTree2
 
   -- Commit (bytestring of "cccccccccccccccccccccccccccccccccccccc"")
-  let commitHash = BSC.replicate 20 '\204'
+  let commitHash = BSC.pack (replicate 20 '\204')
   let commitTempPath = testGitDir ++ "/objects/cc/cccccccccccccccccccccccccccccccccccccc"
   contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
   case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash commitHash) (gitObjectSerialize result) testGitDir
+    Right result -> do saveGitObject (bsToHash $ encode commitHash) (gitObjectSerialize result) testGitDir
 
   tmpCommit1 <- BSLC.readFile commitTempPath
   let expectedCommit = decompress tmpCommit1

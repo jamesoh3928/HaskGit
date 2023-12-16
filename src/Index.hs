@@ -6,6 +6,7 @@ module Index
     saveIndexFile,
     addOrUpdateEntries,
     hasFile,
+    removeEntries,
   )
 where
 
@@ -16,7 +17,7 @@ import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
 import GitHash (GitHash, getHash)
-import GitObject (GitObject (Blob), hashAndSaveObject)
+import GitObject (GitObject (..), GitTree, hashAndSaveObject)
 import System.Posix.Files
 import Util
 
@@ -75,9 +76,9 @@ gitIndexEntrySerialize entry =
               intTo4Bytes (uid entry),
               intTo4Bytes (gid entry),
               intTo4Bytes (fsize entry),
-              -- Decode the sha string to ByteString
+              -- Decode the sha hew ByteString because index must store in binary not hex representation
               case B16.decode (getHash (sha entry)) of
-                Left err -> error err
+                Left err -> error ("Invalid hash fo base16 decoding - " ++ err ++ "\n sha entry: " ++ show (sha entry))
                 Right result -> BSC.unpack result,
               -- Concat flagAssumeValid, flagStage, and nameLength
               intTo2Bytes
@@ -163,3 +164,11 @@ addOrUpdateEntries :: [FilePath] -> GitIndex -> FilePath -> IO GitIndex
 addOrUpdateEntries paths index gitDir = do
   let index' = removeEntries paths index
   addEntries paths index' gitDir
+
+extractHashIndex :: GitIndex -> [ByteString]
+extractHashIndex (GitIndex []) = []
+extractHashIndex (GitIndex (x : xs)) = getHash (sha x) : extractHashIndex (GitIndex xs)
+
+extractNameIndex :: GitIndex -> [String]
+extractNameIndex (GitIndex []) = []
+extractNameIndex (GitIndex (x : xs)) = name x : extractNameIndex (GitIndex xs)

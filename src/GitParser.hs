@@ -2,26 +2,30 @@ module GitParser
   ( parseGitObject,
     parseInt32,
     parseIndexFile,
+    readObjectByHash,
     parseTree,
   )
 where
 
+import Codec.Compression.Zlib (decompress)
 import Data.Bits
 import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Char (ord)
 import GitHash (GitHash, bsToHash, gitHashValue)
-import GitObject (GitObject (..))
+import GitObject (GitObject (..), GitObjectHash)
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
--- Helper function to get byte size of string
+-- | Helper function to get byte size of string
 byteSize :: String -> Int
 byteSize s = B.length (BC.pack s)
 
--- Parse the blob object.
+-- | Parse the blob object.
 parseBlob :: Parser GitObject
 parseBlob = do
   _ <- string "blob "
@@ -35,7 +39,7 @@ parseBlob = do
         then fail "Byte size does not match in blob file"
         else return (Blob (bytesize, content))
 
--- Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
+-- | Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
@@ -54,7 +58,7 @@ parseTree = do
       sha' <- BC.pack <$> count 20 anyChar
       return (filemode, filename, sha')
 
--- Parse the commit object.
+-- | Parse the commit object.
 parseCommit :: Parser GitObject
 parseCommit = do
   _ <- string "commit "
@@ -97,26 +101,26 @@ parseCommit = do
             )
         _ -> fail "Invalid hash value in commit file"
 
--- Parse the git object.
+-- | Parse the git object.
 parseGitObject :: Parser GitObject
 parseGitObject = parseBlob <|> parseTree <|> parseCommit
 
--- Parse n-byte integer in network byte order (big-endian)
+-- | Parse n-byte integer in network byte order (big-endian)
 parseInt :: Int -> Parser Int
 parseInt n = do
   ints <- (ord <$>) <$> count n anyChar
   -- Loop through int list and get actualy decimal value
   return (foldl (\v x -> v * 256 + x) 0 ints)
 
--- Parse 4-byte integer in network byte order (big-endian)
+-- | Parse 4-byte integer in network byte order (big-endian)
 parseInt32 :: Parser Int
 parseInt32 = parseInt 4
 
--- Parse 2-byte integer in network byte order (big-endian)
+-- | Parse 2-byte integer in network byte order (big-endian)
 parseInt16 :: Parser Int
 parseInt16 = parseInt 2
 
--- Parse a Git index entry (for mvp, assuming version 2)
+-- | Parse a Git index entry (for mvp, assuming version 2)
 -- Followed git index format documentation: https://github.com/git/git/blob/master/Documentation/gitformat-index.txt
 parseGitIndexEntry :: Parser GitIndexEntry
 parseGitIndexEntry = do
@@ -134,7 +138,7 @@ parseGitIndexEntry = do
   uid' <- parseInt32
   gid' <- parseInt32
   fsize' <- parseInt32
-  -- Index file write sha in hexadecimal representation
+  -- Encode it to hexadecimal representation because index is storing not encoded hash
   shaBS <- B16.encode . BC.pack <$> count 20 anyChar
   let sha' = bsToHash shaBS
   flags <- parseInt16
@@ -182,7 +186,7 @@ parseGitIndexEntry = do
       flagStage'
       name'
 
--- Parse index file (which is in binary format)
+-- | Parse index file (which is in binary format)
 -- Ignoring the extension data for now
 parseIndexFile :: Parser GitIndex
 parseIndexFile = do
@@ -194,3 +198,22 @@ parseIndexFile = do
   entries <- count numEntries parseGitIndexEntry
   -- Ignoring the extensions and cache tree
   return (GitIndex entries)
+
+-- Given hash value, return corresponding git object
+-- Use maybe type to indicate parse failure
+readObjectByHash :: ByteString -> FilePath -> IO (Maybe GitObjectHash)
+readObjectByHash hash gitdir = do
+  case gitHashValue hash of
+    Nothing -> do
+      Prelude.putStrLn "Invalid hash value given."
+      return Nothing
+    Just hashV -> do
+      -- 2 hexadecimal = 4 bytes
+      let hashHex = BSC.unpack hash
+      let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+      filecontent <- BSLC.readFile filename
+      case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+        Left err -> do
+          Prelude.putStrLn $ "Git parse error: " ++ show err
+          return Nothing
+        Right gitObj -> return (Just (gitObj, hashV))

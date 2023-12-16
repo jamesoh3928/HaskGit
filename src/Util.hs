@@ -13,7 +13,6 @@ where
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
-import Data.ByteString.Base16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -21,28 +20,28 @@ import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 
--- Given hash value, return corresponding git directory
+-- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
 -- Example output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
 hashToFilePath :: GitHash -> FilePath -> IO FilePath
 hashToFilePath hash gitDir = do
-  let hashStr = BSC.unpack $ encode (getHash hash)
+  let hashStr = BSC.unpack (getHash hash)
   return (gitDir ++ "/objects/" ++ take 2 hashStr ++ "/" ++ drop 2 hashStr)
 
--- Returns path to reference
+-- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
 refToFilePath :: String -> FilePath -> IO FilePath
 refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
 
--- Returns path to .haskgit directory (climb until it finds .haskgit directory).
+-- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- If it cannot find .haskgit directory, return "/" or "~".
 getGitDirectory :: IO FilePath
 getGitDirectory = do
   curr <- getCurrentDirectory
   findGitDirectory curr
 
--- Given filepath, find .haskgit directory. If it cannot find .haskgit directory, return "/" or "~".
+-- | Given filepath, find .haskgit directory. If it cannot find .haskgit directory, return "/" or "~".
 findGitDirectory :: FilePath -> IO FilePath
 findGitDirectory fp = do
   if fp == "~" || fp == "/"
@@ -53,6 +52,7 @@ findGitDirectory fp = do
         then return (fp ++ "/.haskgit")
         else findGitDirectory (takeDirectory fp)
 
+-- | Given ref, return hash of the commit object.
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
@@ -69,11 +69,11 @@ gitRefToCommit ref gitDir = do
     else do
       return Nothing
 
--- Convert unix time integer value to UTCTime
+-- | Convert unix time integer value to UTCTime
 unixToUTCTime :: Integer -> UTCTime
 unixToUTCTime unixTime = posixSecondsToUTCTime $ fromInteger unixTime
 
--- Format UTCTime with timezone offset
+-- | Format UTCTime with timezone offset
 formatUTCTimeWithTimeZone :: String -> UTCTime -> String
 formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %-d %T %Y " utcTimeWithTZ ++ timezoneOffset
   where
