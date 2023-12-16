@@ -2,6 +2,7 @@ module GitParser
   ( parseGitObject,
     parseInt32,
     parseIndexFile,
+    parseTree,
   )
 where
 
@@ -10,7 +11,7 @@ import Data.ByteString as B (ByteString, length)
 import Data.ByteString.Base16 as B16 (encode)
 import Data.ByteString.Char8 as BC (pack, unpack)
 import Data.Char (ord)
-import GitHash (GitHash, gitHashValue)
+import GitHash (GitHash, bsToHash, gitHashValue)
 import GitObject (GitObject (..))
 import Index (GitIndex (..), GitIndexEntry (..))
 import Text.ParserCombinators.Parsec
@@ -38,7 +39,6 @@ parseBlob = do
 parseTree :: Parser GitObject
 parseTree = do
   _ <- string "tree "
-  -- TODO: check data integrity of byte size in the future, but for now assume the syze is cofrect
   bytesizeString <- manyTill digit (char '\0')
   case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in tree file"
@@ -51,7 +51,7 @@ parseTree = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha' <- B16.encode . BC.pack <$> count 20 anyChar
+      sha' <- BC.pack <$> count 20 anyChar
       return (filemode, filename, sha')
 
 -- Parse the commit object.
@@ -134,7 +134,9 @@ parseGitIndexEntry = do
   uid' <- parseInt32
   gid' <- parseInt32
   fsize' <- parseInt32
-  sha' <- B16.encode . BC.pack <$> count 20 anyChar
+  -- Index file write sha in hexadecimal representation
+  shaBS <- B16.encode . BC.pack <$> count 20 anyChar
+  let sha' = bsToHash shaBS
   flags <- parseInt16
   let flagAssumeValid' = flags .&. 0x8000 /= 0
       -- flagExtended, ignoring for mvp

@@ -15,10 +15,11 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
+import GitHash (GitHash, getHash)
+import GitObject (GitObject (Blob), hashAndSaveObject)
 import System.Posix.Files
 import Util
 
--- Based on the documentation: https://github.com/vaibhavsagar/duffer/blob/master/duffer/src/Duffer/Plumbing.hs
 data GitIndexEntry = GitIndexEntry
   { ctimeS :: Int,
     ctimeNs :: Int,
@@ -31,7 +32,7 @@ data GitIndexEntry = GitIndexEntry
     uid :: Int,
     gid :: Int,
     fsize :: Int,
-    sha :: ByteString,
+    sha :: GitHash,
     flagAssumeValid :: Bool,
     flagStage :: Int,
     name :: String
@@ -75,7 +76,7 @@ gitIndexEntrySerialize entry =
               intTo4Bytes (gid entry),
               intTo4Bytes (fsize entry),
               -- Decode the sha string to ByteString
-              case B16.decode (sha entry) of
+              case B16.decode (getHash (sha entry)) of
                 Left err -> error err
                 Right result -> BSC.unpack result,
               -- Concat flagAssumeValid, flagStage, and nameLength
@@ -124,13 +125,12 @@ removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` pat
 removeEntries :: [FilePath] -> GitIndex -> GitIndex
 removeEntries paths index = foldr removeEntry index paths
 
--- Add the file to the index
-addEntry :: GitIndex -> FilePath -> IO GitIndex
-addEntry (GitIndex entries) path = do
+-- | Add the file to the index
+-- The given paths must be relative to the repository
+addEntry :: FilePath -> GitIndex -> FilePath -> IO GitIndex
+addEntry gitDir (GitIndex entries) path = do
   -- Get the metadata of the file (ctime_s, ctime_ns, mtime_s, mtime_ns, dev, ino, mode, uid, gid, fsize, and sha)
-  repoDirectory <- getRepoDirectory
-  let absolutePath = repoDirectory ++ "/" ++ path
-  metadata <- getFileStatus absolutePath
+  metadata <- getFileStatus path
   let ctime = floor (statusChangeTimeHiRes metadata * 1e9)
       ctimeS = ctime `div` (10 ^ 9)
       ctimeNS = ctime `mod` (10 ^ 9)
@@ -143,20 +143,23 @@ addEntry (GitIndex entries) path = do
       uid = fromIntegral (fileOwner metadata)
       gid = fromIntegral (fileGroup metadata)
       fsize = fromIntegral (fileSize metadata)
-  file <- BSC.readFile absolutePath
-  -- -- Hash the ("blob" + bytesize + file content)
-  let sha = (B16.encode . SHA1.hash) (BSC.pack ("blob " ++ show (BSC.length file) ++ "\0") <> file)
+  file <- readFile path
+
+  -- Use hashAndSaveObject to save the blob object as well
+  let blob = Blob (0, file)
+  -- TODO: double check if we can refactor somehow
+  sha <- hashAndSaveObject blob gitDir
 
   -- -- Add the entry to the index
   return $ GitIndex (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize sha False 0 path : entries)
 
 -- | Call add entry for each path and then save the final index file
-addEntries :: [FilePath] -> GitIndex -> IO GitIndex
-addEntries paths index = foldM addEntry index paths
+addEntries :: [FilePath] -> GitIndex -> FilePath -> IO GitIndex
+addEntries paths index gitDir = foldM (addEntry gitDir) index paths
 
 -- | Add or update given file paths to the index
 -- | The given paths must be relative to the repository
-addOrUpdateEntries :: [FilePath] -> GitIndex -> IO GitIndex
-addOrUpdateEntries paths index = do
+addOrUpdateEntries :: [FilePath] -> GitIndex -> FilePath -> IO GitIndex
+addOrUpdateEntries paths index gitDir = do
   let index' = removeEntries paths index
-  addEntries paths index'
+  addEntries paths index' gitDir

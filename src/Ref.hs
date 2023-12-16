@@ -1,5 +1,3 @@
--- NOTE: this file is not currently used because String is enough to represent ref so far. This file may be used in the future.
-
 module Ref
   ( GitRef,
     GitRefs,
