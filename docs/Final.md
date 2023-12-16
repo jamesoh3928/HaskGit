@@ -42,6 +42,8 @@ Note: Be sure that all `.hs` source files and any supporting files (e.g.,
 - When working on the test, there were cases where we needed to read and write to the same file to preserve the original content (such as in gitUpdateRef, etc.). However, due to lazy evaluation in Haskell, errors occurred because the file was being accessed while still in the process of being updated. For this reason, we opted to use strict IO in these cases.
 https://stackoverflow.com/questions/5053135/resource-busy-file-is-locked-error-in-haskell
 
+Solved by using strict IO: readfile'
+
 ### Base 16 Encoding
 We experienced multiple bugs related to the representation of the SHA-1 hash for several days. Apparently, the reason was that all Git object files store a base16-encoded hash value, while the index file stores a non-encoded hash value. This led to incorrect hash values in multiple places when staging files to the index. We learned, in a painful way, to have a really good understanding of how binary data is actually stored when interacting with it.
 

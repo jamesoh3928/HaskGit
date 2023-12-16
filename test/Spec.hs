@@ -281,7 +281,7 @@ listBranchTests = do
           ]
 
   -- go back to original ref
-  gitUpdateSymbRef "HEAD" "refs/head/main" testGitDir
+  gitUpdateSymbRef "HEAD" "refs/heads/main" testGitDir
   return gitListBarnchTest
 
 addOrUpdateEntriesTests :: IO TestTree
