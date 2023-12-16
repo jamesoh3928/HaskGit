@@ -29,13 +29,11 @@ hashToFilePath hash gitDir = do
   return (gitDir ++ "/objects/" ++ take 2 hashStr ++ "/" ++ drop 2 hashStr)
 
 -- | Returns path to reference
--- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
 refToFilePath :: String -> FilePath -> IO FilePath
 refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
 
--- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- If it cannot find .haskgit directory, return "/" or "~".
 getGitDirectory :: IO FilePath
@@ -43,7 +41,6 @@ getGitDirectory = do
   curr <- getCurrentDirectory
   findGitDirectory curr
 
--- | Given filepath, find .haskgit directory. If it cannot find .haskgit directory, return "/" or "~".
 -- | Given filepath, find .haskgit directory. If it cannot find .haskgit directory, return "/" or "~".
 findGitDirectory :: FilePath -> IO FilePath
 findGitDirectory fp = do
@@ -55,7 +52,6 @@ findGitDirectory fp = do
         then return (fp ++ "/.haskgit")
         else findGitDirectory (takeDirectory fp)
 
--- | Given ref, return hash of the commit object.
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
@@ -73,11 +69,9 @@ gitRefToCommit ref gitDir = do
       return Nothing
 
 -- | Convert unix time integer value to UTCTime
--- | Convert unix time integer value to UTCTime
 unixToUTCTime :: Integer -> UTCTime
 unixToUTCTime unixTime = posixSecondsToUTCTime $ fromInteger unixTime
 
--- | Format UTCTime with timezone offset
 -- | Format UTCTime with timezone offset
 formatUTCTimeWithTimeZone :: String -> UTCTime -> String
 formatUTCTimeWithTimeZone timezoneOffset utcTime = formatTime defaultTimeLocale "%a %b %-d %T %Y " utcTimeWithTZ ++ timezoneOffset
