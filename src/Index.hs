@@ -7,6 +7,7 @@ module Index
     addOrUpdateEntries,
     hasFile,
     removeEntries,
+    removeEntries,
   )
 where
 

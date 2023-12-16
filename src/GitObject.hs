@@ -32,14 +32,17 @@ import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
 type GitBlob = (Int, String)
 
 -- | GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
+-- | GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
 type GitTree = (Int, [(String, String, ByteString)])
 
 -- | GitAuthor = (name, email, date - unix time in seconds, timezone string)
 type GitAuthor = (String, String, Int, String)
 
 -- | GitCommitter = (name, email, date - unix time in seconds, timezone string)
+-- | GitCommitter = (name, email, date - unix time in seconds, timezone string)
 type GitCommitter = (String, String, Int, String)
 
+-- | GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
 -- | GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
 type GitCommit = (Int, GitHash, [GitHash], GitAuthor, GitCommitter, String)
 
@@ -53,8 +56,10 @@ instance Show GitObject where
   show (Commit commit) = "Commit " ++ show commit
 
 -- | (GitObject, GitHash)
+-- | (GitObject, GitHash)
 type GitObjectHash = (GitObject, GitHash)
 
+-- | with a tuple of git object and hash, get decompressed content respect to their type
 -- | with a tuple of git object and hash, get decompressed content respect to their type
 -- Function that returns the string that will be used for git show command
 gitShowStr :: GitObjectHash -> String
@@ -67,6 +72,10 @@ gitShowStr (Commit (_, _, _, authorInfo, _, message), commitHash) = "commit " ++
     (authorName, authorEmail, authorUnixTS, authorTimeZone) = authorInfo
     authorTS = formatUTCTimeWithTimeZone authorTimeZone (unixToUTCTime (toInteger authorUnixTS))
 
+-- | Convert the gitObject to content of object file (this function does not compress with zllib)
+-- * Blob: Header + filecontent
+-- * Tree: Header + concatenation of Blobs and subtrees within Tree
+-- * Commit: header + concatenation of contents inside
 -- | Convert the gitObject to content of object file (this function does not compress with zllib)
 -- * Blob: Header + filecontent
 -- * Tree: Header + concatenation of Blobs and subtrees within Tree
@@ -88,6 +97,7 @@ gitObjectSerialize (Commit (_, treeHash, parentHashes, authorObj, committerObj, 
     gitAuthor = "author " ++ aName ++ " <" ++ aEmail ++ "> " ++ show aDate ++ " " ++ aTimeStamp ++ "\n"
     gitCommitter = "committer " ++ cName ++ " <" ++ cEmail ++ "> " ++ show cDate ++ " " ++ cTimeStamp ++ "\n\n"
 
+-- | Take hash and GitObject and save it to .haskgit/objects
 -- | Take hash and GitObject and save it to .haskgit/objects
 saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
