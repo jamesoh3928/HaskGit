@@ -15,9 +15,10 @@ import Data.ByteString.Char8 as BC (pack, unpack)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Char (ord)
-import GitHash (GitHash, bsToHash, gitHashValue)
+import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject (GitObject (..), GitObjectHash)
 import Index (GitIndex (..), GitIndexEntry (..))
+import System.Directory (doesFileExist)
 import Text.ParserCombinators.Parsec
 import Text.Read (readMaybe)
 
@@ -55,7 +56,7 @@ parseTree = do
       filemode <- manyTill digit (char ' ') :: Parser String
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
-      sha' <- BC.pack <$> count 20 anyChar
+      sha' <- encode . BC.pack <$> count 20 anyChar
       return (filemode, filename, bsToHash sha')
 
 -- | Parse the commit object.
@@ -66,19 +67,15 @@ parseCommit = do
   case readMaybe bytesizeString of
     Nothing -> fail "Not a valid byte size in commit file"
     Just bytesize -> do
-      _ <- string "tree "
-      rootTree <- manyTill anyChar (char '\n')
-      --   Assuming only one parent for MVP
-      _ <- string "parent "
-      parent <- manyTill anyChar (char '\n')
-      _ <- string "author "
-      authorNameWithSpace <- manyTill (noneOf "<") (char '<')
+      rootTree <- string "tree " >> manyTill anyChar (char '\n')
+      --   Assuming only one or zero parent for MVP
+      parent <- option "" (string "parent " >> manyTill anyChar (char '\n'))
+      authorNameWithSpace <- string "author " >> manyTill (noneOf "<") (char '<')
       authorEmail <- manyTill (noneOf ">") (char '>')
       spaces
       authorTimestamp <- manyTill digit (char ' ')
       authorTimeZone <- manyTill anyChar newline
-      _ <- string "committer "
-      committerNameWithSpace <- manyTill (noneOf "<") (char '<')
+      committerNameWithSpace <- string "committer " >> manyTill (noneOf "<") (char '<')
       committerEmail <- manyTill (noneOf ">") (char '>')
       _ <- spaces
       committerTimestamp <- manyTill digit (char ' ')
@@ -201,19 +198,18 @@ parseIndexFile = do
 
 -- Given hash value, return corresponding git object
 -- Use maybe type to indicate parse failure
-readObjectByHash :: ByteString -> FilePath -> IO (Maybe GitObjectHash)
+readObjectByHash :: GitHash -> FilePath -> IO (Maybe GitObjectHash)
 readObjectByHash hash gitdir = do
-  case gitHashValue hash of
-    Nothing -> do
-      Prelude.putStrLn "Invalid hash value given."
-      return Nothing
-    Just hashV -> do
-      -- 2 hexadecimal = 4 bytes
-      let hashHex = BSC.unpack hash
-      let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+  let hashHex = BSC.unpack (getHash hash)
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+  fileExist <- doesFileExist filename
+  if fileExist
+    then do
       filecontent <- BSLC.readFile filename
       case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
         Left err -> do
           Prelude.putStrLn $ "Git parse error: " ++ show err
           return Nothing
-        Right gitObj -> return (Just (gitObj, hashV))
+        Right gitObj -> return (Just (gitObj, hash))
+    else do
+      return Nothing

@@ -14,7 +14,7 @@ import GitHash
 import GitObject
 import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
-import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, saveIndexFile)
+import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, hasHash, saveIndexFile)
 import Shelly
 import System.Directory (removeFile)
 import System.IO.Silently (capture)
@@ -37,6 +37,9 @@ import Text.Parsec (parse)
 testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
+testGitDirReadTree :: FilePath
+testGitDirReadTree = ".test_readtree/.test_haskgit"
+
 main :: IO ()
 main = tests >>= defaultMain
 
@@ -50,7 +53,8 @@ tests =
         saveObjectTests,
         parseSaveIndexTests,
         listBranchTests,
-        addOrUpdateEntriesTests
+        addOrUpdateEntriesTests,
+        readTreeTests
       ]
 
 -- Make sure if haskgit show produces expected output
@@ -251,6 +255,8 @@ parseSaveIndexTests = do
           ]
   return parseSaveIndexTests
 
+-- HEAD pointing to hash value at the end of the test.
+-- TODO make sure HEAD points to correct branch or fix lock issue
 listBranchTests :: IO TestTree
 listBranchTests = do
   -- Case1: when HEAD is pointing main (default)
@@ -281,7 +287,7 @@ listBranchTests = do
           ]
 
   -- go back to original ref
-  gitUpdateSymbRef "HEAD" "refs/head/main" testGitDir
+  gitUpdateSymbRef "HEAD" "refs/heads/main" testGitDir
   return gitListBarnchTest
 
 addOrUpdateEntriesTests :: IO TestTree
@@ -308,3 +314,68 @@ addOrUpdateEntriesTests = do
   removeFile blobPath3
 
   return addOrUpdateEntriesTests
+
+-- Checks if index is updated with correct files and hashes after read-tree
+-- Use customize cases in .test_readtree/ which contains few text files with couple commits
+readTreeTests :: IO TestTree
+readTreeTests = do
+  -- Case 1: tree dc1a169e2bd287931839c35eaec477be39d5d855
+  -- Should contain text1.txt, text2.txt, dir1/text3.txt
+  let treeHash1 = "dc1a169e2bd287931839c35eaec477be39d5d855"
+  let path1 = ["text1.txt", "text2.txt", "/dir1/text3.txt"]
+  let hashes1 =
+        [ bsToHash (BSC.pack "1664584d9a5168247c12877b7fdd2f5549d1d1dd"),
+          bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4"),
+          bsToHash (BSC.pack "f483c776c42f8ef2aa00d827805dfeaf7d9ce02b")
+        ]
+
+  gitReadTree (BSC.pack treeHash1) testGitDirReadTree
+  indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
+  newIndex1 <- case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> assertFailure (show err)
+    Right index -> return index
+
+  -- Case 2:
+  let treeHash2 = "46f22aaca0731550afc91adf63739012a7e70481"
+  let path2 = ["text1.txt"]
+  let hashes2 = [bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")]
+  gitReadTree (BSC.pack treeHash2) testGitDirReadTree
+  indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
+  newIndex2 <- case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> assertFailure (show err)
+    Right index -> return index
+
+  -- Case 3: go back to original index
+  let originalTree = "c49122098fd599325d3eb2b688819990dcbae382"
+  let originalPath = ["text1.txt", "test.txt", "/dir1/dir2/text4.txt"]
+  let originalHash =
+        [ bsToHash (BSC.pack "9e9d6c3d83f973a03c508b354af0d383aca94cb5"),
+          bsToHash (BSC.pack "94a6a0a6bd8087721ec594f304cb881f20d61345"),
+          bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")
+        ]
+  gitReadTree (BSC.pack originalTree) testGitDirReadTree
+  indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
+  originalIndex <- case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> assertFailure (show err)
+    Right index -> return index
+
+  let readTreeTests =
+        testGroup
+          "readTreeTests"
+          [ testCase "Check path for case 1" $
+              -- Check if files in paths are in the new index
+              all (hasFile newIndex1) path1 @?= True,
+            testCase "Check the hashes are same for case 1" $
+              -- Check if hashes
+              all (hasHash newIndex1) hashes1 @?= True,
+            testCase "Check path for case 2" $
+              all (hasFile newIndex2) path2 @?= True,
+            testCase "Check the hashes are same for case 1" $
+              all (hasHash newIndex2) hashes2 @?= True,
+            testCase "Check path for case 1" $
+              all (hasFile originalIndex) originalPath @?= True,
+            testCase "Check the hashes are same for case 1" $
+              all (hasHash originalIndex) originalHash @?= True
+          ]
+
+  return readTreeTests

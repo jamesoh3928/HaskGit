@@ -19,6 +19,8 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
+import System.IO (readFile')
+import Data.ByteString.Base16
 
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -54,13 +56,16 @@ findGitDirectory fp = do
 
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
+-- Invariant:
+--  arg1: valid git reference which are either refs or HEAD. (e.g. refs/heads/main, HEAD)
+--  arg2: valid git directory path (.git, .haskgit)
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
 gitRefToCommit ref gitDir = do
   refPath <- refToFilePath ref gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then do
-      content <- readFile refPath
+      content <- readFile' refPath
       let obj = head (lines content)
       if take 5 obj == "ref: "
         then gitRefToCommit (drop 5 obj) gitDir
@@ -91,3 +96,17 @@ relativeToAbolutePath relativePath = do
 -- | Get the directory of the repository
 getRepoDirectory :: IO FilePath
 getRepoDirectory = takeDirectory <$> getGitDirectory
+
+hashBlob :: FilePath -> IO ByteString
+hashBlob file = do
+  content <- BSC.readFile file
+  let len = BSC.length content
+      header = BSC.pack $ "blob " ++ show len ++ "\0"
+      hash = SHA1.hash (header `BSC.append` content)
+  return hash
+
+-- TODO: hash a object that is a directory
+gitHashObject :: FilePath -> IO ()
+gitHashObject file = do
+  hash <- hashBlob file
+  putStrLn $ (BSC.unpack . encode) hash

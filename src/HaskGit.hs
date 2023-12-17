@@ -8,6 +8,7 @@ module HaskGit
     gitCommit,
     gitRevList,
     gitHeadCommit,
+    gitReadTree,
   )
 where
 
@@ -17,38 +18,77 @@ import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.List
+import Data.List (sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import Data.Time.Format
 import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
-import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, gitIndexSerialize, removeEntries, saveIndexFile)
+import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile)
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath
+import System.IO (readFile')
 import Text.Parsec (parse)
+import Text.Printf (printf)
 import Util
 
 -------------------------- List of plumbing commands --------------------------
 
 -- This command creates a tree object from the current index (staging area).
 gitWriteTree :: FilePath -> IO GitHash
-gitWriteTree gitDir = undefined
+gitWriteTree gitDir = do
+  index <- BSC.readFile (gitDir ++ "/index")
+  -- Create a map of directory to files (dict), also create a sorted list of keys (sortedKeys)
+  (dict, sortedKeys) <- case parse parseIndexFile "" (BSC.unpack index) of
+    Left err -> error $ "gitWriteTree index parse error: " ++ show err
+    Right gitIndex -> do
+      let (GitIndex entries) = gitIndex
+      -- 040000 is the mode bit for directory
+      -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
+      let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), name ie, sha ie)])) entries)
+      -- Sort the `keys` from longest length to shortest length
+      return (dict, sortOn (\x -> -1 * length x) (Map.keys dict))
+  -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
+  res <- traverse sortedKeys dict
+  case res of
+    Nothing -> error "No files are staged to commit"
+    -- Return the hash of the root tree object after traversing all the keys
+    Just hash -> return hash
+  where
+    -- \| Given a list of keys, and the dict, create and save the tree object and add to dict if the parent directory is in the dict
+    traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
+    traverse [] _ = return Nothing
+    traverse (k : ks) dict = do
+      -- Create the tree object (bytesize is placeholder since it will be calculated in serialize function)
+      -- Also sort the entries based on the name
+      let tree = Tree (0, sortOn (\(_, name, _) -> name) (dict Map.! k))
+      -- Save the tree object
+      treeHash <- hashAndSaveObject tree gitDir
+      -- If the parent directory is in the dict
+      let parentDir = takeDirectory k
+      case k of
+        -- Finished traversing the keys, return the hash of the root tree object (base case)
+        "." -> return $ Just treeHash
+        _ ->
+          if Map.member parentDir dict
+            then do
+              -- Add the tree object to the parent directory
+              let (Just entries) = Map.lookup parentDir dict
+              -- Directory mode is 040000, permissions is rwxr-xr-x
+              let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), parentDir, treeHash) : entries
+              -- Add the new tree object to the dict
+              let newDict' = Map.insert parentDir newEntries dict
+              -- Recurse with the rest of the keys
+              traverse ks newDict'
+            else -- Recurse with the rest of the keys
+              traverse ks dict
 
--- do
--- 1. Parse the index file located in gitDir/.haskgit/index
--- 2. Traverse the index entries and create a map of directory to files (dict), also store keys in `keys` list
--- 2.1 The type of the dict will be Map.Map String [(mode bits, name of file/directory, sha1 hash)], (String, String, ByteString)
--- 3. Sort the `keys` from longest length to shortest length
--- 4. Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory (delete the key after tree object is saved - or is this necessary? rethinkg)
--- 5. Return the hash of the root tree object after traversing all the keys
-
--- This command Reads tree information into the index.
--- TODO: Test gitReadTree manually and add tasty test
+-- -- This command Reads tree information into the index.
 gitReadTree :: ByteString -> FilePath -> IO ()
 gitReadTree treeHash gitDir = do
   -- Read tree
@@ -68,50 +108,39 @@ gitReadTree treeHash gitDir = do
             Just hashV -> case parse parseIndexFile "" (BSC.unpack indexContent) of
               Left err -> Prelude.putStrLn $ "index parse error: " ++ show err
               Right index -> do
-                -- Add or update entries that exists in tree object
-                pathsToAdd <- getIndexEntryToAdd treeObj index ""
-                indexTmp <- addOrUpdateEntries pathsToAdd index gitDir
-                -- Remove entries that does not exists in tree object
-                let pathsToRemove = getIndexEntryToRemove treeObj indexTmp
-                let newIndex = removeEntries pathsToRemove indexTmp
+                newIndex <- treeObjToIndex treeObj index ""
                 saveIndexFile (gitIndexSerialize newIndex) gitDir
         _ -> putStrLn "Invalid input, must input a tree hash value."
   where
-    -- Return true if hash exists in the index
-    hashExistIndex :: ByteString -> GitIndex -> Bool
-    hashExistIndex _ (GitIndex []) = False
-    hashExistIndex hash (GitIndex (x : xs)) = (sha x == bsToHash hash) || hashExistIndex hash (GitIndex xs)
-
-    -- Return file paths that need to be added or updated to index based on treeobj
-    getIndexEntryToAdd :: GitTree -> GitIndex -> FilePath -> IO [FilePath]
-    getIndexEntryToAdd (i, []) _ _ = return []
-    getIndexEntryToAdd (i, (fmode, name, hash) : xs) index path =
-      if hashExistIndex (getHash hash) index
-        then do
-          gitObj <- readObjectByHash (getHash hash) gitDir
+    -- Tree object to index
+    -- Iterate treeObj and add/update existing files
+    treeObjToIndex :: GitTree -> GitIndex -> String -> IO GitIndex
+    treeObjToIndex (i, []) _ _ = return (GitIndex [])
+    treeObjToIndex (i, (fmode, name, hash) : xs) oldIndex path = do
+      -- print name
+      case getIndexEntryByHash hash oldIndex of
+        -- If hash doesn't exist in index
+        Nothing -> do
+          gitObj <- readObjectByHash hash gitDir
           case gitObj of
-            Nothing -> getIndexEntryToAdd (i, xs) index path
-            Just (Tree tree, _) -> do
-              nested_path <- getIndexEntryToAdd tree index (path ++ "/" ++ name)
-              curr_path <- getIndexEntryToAdd (i, xs) index path
-              return (nested_path ++ curr_path)
+            -- Move to next object due to parse error
+            Nothing -> treeObjToIndex (i, xs) oldIndex path
+            -- if object is blob turn blob into indexEntry
             Just (Blob blob, _) -> do
-              curr_path <- getIndexEntryToAdd (i, xs) index path
-              return ((path ++ "/" ++ name) : curr_path)
-        else getIndexEntryToAdd (i, xs) index path
-
-    -- Return true if hash exists in the tree
-    hashExistTree :: ByteString -> GitTree -> Bool
-    hashExistTree _ (i, []) = False
-    hashExistTree hash (i, (_, _, hashV) : xs) = (hashV == bsToHash hash) || hashExistTree hash (i, xs)
-
-    -- Return file paths that need to be removed based on treeobj
-    getIndexEntryToRemove :: GitTree -> GitIndex -> [FilePath]
-    getIndexEntryToRemove _ (GitIndex []) = []
-    getIndexEntryToRemove treeObj (GitIndex (x : xs)) =
-      if hashExistTree (getHash (sha x)) treeObj
-        then getIndexEntryToRemove treeObj (GitIndex xs)
-        else name x : getIndexEntryToRemove treeObj (GitIndex xs)
+              blobIndex <- blobToIndexEntry hash (if path == "" then name else path ++ "/" ++ name)
+              GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
+              return (GitIndex (blobIndex : rest))
+            -- if object is tree recurse the treeObjToIndex
+            Just (Tree tree, _) -> do
+              GitIndex nested <- treeObjToIndex tree oldIndex (path ++ "/" ++ name)
+              GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
+              return (GitIndex (nested ++ rest))
+            _ -> do
+              treeObjToIndex (i, xs) oldIndex path
+        -- if hash exist reuse existing entry in index
+        Just indexEntry -> do
+          GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
+          return (GitIndex (indexEntry : rest))
 
 -- | This command creates a new commit object based on a tree object and parent commits.
 gitCommitTree :: GitHash -> [GitHash] -> GitAuthor -> GitCommitter -> String -> UTCTime -> FilePath -> IO GitHash
@@ -160,7 +189,7 @@ gitListBranch gitdir = do
   let branchPath = gitdir ++ "/refs/heads"
   branches <- listDirectory branchPath
   -- Different cases when symbolic ref
-  head <- readFile (gitdir ++ "/HEAD")
+  head <- readFile' (gitdir ++ "/HEAD")
   -- If HEAD is not pointing to symbolic link, print * (no branch) on top
   Control.Monad.when (take 5 head /= "ref: ") $ putStrLn "* (no branch)"
   -- Print branches
@@ -178,7 +207,7 @@ gitListBranch gitdir = do
 gitCreateBranch :: String -> FilePath -> IO ()
 gitCreateBranch name gitDir = do
   let path = gitDir ++ "/refs/heads/" ++ name
-  head <- readFile (gitDir ++ "/HEAD")
+  head <- readFile' (gitDir ++ "/HEAD")
   if take 5 head == "ref: "
     then do
       hash <- gitRefToCommit (drop 5 head) gitDir
@@ -240,12 +269,12 @@ gitStatus :: ByteString -> IO ()
 gitStatus = undefined
 
 -- We first need to convert the index into a tree object, generate and store the corresponding commit object, and update the current branch to the new commit (remember: a branch is just a ref to a commit).
-gitCommit :: FilePath -> String -> IO ()
-gitCommit gitDir message = do
+gitCommit :: String -> FilePath -> IO ()
+gitCommit message gitDir = do
   -- Call writeTree to create a tree object from the current index
   treeHash <- gitWriteTree gitDir
-  head <- readFile (gitDir ++ "/HEAD")
-  curCommitMaybe <- gitRefToCommit (drop 5 head) gitDir
+  branchP <- readFile' (gitDir ++ "/HEAD")
+  curCommitMaybe <- gitRefToCommit (drop 5 branchP) gitDir
   curCommitHash <- case curCommitMaybe of
     Nothing -> return []
     Just hash -> return [bsToHash (BSC.pack hash)]
@@ -253,22 +282,26 @@ gitCommit gitDir message = do
   -- Get all data we need to create commit object
   utcTime <- getCurrentTime
   timezone <- getCurrentTimeZone
+  -- Convert timezone string in format of "-0500"
+  let timezoneStr = formatTime defaultTimeLocale "%z" timezone
   let unixTS = floor (utcTimeToPOSIXSeconds utcTime) -- Unix time in seconds
   -- TODO: double check
-  let authorInfo = ("author1", "author1@cs.rit.edu", unixTS, show timezone)
-  let committerInfo = ("commiter1", "committer1@cs.rit.edu", unixTS, show timezone)
+  let authorInfo = ("author1", "author1@cs.rit.edu", unixTS, timezoneStr)
+  let committerInfo = ("commiter1", "committer1@cs.rit.edu", unixTS, timezoneStr)
 
   -- Create a new commit object based on the tree object, parent commits, and other data
   newCommitHash <- gitCommitTree treeHash curCommitHash authorInfo committerInfo message utcTime gitDir
 
   -- Convert gitHash to encoded string hash value
   let newCommitHashStr = BSC.unpack (getHash newCommitHash)
+  -- TODO: delete
+  putStrLn $ "Created commit " ++ newCommitHashStr
 
   -- Call updateRef to update the current branch to the new commit hash
   -- If we are in branch, move branch pointer, otherwise, move the HEAD to the new commit hash
-  case curCommitMaybe of
-    Nothing -> gitUpdateRef (drop 5 head) newCommitHashStr gitDir
-    Just _ -> gitUpdateRef "HEAD" newCommitHashStr gitDir
+  if take 5 branchP == "ref: "
+    then gitUpdateRef (drop 5 branchP) newCommitHashStr gitDir
+    else gitUpdateRef "HEAD" newCommitHashStr gitDir
 
 gitReset :: ByteString -> IO ()
 gitReset = undefined
@@ -288,10 +321,14 @@ gitBranch = undefined
 -- Display the contents of the git object for the given hash.
 gitShow :: ByteString -> FilePath -> IO ()
 gitShow hash gitDir = do
-  gitObj <- readObjectByHash hash gitDir
-  case gitObj of
-    Nothing -> return ()
-    Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
+  case gitHashValue hash of
+    Nothing -> do
+      Prelude.putStrLn "Invalid hash value given."
+    Just hashV -> do
+      gitObj <- readObjectByHash hashV gitDir
+      case gitObj of
+        Nothing -> return ()
+        Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
 -- | Get a list of parent (Git Object) in the tree
 gitParentList :: ByteString -> FilePath -> IO [GitObjectHash]
