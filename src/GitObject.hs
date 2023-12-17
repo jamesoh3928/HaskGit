@@ -97,21 +97,28 @@ gitObjectSerialize (Commit (_, treeHash, parentHashes, authorObj, committerObj, 
 -- | Take hash and GitObject and save it to .haskgit/objects
 saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
-  let obj = compress (BSLC.fromStrict content)
+  let obj = compress (BSC.fromStrict content)
   path <- hashToFilePath hash gitDir
   createDirectoryIfMissing True (takeDirectory path)
-  BSLC.writeFile path obj
+  BSC.writeFile path (BSC.toStrict obj)
 
 -- | Computes the SHA-1 hash of Git objects.
 hashObject :: GitObject -> GitHash
-hashObject obj = bsToHash (encode $ SHA1.hash (gitObjectSerialize obj))
+hashObject obj = case bsToHash $ encode (SHA1.hash (gitObjectSerialize obj)) of
+  -- Should never happen since we are hashing ourself
+  Nothing -> error "Invalid hash value was computed from SHA1.hash function"
+  Just hash -> hash
 
 -- | Computes the SHA-1 hash of Git objects and save it.
+-- Returns the hash of the object that is saved if succeed.
 hashAndSaveObject :: GitObject -> FilePath -> IO GitHash
 hashAndSaveObject obj gitDir = do
   -- Not calling hashObject function to avoid two serializations
   let content = gitObjectSerialize obj
   -- Need to store encode hash to follow invariant of GitHash
-  let hash = bsToHash (encode $ SHA1.hash content)
-  saveGitObject hash content gitDir
-  return hash
+  case bsToHash (encode $ SHA1.hash content) of
+    -- Should never happen since we are hashing ourself
+    Nothing -> error "Invalid hash value was computed from SHA1.hash function"
+    Just hash -> do
+      saveGitObject hash content gitDir
+      return hash

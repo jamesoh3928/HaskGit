@@ -39,12 +39,12 @@ processArgs args gitDir =
         _ -> putStrLn "Usage: updateRef refdest refsrc"
     "revList" ->
       case tail args of
-        [object] -> gitRevList (bsToHash $ B.pack object) gitDir
+        [object] -> gitRevList (B.pack object) gitDir
         _ -> putStrLn "Usage: revList <commit-object>"
     "log" ->
       case tail args of
         [] -> gitLog Nothing gitDir
-        [object] -> gitLog (Just $ bsToHash (B.pack object)) gitDir
+        [object] -> gitLog (Just $ B.pack object) gitDir
         _ -> putStrLn "Usage: log <commit-object>"
     "read-tree" ->
       case tail args of

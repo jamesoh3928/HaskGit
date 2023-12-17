@@ -15,7 +15,7 @@ import Data.ByteString.Char8 as BC (pack, unpack)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Char (ord)
-import GitHash (GitHash, bsToHash, getHash, gitHashValue)
+import GitHash (GitHash, bsToHash, getHash)
 import GitObject (GitObject (..), GitObjectHash)
 import Index (GitIndex (..), GitIndexEntry (..))
 import System.Directory (doesFileExist)
@@ -57,7 +57,11 @@ parseTree = do
       filename <- manyTill anyChar (char '\0')
       -- Read 20 bytes of SHA-1 hash
       sha' <- encode . BC.pack <$> count 20 anyChar
-      return (filemode, filename, bsToHash sha')
+      return
+        ( case bsToHash sha' of
+            Just sha'' -> (filemode, filename, sha'')
+            Nothing -> error "Invalid hash value in tree object file  found during parsing"
+        )
 
 -- | Parse the commit object.
 parseCommit :: Parser GitObject
@@ -84,7 +88,7 @@ parseCommit = do
       message <- manyTill anyChar eof
       let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
           committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
-      case (gitHashValue (BC.pack rootTree), gitHashValue (BC.pack parent)) of
+      case (bsToHash (BC.pack rootTree), bsToHash (BC.pack parent)) of
         (Just rootTreeHash, Just parentHash) ->
           return
             ( Commit
@@ -96,7 +100,7 @@ parseCommit = do
                   message
                 )
             )
-        _ -> fail "Invalid hash value in commit file"
+        _ -> fail "Invalid hash value in commit file  found during parsing"
 
 -- | Parse the git object.
 parseGitObject :: Parser GitObject
@@ -137,7 +141,9 @@ parseGitIndexEntry = do
   fsize' <- parseInt32
   -- Encode it to hexadecimal representation because index is storing not encoded hash
   shaBS <- B16.encode . BC.pack <$> count 20 anyChar
-  let sha' = bsToHash shaBS
+  let sha' = case bsToHash shaBS of
+        Just sha'' -> sha''
+        Nothing -> error "Invalid hash value in index file found during parsing"
   flags <- parseInt16
   let flagAssumeValid' = flags .&. 0x8000 /= 0
       -- flagExtended, ignoring for mvp

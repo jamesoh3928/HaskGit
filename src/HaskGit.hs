@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module HaskGit
   ( gitAdd,
     gitShow,
@@ -26,8 +28,9 @@ import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Data.Time.Format
+import Foreign (castForeignPtr)
 import GHC.ExecutionStack (Location (objectName))
-import GitHash (GitHash, bsToHash, getHash, gitHashValue)
+import GitHash (GitHash, bsToHash, getHash)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index
@@ -91,9 +94,12 @@ gitWriteTree gitDir = do
 
 -- -- This command Reads tree information into the index.
 gitReadTree :: ByteString -> FilePath -> IO ()
-gitReadTree treeHash gitDir = do
+gitReadTree treeH gitDir = do
+  treeHash <- case bsToHash treeH of
+    Nothing -> error "Invalid hash value given to gitReadTree. Please input a valid hash value."
+    Just hashV -> return hashV
   -- Read tree
-  treePath <- hashToFilePath (bsToHash treeHash) gitDir
+  treePath <- hashToFilePath treeHash gitDir
   treeContent <- BSLC.readFile treePath
   -- Read in the index file located in gitDir/.haskgit/index
   indexContent <- BSC.readFile (gitDir ++ "/index")
@@ -104,14 +110,12 @@ gitReadTree treeHash gitDir = do
     Right gitObj ->
       case gitObj of
         (Tree treeObj) ->
-          case gitHashValue treeHash of
-            Nothing -> Prelude.putStrLn "Invalid hash value given"
-            Just hashV -> case parse parseIndexFile "" (BSC.unpack indexContent) of
-              Left err -> Prelude.putStrLn $ "index parse error: " ++ show err
-              Right index -> do
-                newIndex <- treeObjToIndex treeObj index ""
-                saveIndexFile (gitIndexSerialize newIndex) gitDir
-        _ -> putStrLn "Invalid input, must input a tree hash value."
+          case parse parseIndexFile "" (BSC.unpack indexContent) of
+            Left err -> Prelude.putStrLn $ "index parse error: " ++ show err
+            Right index -> do
+              newIndex <- treeObjToIndex treeObj index ""
+              saveIndexFile (gitIndexSerialize newIndex) gitDir
+        _ -> putStrLn "Invalid input to gitReadTree, must input a tree hash value."
   where
     -- Tree object to index
     -- Iterate treeObj and add/update existing files
@@ -225,21 +229,24 @@ gitCreateBranch name gitDir = do
 
 -- | return a list of parents (commit type only)
 -- haskgit revList 3154bdc4928710b08f61297e87c4900e0f9b5869
-gitRevList :: GitHash -> FilePath -> IO ()
-gitRevList hash gitdir = do
-  parents <- gitParentList hash gitdir
-  hashList <-
-    concat
-      <$> Control.Monad.forM
-        parents
-        ( \(Commit (_, _, ps, _, _, _), _) ->
-            Control.Monad.forM ps (return . getHash)
-        )
-  if not (null hashList)
-    then do
-      putStrLn $ BSC.unpack (getHash hash)
-      mapM_ (putStrLn . BSC.unpack) hashList
-    else print $ show hash ++ " is not a commit"
+gitRevList :: ByteString -> FilePath -> IO ()
+gitRevList hashBs gitdir = do
+  case bsToHash hashBs of
+    Nothing -> putStrLn "Invalid hash value given. Please input a valid hash value."
+    Just hash -> do
+      parents <- gitParentList hash gitdir
+      hashList <-
+        concat
+          <$> Control.Monad.forM
+            parents
+            ( \(Commit (_, _, ps, _, _, _), _) ->
+                Control.Monad.forM ps (return . getHash)
+            )
+      if not (null hashList)
+        then do
+          putStrLn $ BSC.unpack (getHash hash)
+          mapM_ (putStrLn . BSC.unpack) hashList
+        else print $ show hash ++ " is not a commit"
 
 -- | Copy files from the index to the working tree
 gitCheckoutIndex :: FilePath -> IO ()
@@ -312,9 +319,18 @@ gitAdd paths gitDir = do
   -- Convert all the paths to path relative to the repository
   repoDirectory <- getRepoDirectory gitDir
   absPaths <- mapM relativeToAbolutePath paths
+  putStrLn $ "repoDirectory: " ++ repoDirectory
+  putStrLn $ "absPaths: " ++ show absPaths
   -- (strip of repository path in the beginning)
   let pathsWithMaybe = map (stripPrefix (repoDirectory ++ "/")) absPaths
-  let relativePaths = map (\(Just x) -> x) pathsWithMaybe
+  let relativePaths =
+        map
+          ( \case
+              Just x -> x
+              Nothing ->
+                error "Invalid path given to gitAdd. Please input a valid path."
+          )
+          pathsWithMaybe
 
   -- Read in the index file located in gitDir/.haskgit/index
   indexContent <- BSC.readFile (gitDir ++ "/index")
@@ -342,7 +358,9 @@ gitCommit message gitDir = do
       curCommitMaybe <- gitRefToCommit (drop 5 branchP) gitDir
       curCommitHash <- case curCommitMaybe of
         Nothing -> return []
-        Just hash -> return [bsToHash (BSC.pack hash)]
+        Just hash -> case bsToHash (BSC.pack hash) of
+          Nothing -> return []
+          Just hashV -> return [hashV]
 
       -- Get all data we need to create commit object
       utcTime <- getCurrentTime
@@ -382,9 +400,9 @@ gitCheckout = undefined
 -- Display the contents of the git object for the given hash.
 gitShow :: ByteString -> FilePath -> IO ()
 gitShow hash gitDir = do
-  case gitHashValue hash of
+  case bsToHash hash of
     Nothing -> do
-      Prelude.putStrLn "Invalid hash value given."
+      Prelude.putStrLn "Invalid hash value given. Please input a valid hash value."
     Just hashV -> do
       gitObj <- readObjectByHash hashV gitDir
       case gitObj of
@@ -424,17 +442,20 @@ hash2CommitObj hash gitdir = do
 
 -- | a list of Commit w/ git show, start from provided hash
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
-gitLog :: Maybe GitHash -> FilePath -> IO ()
-gitLog hashM gitdir = do
-  hash <- case hashM of
-    Nothing -> gitHeadCommit gitdir
-    Just h -> return h
-  parents <- gitParentList hash gitdir
-  mapM_
-    ( \(cmt, hs) ->
-        putStrLn $ gitShowStr (cmt, hs)
-    )
-    parents
+gitLog :: Maybe ByteString -> FilePath -> IO ()
+gitLog hashBsM gitdir = do
+  case hashBsM of
+    Nothing -> putStrLn "Invalid hash value given to gitLog. Please input a valid hash value."
+    Just hashBs -> do
+      case bsToHash hashBs of
+        Nothing -> putStrLn "Invalid hash value given to gitLog. Please input a valid hash value."
+        Just hash -> do
+          parents <- gitParentList hash gitdir
+          mapM_
+            ( \(cmt, hs) -> do
+                putStrLn $ gitShowStr (cmt, hs)
+            )
+            parents
 
 -- | get the most updated commit
 -- extract ./haskgit/HEAD to get the path that contains the commit
@@ -447,4 +468,6 @@ gitHeadCommit gitdir = do
   case commit of
     -- Should never occur
     Nothing -> error "HEAD is pointing to invalid ref. Please check your .haskgit/HEAD file."
-    Just cmt -> return (bsToHash $ BSC.pack cmt)
+    Just cmt -> case bsToHash $ BSC.pack cmt of
+      Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
+      Just hash -> return hash
