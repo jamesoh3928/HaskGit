@@ -61,6 +61,7 @@ testSaveIndex = do
 -- Commit test
 -- Main.gitShow ".git/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6"
 
+decompressPrint :: FilePath -> IO ()
 decompressPrint filename = do
   x <- BSLC.readFile filename
   BSLC.putStrLn (decompress x)

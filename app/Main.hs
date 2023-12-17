@@ -8,9 +8,12 @@ import Util (getGitDirectory)
 
 main :: IO ()
 main = do
-  let git = ".haskgit"
+  -- let git = ".haskgit"
+  -- let git = ".test_haskgit_readtree"
+  let gitDir = ".test_haskgit_readtree"
   argsRaw <- getArgs
-  gitDir <- getGitDirectory git
+  -- gitDir <- getGitDirectory git
+  putStrLn gitDir
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
@@ -55,6 +58,10 @@ processArgs args gitDir =
         [] -> gitListBranch gitDir
         [branchName] -> gitCreateBranch branchName gitDir
         _ -> putStrLn "Error: haskgit branch only has one argument <branch-name>"
+    "checkout" ->
+      case tail args of
+        [object] -> gitCheckout object gitDir
+        _ -> putStrLn "Error: haskgit checkout needs one argument <branch-name> or <commit-hash>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
