@@ -34,7 +34,7 @@ import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, hasFile, removeEntries, saveIndexFile)
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, doesPathExist)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory)
 import System.FilePath
 import System.IO (readFile')
 import Text.Parsec (parse)
@@ -402,11 +402,20 @@ hashBlob file = do
       hash = SHA1.hash (header `BSC.append` content)
   return hash
 
+hashTree :: FilePath -> IO ByteString
+hashTree path = undefined
+
 -- TODO: hash a object that is a directory
 gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
-  hash <- hashBlob file
-  putStrLn $ (BSC.unpack . encode) hash
+  exists <- doesPathExist file
+  if exists
+    then do
+      isDir <- doesDirectoryExist file
+      if isDir
+        then hashTree file >>= putStrLn . (BSC.unpack . encode)
+        else hashBlob file >>= putStrLn . (BSC.unpack . encode)
+    else putStrLn $ "The path " ++ file ++ " doesn't exist"
 
 -- | as there exists entry that is not in the filesystem
 -- this function will skip such entry if not found
@@ -419,19 +428,20 @@ gitStatusModifiedHash gitDir = do
   case ls of
     Nothing -> putStrLn "Error: the index is unable to unpack"
     Just (GitIndex ls) -> do
-      modified <- Control.Monad.filterM
-        (\e -> do
-        let path = name e
-        exists <- doesPathExist path
-        isDir <- doesDirectoryExist path
-        if exists && not isDir
-          then do
-            hash <- hashBlob path
-            return $ getHash (sha e) /= encode hash
-          else return False
-        ) ls
-      mapM_ (putStrLn . name)  modified
-
+      modified <-
+        Control.Monad.filterM
+          ( \e -> do
+              let path = name e
+              exists <- doesPathExist path
+              isDir <- doesDirectoryExist path
+              if exists && not isDir
+                then do
+                  hash <- hashBlob path
+                  return $ getHash (sha e) /= encode hash
+                else return False
+          )
+          ls
+      mapM_ (putStrLn . name) modified
 
 -- |
 -- ignore

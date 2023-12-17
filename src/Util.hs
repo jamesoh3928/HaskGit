@@ -115,7 +115,7 @@ recurEntries dir = do
                 else return True
           )
           entriesCurrDirS
-      validEntries <- filterIgnoredPath nonEmptyEntries
+      validEntries <- filterIgnoredPath (map (makeRelative dir) nonEmptyEntries)
       subEntries <- concat <$> mapM recurEntries validEntries
       return (validEntries ++ subEntries)
     else return [dir]
