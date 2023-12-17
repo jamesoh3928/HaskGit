@@ -41,6 +41,10 @@ processArgs args gitDir =
         _ -> putStrLn "Usage: revList <commit-object>"
     "log" ->
       case tail args of
+        [] ->
+          do
+            cmt <- gitHeadCommit gitDir
+            gitLog cmt gitDir
         [object] -> gitLog (B.pack object) gitDir
         _ -> putStrLn "Usage: log <commit-object>"
     "read-tree" ->
