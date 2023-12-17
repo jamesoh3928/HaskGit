@@ -8,11 +8,12 @@ module Util
     relativeToAbolutePath,
     getRepoDirectory,
     listFilesRecursively,
-    hashBlob,
+    hashListFiles,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
+import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16
@@ -21,7 +22,7 @@ import Data.Graph (path)
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
-import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
+import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory, removeDirectory)
 import System.FilePath
 import System.IO (readFile')
 
@@ -145,3 +146,20 @@ listFilesRecursively path gitDir = do
       res <- listFilesRecursively (path ++ "/" ++ x) gitDir
       rest <- listFilesOfDirectories xs path
       return (res ++ rest)
+
+blobToHash :: FilePath -> IO GitHash
+blobToHash file = do
+  -- cont <- readFile' file
+  content <- BSC.readFile file
+  -- let content = BSC.pack cont
+  let len = BSC.length content
+      header = BSC.pack $ "blob " ++ show len ++ "\0"
+      hash = SHA1.hash (header `BSC.append` content)
+  return (bsToHash hash)
+
+hashListFiles :: [FilePath] -> IO [GitHash]
+hashListFiles [] = return []
+hashListFiles (x : xs) = do
+  hash <- blobToHash x
+  rest <- hashListFiles xs
+  return (hash : rest)

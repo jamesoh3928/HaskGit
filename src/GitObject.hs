@@ -104,7 +104,7 @@ saveGitObject hash content gitDir = do
 
 -- | Computes the SHA-1 hash of Git objects.
 hashObject :: GitObject -> GitHash
-hashObject obj = bsToHash (SHA1.hash (gitObjectSerialize obj))
+hashObject obj = bsToHash (encode $ SHA1.hash (gitObjectSerialize obj))
 
 -- | Computes the SHA-1 hash of Git objects and save it.
 hashAndSaveObject :: GitObject -> FilePath -> IO GitHash

@@ -160,11 +160,11 @@ hashObjectTests = do
         testGroup
           "hashObejct"
           [ testCase "blob object" $
-              Just (BSC.pack actualBlobHash) @?= encode <$> expectedBlob,
+              Just (BSC.pack actualBlobHash) @?= expectedBlob,
             testCase "tree object" $
-              Just (BSC.pack actualTreeHash) @?= encode <$> expectedTree,
+              Just (BSC.pack actualTreeHash) @?= expectedTree,
             testCase "commit object" $
-              Just (BSC.pack actualCommitHash) @?= encode <$> expectedCommit
+              Just (BSC.pack actualCommitHash) @?= expectedCommit
           ]
 
   return hashObjectTests

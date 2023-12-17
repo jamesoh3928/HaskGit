@@ -17,6 +17,7 @@ import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.Graph (path)
 import Data.List (sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
@@ -27,7 +28,7 @@ import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
-import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, extractHashIndex, extractNameIndex, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile)
+import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, extractHashIndex, extractNameIndex, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile, updateMetaData)
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
 import System.FilePath
@@ -241,29 +242,14 @@ gitRevList hash gitdir = do
       mapM_ (putStrLn . BSC.unpack) hashList
     else print $ show hash ++ " is not a commit"
 
--- Copy files from the index to the working tree
--- listFilesRecursively : takes a directory path and returns a list of all
---  file paths in that directory and its subdirectories
---
--- Get list of hash, list of name, index entries
--- 1. if file name does not exist in index entries, delete file
--- 2. if hash does not exist in the new work directory, remove file and create with new content of blob
--- 3. else, leave
--- 4. Update the metadata on index
---
--- if
---
+-- | Copy files from the index to the working tree
 gitCheckoutIndex :: FilePath -> IO ()
 gitCheckoutIndex gitDir = do
   -- Parse the index
-  -- print gitDir
   repoDir <- getRepoDirectory gitDir
   fullGitDir <- getGitDirectory gitDir
-  -- print repoDirectory
-  -- files <- listFilesRecursively repoDirectory gitDir
   filesFullPath <- listFilesRecursively repoDir fullGitDir
   let files = map (makeRelative repoDir) filesFullPath
-  print files
   indexContent <- BSC.readFile (fullGitDir ++ "/index")
   case parse parseIndexFile "" (BSC.unpack indexContent) of
     Left err -> Prelude.putStrLn $ "index parse error: " ++ show err
@@ -277,45 +263,36 @@ gitCheckoutIndex gitDir = do
       -- If file name doesn't exist in index entries, delete file
       deleteFile files indexFiles repoDir
 
-      -- If hash does not exist in the working directory, overwrite
+      -- -- If hash does not exist in the working directory, overwrite
       addOrUpdateFile index hashFiles repoDir
 
       -- Update index metadata
-      -- newIndex <- addOrUpdateEntries filesFullPath index gitDir
-      -- saveIndexFile (gitIndexSerialize newIndex) (repoDir ++ "/" ++ gitDir)
-      return ()
+      newIndex <- updateMetaData index repoDir gitDir
+      saveIndexFile (gitIndexSerialize newIndex) gitDir
   where
-    blobToHash :: FilePath -> IO GitHash
-    blobToHash file = do
-      content <- BSC.readFile file
-      let len = BSC.length content
-          header = BSC.pack $ "blob " ++ show len ++ "\0"
-          hash = SHA1.hash (header `BSC.append` content)
-      return (bsToHash hash)
-
-    hashListFiles :: [FilePath] -> IO [GitHash]
-    hashListFiles [] = return []
-    hashListFiles (x : xs) = do
-      hash <- blobToHash x
-      rest <- hashListFiles xs
-      return (hash : rest)
-
+    -- Delete the file if the it doesnt exist in list of file
+    -- arg1: currentl files in repo
+    -- arg2: list of file name to keep
+    deleteFile :: [FilePath] -> [String] -> String -> IO ()
     deleteFile [] _ _ = return ()
     deleteFile (x : xs) indexFiles repoDir =
       if x `notElem` indexFiles
         then do
           removeFile (repoDir ++ "/" ++ x)
-          -- putStrLn ("removed " ++ x)
           deleteFile xs indexFiles repoDir
         else deleteFile xs indexFiles repoDir
 
+    -- Add or update files in index if the hash of the index entry doesn't exist in current working directory.
+    -- Finds the hash in object file to create a file.
+    addOrUpdateFile :: GitIndex -> [GitHash] -> FilePath -> IO ()
     addOrUpdateFile (GitIndex []) _ _ = return ()
     addOrUpdateFile (GitIndex (x : xs)) hashFiles repoDir =
       if sha x `notElem` hashFiles
         then do
           path <- hashToFilePath (sha x) gitDir
           -- parse blob
-          content <- BSLC.readFile path
+          cont <- BSC.readFile path
+          let content = BSLC.fromStrict cont
           case parse parseGitObject "" (BSLC.unpack (decompress content)) of
             Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
             Right gitObj ->
