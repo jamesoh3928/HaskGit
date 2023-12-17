@@ -10,6 +10,7 @@ module HaskGit
     gitReadTree,
     gitStatusUntracked,
     gitStatusDeleted,
+    gitHashObject,
   )
 where
 
@@ -17,6 +18,7 @@ import Codec.Compression.Zlib (compress, decompress)
 import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.List (isPrefixOf, nub, sort, sortOn, stripPrefix)
@@ -390,6 +392,19 @@ gitListFiles gitDir = do
   case parse parseIndexFile "" (BSLC.unpack content) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right (GitIndex ls) -> mapM_ (putStrLn . name) ls
+
+hashBlob :: FilePath -> IO ByteString
+hashBlob file = do
+  content <- BSC.readFile file
+  let len = BSC.length content
+      header = BSC.pack $ "blob " ++ show len ++ "\0"
+      hash = SHA1.hash (header `BSC.append` content)
+  return hash
+
+gitHashObject :: FilePath -> IO ()
+gitHashObject file = do
+  hash <- hashBlob file
+  putStrLn $ (BSC.unpack . encode) hash
 
 gitStatusModifiedHash :: FilePath -> IO ()
 gitStatusModifiedHash = undefined

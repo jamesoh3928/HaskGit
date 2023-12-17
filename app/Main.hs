@@ -47,10 +47,12 @@ processArgs args gitDir =
       case tail args of
         [object] -> gitReadTree (B.pack object) gitDir
         _ -> putStrLn "Usage: read-tree <tree-hash>"
-    "test" ->
-      -- undefined
+    "hash-object" ->
       case tail args of
-        [] -> gitStatusDeleted ".git"
+        [object] -> gitHashObject object
+        _ -> putStrLn "Usage: hash-object <file>"
+    "test" ->
+      undefined
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
