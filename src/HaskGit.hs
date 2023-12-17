@@ -9,6 +9,7 @@ module HaskGit
     gitRevList,
     gitReadTree,
     gitStatusUntracked,
+    gitStatusDeleted
   )
 where
 
@@ -135,8 +136,7 @@ gitReadTree treeHash gitDir = do
               GitIndex nested <- treeObjToIndex tree oldIndex (path ++ "/" ++ name)
               GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
               return (GitIndex (nested ++ rest))
-            _ -> do
-              treeObjToIndex (i, xs) oldIndex path
+            _ -> treeObjToIndex (i, xs) oldIndex path
         -- if hash exist reuse existing entry in index
         Just indexEntry -> do
           GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
@@ -197,7 +197,7 @@ gitListBranch gitdir = do
   where
     printBranch [] _ = return ()
     printBranch (x : xs) head = do
-      if drop 5 head == ("refs/heads/" ++ x) then putStrLn ("* " ++ x) else putStrLn ("  " ++ x)
+      if drop 5 head == "refs/heads/" ++ x then putStrLn ("* " ++ x) else putStrLn ("  " ++ x)
       printBranch xs head
 
 -- Create a new branch which will point to commit that HEAD is currently pointing.
@@ -421,7 +421,14 @@ gitStatusUntracked gitDir = do
       filter (\path -> not (any (\dir -> dir /= path && dir `isPrefixOf` path) paths)) paths
     -- skip Dir/ without file under this dir is new
     skipNoUpdatedDir paths =
-      filter (\path -> (last path /= '/') || any (\dir -> (dir /= path) && (path `isPrefixOf` dir && last dir /= '/')) paths) paths
+      filter (\path -> last path /= '/' || any (\dir -> dir /= path && path `isPrefixOf` dir && last dir /= '/') paths) paths
 
 gitStatusDeleted :: FilePath -> IO ()
-gitStatusDeleted = undefined
+gitStatusDeleted gitDir = do
+  entries <- getEntries "."
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> putStrLn "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      let deleted = filter (\d -> all (\e -> (name d) /= e) entries) ls
+      mapM_ (putStrLn . name) deleted
