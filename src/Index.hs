@@ -86,6 +86,7 @@ gitIndexEntrySerialize entry =
               intTo4Bytes (fsize entry),
               -- Decode the sha hew ByteString because index must store in binary not hex representation
               case B16.decode (getHash (sha entry)) of
+                -- Should not be reachable
                 Left err -> error ("Invalid hash fo base16 decoding - " ++ err ++ "\n sha entry: " ++ show (sha entry))
                 Right result -> BSC.unpack result,
               -- Concat flagAssumeValid, flagStage, and nameLength

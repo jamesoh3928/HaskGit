@@ -7,6 +7,7 @@ module Util
     formatUTCTimeWithTimeZone,
     relativeToAbolutePath,
     getRepoDirectory,
+    removeCorrupts,
     listFilesRecursively,
     hashListFiles,
   )
@@ -37,8 +38,8 @@ hashToFilePath hash gitDir = do
 -- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
-refToFilePath :: String -> FilePath -> IO FilePath
-refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
+refToFilePath :: String -> FilePath -> FilePath
+refToFilePath ref gitDir = gitDir ++ "/" ++ ref
 
 -- | Returns path to git directory (climb until it finds git directory).
 -- If it cannot find git directory, return "/" or "~".
@@ -68,7 +69,7 @@ findGitDirectory fp gitDir = do
 --  arg2: valid git directory path (.git, .haskgit)
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
 gitRefToCommit ref gitDir = do
-  refPath <- refToFilePath ref gitDir
+  let refPath = refToFilePath (removeCorrupts ref) gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then do
@@ -79,6 +80,12 @@ gitRefToCommit ref gitDir = do
         else return (Just obj)
     else do
       return Nothing
+
+-- Remove all characters that should not exist in the branch name
+removeCorrupts :: [Char] -> [Char]
+removeCorrupts = filter (not . isEscape)
+  where
+    isEscape c = c == '\n' || c == '\r'
 
 -- | Convert unix time integer value to UTCTime
 unixToUTCTime :: Integer -> UTCTime

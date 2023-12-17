@@ -22,18 +22,6 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Parsec (parse)
 
--- import Test.Tasty.QuickCheck
-
----------------------------Test for git Show------------------------------------
--- 0. cp .git to .haskgit (bcs, `git` only use .git)
--- 1. get a list of git object paths
--- 2. call git
--- 3. compare git show <object> with haskgit show <object>
--- see `test.sh`
--- NOTE: this approach is easier to do with bash.
--- for later unit test, there will be a .dat file stores all result
--- of `git show` then do comparison
-
 testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
