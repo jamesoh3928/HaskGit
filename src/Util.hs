@@ -55,6 +55,9 @@ findGitDirectory fp = do
 
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
+-- Invariant:
+--  arg1: valid git reference which are either refs or HEAD. (e.g. refs/heads/main, HEAD)
+--  arg2: valid git directory path (.git, .haskgit)
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
 gitRefToCommit ref gitDir = do
   refPath <- refToFilePath ref gitDir
