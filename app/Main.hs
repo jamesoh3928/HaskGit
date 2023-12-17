@@ -43,6 +43,10 @@ processArgs args gitDir =
       case tail args of
         [object] -> gitLog (B.pack object) gitDir
         _ -> putStrLn "Usage: log <commit-object>"
+    "read-tree" ->
+      case tail args of
+        [object] -> gitReadTree (B.pack object) gitDir
+        _ -> putStrLn "Usage: read-tree <tree-hash>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd

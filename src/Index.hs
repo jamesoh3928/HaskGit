@@ -6,7 +6,10 @@ module Index
     saveIndexFile,
     addOrUpdateEntries,
     hasFile,
+    hasHash,
     removeEntries,
+    getIndexEntryByHash,
+    blobToIndexEntry,
   )
 where
 
@@ -16,11 +19,12 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import Data.Char (chr)
+import Data.Time.Clock
+import Data.Time.Clock.POSIX
 import GitHash (GitHash, getHash)
-import GitObject (GitObject (..), GitTree, hashAndSaveObject)
+import GitObject (GitBlob, GitObject (..), GitTree, hashAndSaveObject)
 import System.IO (readFile')
 import System.Posix.Files
-import Util
 
 data GitIndexEntry = GitIndexEntry
   { ctimeS :: Int,
@@ -119,6 +123,10 @@ isEntryNotSameFile entry path = name entry /= path
 hasFile :: GitIndex -> FilePath -> Bool
 hasFile (GitIndex entries) path = any (\x -> name x == path) entries
 
+-- Check if the index has hash
+hasHash :: GitIndex -> GitHash -> Bool
+hasHash (GitIndex entries) hash = any (\x -> sha x == hash) entries
+
 -- Remove the file if it exists in the index
 removeEntry :: FilePath -> GitIndex -> GitIndex
 removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` path) entries)
@@ -173,3 +181,28 @@ extractHashIndex (GitIndex (x : xs)) = getHash (sha x) : extractHashIndex (GitIn
 extractNameIndex :: GitIndex -> [String]
 extractNameIndex (GitIndex []) = []
 extractNameIndex (GitIndex (x : xs)) = name x : extractNameIndex (GitIndex xs)
+
+getIndexEntryByHash :: GitHash -> GitIndex -> Maybe GitIndexEntry
+getIndexEntryByHash _ (GitIndex []) = Nothing
+getIndexEntryByHash hash (GitIndex (x : xs)) = if hash == sha x then Just x else getIndexEntryByHash hash (GitIndex xs)
+
+-- Return a GitINdexEntry with the hash value.
+-- All the metadata is set as 0 and time is set as current time
+blobToIndexEntry :: GitHash -> String -> IO GitIndexEntry
+blobToIndexEntry hash path = do
+  time <- getPOSIXTime
+  -- Since file doesn't exist
+  let mtime = floor time
+      ctime = mtime
+      ctimeS = ctime `div` (10 ^ 9)
+      ctimeNS = ctime `mod` (10 ^ 9)
+      mtimeS = mtime `div` (10 ^ 9)
+      mtimeNS = mtime `mod` (10 ^ 9)
+      dev = 0
+      ino = 0
+      mode = 0
+      uid = 0
+      gid = 0
+      fsize = 0
+
+  return (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize hash False 0 path)
