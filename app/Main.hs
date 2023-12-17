@@ -50,7 +50,7 @@ processArgs args gitDir =
     "test" ->
       -- undefined
       case tail args of
-        [] -> gitStatusUntracked ".git"
+        [] -> gitStatusDeleted ".git"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd

@@ -8,6 +8,7 @@ module Util
     relativeToAbolutePath,
     getRepoDirectory,
     getEntries,
+    getFullEntries,
   )
 where
 
@@ -105,7 +106,7 @@ recurEntries dir = do
   if isDir
     then do
       entriesCurrDir <- listDirectory dir
-      entriesCurrDirS <- mapM appendSlash (filter (/= ".git") entriesCurrDir)
+      entriesCurrDirS <- mapM (appendSlash dir) (filter (/= ".git") entriesCurrDir)
       nonEmptyEntries <-
         Control.Monads.filterM
           ( \f ->
@@ -118,11 +119,6 @@ recurEntries dir = do
       subEntries <- concat <$> mapM recurEntries validEntries
       return (validEntries ++ subEntries)
     else return [dir]
-  where
-    appendSlash entry = do
-      let assumeDir = dir </> entry ++ "/"
-      isDir <- doesDirectoryExist assumeDir
-      if isDir then return $ dir </> entry ++ "/" else return $ dir </> entry
 
 -- | get all valid entries
 getEntries :: FilePath -> IO [FilePath]
@@ -130,6 +126,28 @@ getEntries dir = do
   paths <- recurEntries dir
   let relPaths = Data.List.nub $ map (makeRelative dir) paths
   return relPaths
+
+fullRecurEntries :: FilePath -> IO [FilePath]
+fullRecurEntries dir = do
+  isDir <- doesDirectoryExist dir
+  if isDir
+    then do
+      entriesCurrDir <- listDirectory dir
+      entriesCurrDirS <- mapM (appendSlash dir) (filter (/= ".git") entriesCurrDir)
+      subEntries <- concat <$> mapM fullRecurEntries entriesCurrDirS
+      return (entriesCurrDirS ++ subEntries)
+    else return [dir]
+
+getFullEntries :: FilePath -> IO [FilePath]
+getFullEntries dir = do
+  paths <- fullRecurEntries dir
+  return $ map (makeRelative dir) (Data.List.nub paths)
+
+appendSlash :: [Char] -> [Char] -> IO FilePath
+appendSlash dir entry = do
+  let assumeDir = dir </> entry ++ "/"
+  isDir <- doesDirectoryExist assumeDir
+  if isDir then return $ dir </> entry ++ "/" else return $ dir </> entry
 
 -- | git only works for files (not directory)
 hasFiles :: FilePath -> IO Bool

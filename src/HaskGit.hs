@@ -9,7 +9,7 @@ module HaskGit
     gitRevList,
     gitReadTree,
     gitStatusUntracked,
-    gitStatusDeleted
+    gitStatusDeleted,
   )
 where
 
@@ -425,10 +425,10 @@ gitStatusUntracked gitDir = do
 
 gitStatusDeleted :: FilePath -> IO ()
 gitStatusDeleted gitDir = do
-  entries <- getEntries "."
+  entries <- getFullEntries "."
   ls <- unpackIndex gitDir
   case ls of
     Nothing -> putStrLn "Error: the index is unable to unpack"
     Just (GitIndex ls) -> do
-      let deleted = filter (\d -> all (\e -> (name d) /= e) entries) ls
+      let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
       mapM_ (putStrLn . name) deleted
