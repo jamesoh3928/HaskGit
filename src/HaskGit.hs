@@ -8,6 +8,7 @@ module HaskGit
     gitCommit,
     gitRevList,
     gitReadTree,
+    gitStatusUntracked,
   )
 where
 
@@ -17,7 +18,7 @@ import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.List (sort, sortOn, stripPrefix)
+import Data.List (isPrefixOf, nub, sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -27,7 +28,7 @@ import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
-import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile)
+import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, hasFile, removeEntries, saveIndexFile)
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath
@@ -373,3 +374,54 @@ gitLog hash gitdir = do
         putStrLn $ gitShowStr (cmt, hs)
     )
     parents
+
+-- GitIndexEntry
+unpackIndex :: FilePath -> IO (Maybe GitIndex)
+unpackIndex gitDir = do
+  content <- BSLC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSLC.unpack content) of
+    Left err -> return Nothing
+    Right ls -> return $ Just ls
+
+-- | list files in the index with the actual working directory list
+gitListFiles :: FilePath -> IO ()
+gitListFiles gitDir = do
+  content <- BSLC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSLC.unpack content) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right (GitIndex ls) -> mapM_ (putStrLn . name) ls
+
+gitStatusModifiedHash :: FilePath -> IO ()
+gitStatusModifiedHash = undefined
+
+-- |
+-- ignore
+--  - what is stated in .gitignore
+--  - ignore the content under a new directory (just display the newDir/)
+--  - ignore empty directory, or directory with sub-directory only
+-- FIXME:
+--  for subdirectory like this "docs/test/test1/file"
+--      return docs/test;
+--      the algo for testing if the directory has file doesn't work for it.
+--      it will stop at docs/test/. SEE function `getEntries`
+gitStatusUntracked :: FilePath -> IO ()
+gitStatusUntracked gitDir = do
+  entries <- getEntries "."
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> putStrLn "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      let untracked = filter (not . hasFile (GitIndex ls)) entries
+          skippedPath = skipNewDirContent . skipNoUpdatedDir $ untracked
+      mapM_ putStrLn (sort skippedPath)
+  where
+    -- implement it to skip something like
+    -- "NewDir/wow" if exist "NewDir/" in the list
+    skipNewDirContent paths =
+      filter (\path -> not (any (\dir -> dir /= path && dir `isPrefixOf` path) paths)) paths
+    -- skip Dir/ without file under this dir is new
+    skipNoUpdatedDir paths =
+      filter (\path -> (last path /= '/') || any (\dir -> (dir /= path) && (path `isPrefixOf` dir && last dir /= '/')) paths) paths
+
+gitStatusDeleted :: FilePath -> IO ()
+gitStatusDeleted = undefined

@@ -7,18 +7,22 @@ module Util
     formatUTCTimeWithTimeZone,
     relativeToAbolutePath,
     getRepoDirectory,
+    getEntries,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
+import qualified Control.Monad as Control.Monads
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
+import Data.List
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
+import System.FilePath.Glob
 import System.IO (readFile')
 
 -- | Given hash value, return corresponding git directory
@@ -92,3 +96,67 @@ relativeToAbolutePath relativePath = do
 -- | Get the directory of the repository
 getRepoDirectory :: IO FilePath
 getRepoDirectory = takeDirectory <$> getGitDirectory
+
+-- | Get a list of all valid entries in current directory
+--  without the speical entries . and .., empty directories, ignored entires
+recurEntries :: FilePath -> IO [FilePath]
+recurEntries dir = do
+  isDir <- doesDirectoryExist dir
+  if isDir
+    then do
+      entriesCurrDir <- listDirectory dir
+      entriesCurrDirS <- mapM appendSlash (filter (/= ".git") entriesCurrDir)
+      nonEmptyEntries <-
+        Control.Monads.filterM
+          ( \f ->
+              if last f == '/'
+                then do hasFiles f
+                else return True
+          )
+          entriesCurrDirS
+      validEntries <- filterIgnoredPath nonEmptyEntries
+      subEntries <- concat <$> mapM recurEntries validEntries
+      return (validEntries ++ subEntries)
+    else return [dir]
+  where
+    appendSlash entry = do
+      let assumeDir = dir </> entry ++ "/"
+      isDir <- doesDirectoryExist assumeDir
+      if isDir then return $ dir </> entry ++ "/" else return $ dir </> entry
+
+-- | get all valid entries
+getEntries :: FilePath -> IO [FilePath]
+getEntries dir = do
+  paths <- recurEntries dir
+  let relPaths = Data.List.nub $ map (makeRelative dir) paths
+  return relPaths
+
+-- | git only works for files (not directory)
+hasFiles :: FilePath -> IO Bool
+hasFiles dir = do
+  entries <- listDirectory dir
+  let paths = map (dir ++) entries
+  results <- mapM checkPath paths
+  return $ or results
+  where
+    checkPath path = do
+      isDir <- doesDirectoryExist path
+      if isDir
+        then hasFiles path
+        else doesFileExist path
+
+-- | get pattern list for ignoring file/dir
+getGitIgnores :: IO [FilePath]
+getGitIgnores = do
+  content <- readFile ".gitignore"
+  return $ lines content
+
+-- TOCHECK if it is applicable to pattern for sub-directories
+ifIgnored :: FilePath -> FilePath -> Bool
+ifIgnored path pattern = match (compile pattern) path
+
+-- filter ignored Path
+filterIgnoredPath :: [FilePath] -> IO [FilePath]
+filterIgnoredPath ls = do
+  patterns <- getGitIgnores
+  return $ filter (\path -> not (any (ifIgnored path) patterns)) ls
