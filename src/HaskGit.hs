@@ -7,6 +7,7 @@ module HaskGit
     gitLog,
     gitCommit,
     gitRevList,
+    gitHeadCommit,
     gitReadTree,
   )
 where
@@ -232,7 +233,7 @@ gitRevList hash gitdir = do
     concat
       <$> Control.Monad.forM
         parents
-        ( \(Commit (_, _, ps, _, _, _)) ->
+        ( \(Commit (_, _, ps, _, _, _), _) ->
             Control.Monad.forM ps (return . getHash)
         )
   if not (null hashList)
@@ -330,14 +331,14 @@ gitShow hash gitDir = do
         Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
 -- | Get a list of parent (Git Object) in the tree
-gitParentList :: ByteString -> FilePath -> IO [GitObject]
+gitParentList :: ByteString -> FilePath -> IO [GitObjectHash]
 gitParentList hash gitdir = do
   obj <- hash2CommitObj hash gitdir
   case obj of
     Nothing -> return []
     Just cmt@(Commit (_, _, parents, _, _, _)) -> do
       recur <- Control.Monad.forM parents (\p -> gitParentList (getHash p) gitdir)
-      return (cmt : concat recur)
+      return ((cmt, bsToHash hash) : concat recur)
     _ -> return []
 
 -- |
@@ -369,7 +370,23 @@ gitLog :: ByteString -> FilePath -> IO ()
 gitLog hash gitdir = do
   parents <- gitParentList hash gitdir
   mapM_
-    ( \cmt@(Commit (_, hs, _, _, _, _)) ->
+    ( \(cmt, hs) ->
         putStrLn $ gitShowStr (cmt, hs)
     )
     parents
+
+gitRevert :: ByteString -> IO ()
+gitRevert = undefined
+
+-- | get the most updated commit
+-- extract ./haskgit/HEAD to get the path that contains the commit
+--   because the path would be different for different branch
+-- see this case
+gitHeadCommit :: FilePath -> IO ByteString
+gitHeadCommit gitdir = do
+  -- headContent <- readFile $ gitdir </> "HEAD"
+  -- let
+  --   path = gitdir </> drop 5 headContent :: FilePath
+  let path = "/Users/cirrus/PL/Haskell/psh2231/HaskGit/.haskgit/refs/heads/main"
+  cmt <- BSC.readFile path
+  return $ BSC.init cmt
