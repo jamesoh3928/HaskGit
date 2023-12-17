@@ -38,24 +38,24 @@ import Util
 -------------------------- List of plumbing commands --------------------------
 
 -- This command creates a tree object from the current index (staging area).
-gitWriteTree :: FilePath -> IO GitHash
+gitWriteTree :: FilePath -> IO (Maybe GitHash)
 gitWriteTree gitDir = do
   index <- BSC.readFile (gitDir ++ "/index")
   -- Create a map of directory to files (dict), also create a sorted list of keys (sortedKeys)
-  (dict, sortedKeys) <- case parse parseIndexFile "" (BSC.unpack index) of
-    Left err -> error $ "gitWriteTree index parse error: " ++ show err
+  case parse parseIndexFile "" (BSC.unpack index) of
+    Left err -> return Nothing
     Right gitIndex -> do
       let (GitIndex entries) = gitIndex
       -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
       let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), name ie, sha ie)])) entries)
       -- Sort the `keys` from longest length to shortest length
-      return (dict, sortOn (\x -> -1 * length x) (Map.keys dict))
-  -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
-  res <- traverse sortedKeys dict
-  case res of
-    Nothing -> error "No files are staged to commit"
-    -- Return the hash of the root tree object after traversing all the keys
-    Just hash -> return hash
+      let sortedKeys = sortOn (\x -> -1 * length x) (Map.keys dict)
+      -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
+      res <- traverse sortedKeys dict
+      case res of
+        Nothing -> return Nothing
+        -- Return the hash of the root tree object after traversing all the keys
+        Just hash -> return (Just hash)
   where
     -- \| Given a list of keys, and the dict, create and save the tree object and add to dict if the parent directory is in the dict
     traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
@@ -277,39 +277,44 @@ gitAdd paths gitDir = do
 gitStatus :: ByteString -> IO ()
 gitStatus = undefined
 
--- We first need to convert the index into a tree object, generate and store the corresponding commit object, and update the current branch to the new commit (remember: a branch is just a ref to a commit).
+-- Commit the current index (staging area) to the repository with given message.
+-- Out git commit does not gurantee that it will abort when there is no files to commit.
 gitCommit :: String -> FilePath -> IO ()
 gitCommit message gitDir = do
   -- Call writeTree to create a tree object from the current index
-  treeHash <- gitWriteTree gitDir
-  branchP <- readFile' (gitDir ++ "/HEAD")
-  curCommitMaybe <- gitRefToCommit (drop 5 branchP) gitDir
-  curCommitHash <- case curCommitMaybe of
-    Nothing -> return []
-    Just hash -> return [bsToHash (BSC.pack hash)]
+  treeHashM <- gitWriteTree gitDir
+  case treeHashM of
+    Nothing -> putStrLn "Failed to create tree object from the current index file. Please check if your index file is corrupted."
+    Just treeHash -> do
+      -- Get the current commit hash
+      branchP <- readFile' (gitDir ++ "/HEAD")
+      curCommitMaybe <- gitRefToCommit (drop 5 branchP) gitDir
+      curCommitHash <- case curCommitMaybe of
+        Nothing -> return []
+        Just hash -> return [bsToHash (BSC.pack hash)]
 
-  -- Get all data we need to create commit object
-  utcTime <- getCurrentTime
-  timezone <- getCurrentTimeZone
-  -- Convert timezone string in format of "-0500"
-  let timezoneStr = formatTime defaultTimeLocale "%z" timezone
-  let unixTS = floor (utcTimeToPOSIXSeconds utcTime) -- Unix time in seconds
-  let authorInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
-  let committerInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
+      -- Get all data we need to create commit object
+      utcTime <- getCurrentTime
+      timezone <- getCurrentTimeZone
+      -- Convert timezone string in format of "-0500"
+      let timezoneStr = formatTime defaultTimeLocale "%z" timezone
+      let unixTS = floor (utcTimeToPOSIXSeconds utcTime) -- Unix time in seconds
+      let authorInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
+      let committerInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
 
-  -- Create a new commit object based on the tree object, parent commits, and other data
-  newCommitHash <- gitCommitTree treeHash curCommitHash authorInfo committerInfo message utcTime gitDir
+      -- Create a new commit object based on the tree object, parent commits, and other data
+      newCommitHash <- gitCommitTree treeHash curCommitHash authorInfo committerInfo message utcTime gitDir
 
-  -- Convert gitHash to encoded string hash value
-  let newCommitHashStr = BSC.unpack (getHash newCommitHash)
-  -- TODO: (real git prints how many files and lines changed. Can we do this?)
-  putStrLn $ "Created commit " ++ newCommitHashStr
+      -- Convert gitHash to encoded string hash value
+      let newCommitHashStr = BSC.unpack (getHash newCommitHash)
+      -- TODO: (real git prints how many files and lines changed. Can we do this?)
+      putStrLn $ "Created commit " ++ newCommitHashStr
 
-  -- Call updateRef to update the current branch to the new commit hash
-  -- If we are in branch, move branch pointer, otherwise, move the HEAD to the new commit hash
-  if take 5 branchP == "ref: "
-    then gitUpdateRef (drop 5 (removeCorrupts branchP)) newCommitHashStr gitDir
-    else gitUpdateRef "HEAD" newCommitHashStr gitDir
+      -- Call updateRef to update the current branch to the new commit hash
+      -- If we are in branch, move branch pointer, otherwise, move the HEAD to the new commit hash
+      if take 5 branchP == "ref: "
+        then gitUpdateRef (drop 5 (removeCorrupts branchP)) newCommitHashStr gitDir
+        else gitUpdateRef "HEAD" newCommitHashStr gitDir
   where
     isEscape c = c == '\n' || c == '\r'
     -- Remove all escape characters in branch pointer
