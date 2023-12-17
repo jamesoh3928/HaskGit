@@ -38,7 +38,7 @@ testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
 testGitDirReadTree :: FilePath
-testGitDirReadTree = ".test_readtree/.test_haskgit"
+testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
 
 main :: IO ()
 main = tests >>= defaultMain

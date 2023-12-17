@@ -10,6 +10,8 @@ module Index
     removeEntries,
     getIndexEntryByHash,
     blobToIndexEntry,
+    extractNameIndex,
+    extractHashIndex,
   )
 where
 

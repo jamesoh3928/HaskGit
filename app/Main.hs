@@ -7,8 +7,9 @@ import Util (getGitDirectory)
 
 main :: IO ()
 main = do
+  let git = ".haskgit"
   argsRaw <- getArgs
-  gitDir <- getGitDirectory
+  gitDir <- getGitDirectory git
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()

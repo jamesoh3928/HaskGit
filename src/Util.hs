@@ -7,20 +7,23 @@ module Util
     formatUTCTimeWithTimeZone,
     relativeToAbolutePath,
     getRepoDirectory,
+    listFilesRecursively,
+    hashBlob,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16
 import qualified Data.ByteString.Char8 as BSC
+import Data.Graph (path)
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 import System.IO (readFile')
-import Data.ByteString.Base16
 
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -36,23 +39,26 @@ hashToFilePath hash gitDir = do
 refToFilePath :: String -> FilePath -> IO FilePath
 refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
 
--- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
--- If it cannot find .haskgit directory, return "/" or "~".
-getGitDirectory :: IO FilePath
-getGitDirectory = do
+-- | Returns path to git directory (climb until it finds git directory).
+-- If it cannot find git directory, return "/" or "~".
+getGitDirectory :: FilePath -> IO FilePath
+getGitDirectory gitDir = do
   curr <- getCurrentDirectory
-  findGitDirectory curr
+  findGitDirectory curr gitDir
 
--- | Given filepath, find .haskgit directory. If it cannot find .haskgit directory, return "/" or "~".
-findGitDirectory :: FilePath -> IO FilePath
-findGitDirectory fp = do
+-- | Given filepath, find git directory. If it cannot find git directory, return "/" or "~".
+findGitDirectory :: FilePath -> FilePath -> IO FilePath
+findGitDirectory fp gitDir = do
   if fp == "~" || fp == "/"
     then return fp
     else do
-      xs <- getDirectoryContents fp
-      if ".haskgit" `elem` xs
-        then return (fp ++ "/.haskgit")
-        else findGitDirectory (takeDirectory fp)
+      isGitDir <- doesDirectoryExist (fp ++ "/" ++ gitDir)
+      if isGitDir then return (fp ++ "/" ++ gitDir) else findGitDirectory (takeDirectory fp) gitDir
+
+-- xs <- getDirectoryContents fp
+-- if gitDir `elem` xs
+--   then return (fp ++ "/" ++ gitDir)
+--   else findGitDirectory (takeDirectory fp) gitDir
 
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
@@ -94,8 +100,8 @@ relativeToAbolutePath relativePath = do
   return $ normalise $ currentDir </> relativePath
 
 -- | Get the directory of the repository
-getRepoDirectory :: IO FilePath
-getRepoDirectory = takeDirectory <$> getGitDirectory
+getRepoDirectory :: FilePath -> IO FilePath
+getRepoDirectory gitDir = takeDirectory <$> getGitDirectory gitDir
 
 hashBlob :: FilePath -> IO ByteString
 hashBlob file = do
@@ -110,3 +116,32 @@ gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
   hash <- hashBlob file
   putStrLn $ (BSC.unpack . encode) hash
+
+-- | Takes a directory path and returns a list of all file paths in that directory and its subdirectories
+-- | Returns "full" path, not relative
+listFilesRecursively :: FilePath -> FilePath -> IO [FilePath]
+listFilesRecursively path gitDir = do
+  if path == gitDir
+    then return []
+    else do
+      isFile <- doesFileExist path
+      isDirectory <- doesDirectoryExist path
+      if isFile
+        then do
+          return [path]
+        else
+          if isDirectory
+            then do
+              xs <- listDirectory path
+              -- Exclude gitdir
+              let files = filter (/= gitDir) xs
+              -- putStrLn ("isDirectory" ++ show files)
+              listFilesOfDirectories files path
+            else return []
+  where
+    listFilesOfDirectories :: [FilePath] -> FilePath -> IO [FilePath]
+    listFilesOfDirectories [] _ = return []
+    listFilesOfDirectories (x : xs) path = do
+      res <- listFilesRecursively (path ++ "/" ++ x) gitDir
+      rest <- listFilesOfDirectories xs path
+      return (res ++ rest)

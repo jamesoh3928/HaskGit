@@ -1,16 +1,5 @@
 test case
 
-original tree: c49122098fd599325d3eb2b688819990dcbae382
-
-case1: 
-tree object : dc1a169e2bd287931839c35eaec477be39d5d855
-040000 tree 4770bf9c09ba9a094b6d01225a1e757471ae53e2    dir1  -> text3.txt
-            1664584d9a5168247c12877b7fdd2f5549d1d1dd    /dir1/text3.txt
-100644 blob ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4    text1.txt
-100644 blob f483c776c42f8ef2aa00d827805dfeaf7d9ce02b    text2.txt
-
-case2: 
-treeobject 46f22aaca0731550afc91adf63739012a7e70481
-100644 blob ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4    text1.txt
+tree object : cb6005f83cf42bbe846b98ddfcd1771ecb01c6c9
 
 current directory: test.txt, text1.txt, dir1/dir2/text4.txt

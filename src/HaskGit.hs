@@ -27,9 +27,9 @@ import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash, gitHashValue)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
-import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile)
+import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, extractHashIndex, extractNameIndex, getIndexEntryByHash, gitIndexSerialize, removeEntries, saveIndexFile)
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
 import System.FilePath
 import System.IO (readFile')
 import Text.Parsec (parse)
@@ -51,7 +51,7 @@ gitWriteTree gitDir = do
       -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
       let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), name ie, sha ie)])) entries)
       -- Sort the `keys` from longest length to shortest length
-      return (dict, sortOn (\x -> -1 * length x) (Map.keys dict))
+      return (dict, sortOn (\x -> (-1) * length x) (Map.keys dict))
   -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
   res <- traverse sortedKeys dict
   case res of
@@ -241,6 +241,91 @@ gitRevList hash gitdir = do
       mapM_ (putStrLn . BSC.unpack) hashList
     else print $ show hash ++ " is not a commit"
 
+-- Copy files from the index to the working tree
+-- listFilesRecursively : takes a directory path and returns a list of all
+--  file paths in that directory and its subdirectories
+--
+-- Get list of hash, list of name, index entries
+-- 1. if file name does not exist in index entries, delete file
+-- 2. if hash does not exist in the new work directory, remove file and create with new content of blob
+-- 3. else, leave
+-- 4. Update the metadata on index
+--
+-- if
+--
+gitCheckoutIndex :: FilePath -> IO ()
+gitCheckoutIndex gitDir = do
+  -- Parse the index
+  -- print gitDir
+  repoDir <- getRepoDirectory gitDir
+  fullGitDir <- getGitDirectory gitDir
+  -- print repoDirectory
+  -- files <- listFilesRecursively repoDirectory gitDir
+  filesFullPath <- listFilesRecursively repoDir fullGitDir
+  let files = map (makeRelative repoDir) filesFullPath
+  print files
+  indexContent <- BSC.readFile (fullGitDir ++ "/index")
+  case parse parseIndexFile "" (BSC.unpack indexContent) of
+    Left err -> Prelude.putStrLn $ "index parse error: " ++ show err
+    Right index -> do
+      -- List of files in index
+      let indexFiles = extractNameIndex index
+
+      -- Get list of hashes of files
+      hashFiles <- hashListFiles filesFullPath
+
+      -- If file name doesn't exist in index entries, delete file
+      deleteFile files indexFiles repoDir
+
+      -- If hash does not exist in the working directory, overwrite
+      addOrUpdateFile index hashFiles repoDir
+
+      -- Update index metadata
+      -- newIndex <- addOrUpdateEntries filesFullPath index gitDir
+      -- saveIndexFile (gitIndexSerialize newIndex) (repoDir ++ "/" ++ gitDir)
+      return ()
+  where
+    blobToHash :: FilePath -> IO GitHash
+    blobToHash file = do
+      content <- BSC.readFile file
+      let len = BSC.length content
+          header = BSC.pack $ "blob " ++ show len ++ "\0"
+          hash = SHA1.hash (header `BSC.append` content)
+      return (bsToHash hash)
+
+    hashListFiles :: [FilePath] -> IO [GitHash]
+    hashListFiles [] = return []
+    hashListFiles (x : xs) = do
+      hash <- blobToHash x
+      rest <- hashListFiles xs
+      return (hash : rest)
+
+    deleteFile [] _ _ = return ()
+    deleteFile (x : xs) indexFiles repoDir =
+      if x `notElem` indexFiles
+        then do
+          removeFile (repoDir ++ "/" ++ x)
+          -- putStrLn ("removed " ++ x)
+          deleteFile xs indexFiles repoDir
+        else deleteFile xs indexFiles repoDir
+
+    addOrUpdateFile (GitIndex []) _ _ = return ()
+    addOrUpdateFile (GitIndex (x : xs)) hashFiles repoDir =
+      if sha x `notElem` hashFiles
+        then do
+          path <- hashToFilePath (sha x) gitDir
+          -- parse blob
+          content <- BSLC.readFile path
+          case parse parseGitObject "" (BSLC.unpack (decompress content)) of
+            Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+            Right gitObj ->
+              case gitObj of
+                (Blob (_, blobContent)) -> do
+                  writeFile (repoDir ++ "/" ++ name x) blobContent
+                  addOrUpdateFile (GitIndex xs) hashFiles repoDir
+                _ -> putStrLn "Not a blob."
+        else addOrUpdateFile (GitIndex xs) hashFiles repoDir
+
 -------------------------- List of porcelain commands --------------------------
 
 -- | Add the given files to the index.
@@ -249,7 +334,7 @@ gitRevList hash gitdir = do
 gitAdd :: [FilePath] -> FilePath -> IO ()
 gitAdd paths gitDir = do
   -- Convert all the paths to path relative to the repository
-  repoDirectory <- getRepoDirectory
+  repoDirectory <- getRepoDirectory gitDir
   absPaths <- mapM relativeToAbolutePath paths
   -- (strip of repository path in the beginning)
   let pathsWithMaybe = map (stripPrefix (repoDirectory ++ "/")) absPaths
