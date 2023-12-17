@@ -51,8 +51,9 @@ processArgs args gitDir =
       case tail args of
         [object] -> gitHashObject object
         _ -> putStrLn "Usage: hash-object <file>"
-    "test" ->
-      undefined
+    "status" ->
+      case tail args of
+        [] -> gitStatusModifiedHash "git"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd

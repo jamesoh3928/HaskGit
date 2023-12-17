@@ -10,6 +10,7 @@ module HaskGit
     gitReadTree,
     gitStatusUntracked,
     gitStatusDeleted,
+    gitStatusModifiedHash,
     gitHashObject,
   )
 where
@@ -33,7 +34,7 @@ import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, hasFile, removeEntries, saveIndexFile)
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, doesPathExist)
 import System.FilePath
 import System.IO (readFile')
 import Text.Parsec (parse)
@@ -401,13 +402,36 @@ hashBlob file = do
       hash = SHA1.hash (header `BSC.append` content)
   return hash
 
+-- TODO: hash a object that is a directory
 gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
   hash <- hashBlob file
   putStrLn $ (BSC.unpack . encode) hash
 
+-- | as there exists entry that is not in the filesystem
+-- this function will skip such entry if not found
+-- BUG: as the directory is unable to be hash as a blob,
+--  it skips any directory.
+--  in the test, it skips something like ".test_read_tree"
 gitStatusModifiedHash :: FilePath -> IO ()
-gitStatusModifiedHash = undefined
+gitStatusModifiedHash gitDir = do
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> putStrLn "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      modified <- Control.Monad.filterM
+        (\e -> do
+        let path = name e
+        exists <- doesPathExist path
+        isDir <- doesDirectoryExist path
+        if exists && not isDir
+          then do
+            hash <- hashBlob path
+            return $ getHash (sha e) /= encode hash
+          else return False
+        ) ls
+      mapM_ (putStrLn . name)  modified
+
 
 -- |
 -- ignore
