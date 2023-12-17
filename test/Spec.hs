@@ -38,7 +38,7 @@ testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
 testGitDirReadTree :: FilePath
-testGitDirReadTree = ".test_read_tree/.test_haskgit"
+testGitDirReadTree = ".test_readtree/.test_haskgit"
 
 main :: IO ()
 main = tests >>= defaultMain
@@ -316,7 +316,7 @@ addOrUpdateEntriesTests = do
   return addOrUpdateEntriesTests
 
 -- Checks if index is updated with correct files and hashes after read-tree
--- Use customize cases in .test_read_tree/ which contains few text files with couple commits
+-- Use customize cases in .test_readtree/ which contains few text files with couple commits
 readTreeTests :: IO TestTree
 readTreeTests = do
   -- Case 1: tree dc1a169e2bd287931839c35eaec477be39d5d855
