@@ -20,6 +20,7 @@ import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 import System.IO (readFile')
+import Data.ByteString.Base16
 
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -95,3 +96,17 @@ relativeToAbolutePath relativePath = do
 -- | Get the directory of the repository
 getRepoDirectory :: IO FilePath
 getRepoDirectory = takeDirectory <$> getGitDirectory
+
+hashBlob :: FilePath -> IO ByteString
+hashBlob file = do
+  content <- BSC.readFile file
+  let len = BSC.length content
+      header = BSC.pack $ "blob " ++ show len ++ "\0"
+      hash = SHA1.hash (header `BSC.append` content)
+  return hash
+
+-- TODO: hash a object that is a directory
+gitHashObject :: FilePath -> IO ()
+gitHashObject file = do
+  hash <- hashBlob file
+  putStrLn $ (BSC.unpack . encode) hash
