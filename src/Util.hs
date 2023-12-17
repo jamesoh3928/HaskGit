@@ -32,8 +32,8 @@ hashToFilePath hash gitDir = do
 -- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
 -- Example output: ".haskgit/refs/heads/main"
-refToFilePath :: String -> FilePath -> IO FilePath
-refToFilePath ref gitDir = return (gitDir ++ "/" ++ ref)
+refToFilePath :: String -> FilePath -> FilePath
+refToFilePath ref gitDir = gitDir ++ "/" ++ ref
 
 -- | Returns path to .haskgit directory (climb until it finds .haskgit directory).
 -- If it cannot find .haskgit directory, return "/" or "~".
@@ -57,7 +57,7 @@ findGitDirectory fp = do
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
 gitRefToCommit ref gitDir = do
-  refPath <- refToFilePath ref gitDir
+  let refPath = refToFilePath ref gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then do

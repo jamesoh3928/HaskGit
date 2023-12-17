@@ -46,7 +46,6 @@ gitWriteTree gitDir = do
     Left err -> error $ "gitWriteTree index parse error: " ++ show err
     Right gitIndex -> do
       let (GitIndex entries) = gitIndex
-      -- 040000 is the mode bit for directory
       -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
       let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), name ie, sha ie)])) entries)
       -- Sort the `keys` from longest length to shortest length
@@ -163,7 +162,7 @@ gitCommitTree treeHash parents author committer message time =
 -- e.g. gitUpdateRef "refs/heads/main" object_hashvalue ".test_haskgit"
 gitUpdateRef :: String -> String -> FilePath -> IO ()
 gitUpdateRef ref obj gitDir = do
-  path <- refToFilePath ref gitDir
+  let path = refToFilePath ref gitDir
   -- No need to convert to GitHash type in this function
   let hashPath = gitDir ++ "/objects/" ++ take 2 obj ++ "/" ++ drop 2 obj
   -- Check if obj is already commit hash
@@ -185,7 +184,7 @@ gitUpdateRef ref obj gitDir = do
 gitUpdateSymbRef :: String -> String -> FilePath -> IO ()
 gitUpdateSymbRef symb ref gitDir = do
   let path = gitDir ++ "/" ++ symb
-  refPath <- refToFilePath ref gitDir
+  let refPath = refToFilePath ref gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then writeFile path ("ref: " ++ ref)
@@ -295,23 +294,26 @@ gitCommit message gitDir = do
   -- Convert timezone string in format of "-0500"
   let timezoneStr = formatTime defaultTimeLocale "%z" timezone
   let unixTS = floor (utcTimeToPOSIXSeconds utcTime) -- Unix time in seconds
-  -- TODO: double check
-  let authorInfo = ("author1", "author1@cs.rit.edu", unixTS, timezoneStr)
-  let committerInfo = ("commiter1", "committer1@cs.rit.edu", unixTS, timezoneStr)
+  let authorInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
+  let committerInfo = ("Codey Devinson", "codey@example.com", unixTS, timezoneStr)
 
   -- Create a new commit object based on the tree object, parent commits, and other data
   newCommitHash <- gitCommitTree treeHash curCommitHash authorInfo committerInfo message utcTime gitDir
 
   -- Convert gitHash to encoded string hash value
   let newCommitHashStr = BSC.unpack (getHash newCommitHash)
-  -- TODO: delete
+  -- TODO: (real git prints how many files and lines changed. Can we do this?)
   putStrLn $ "Created commit " ++ newCommitHashStr
 
   -- Call updateRef to update the current branch to the new commit hash
   -- If we are in branch, move branch pointer, otherwise, move the HEAD to the new commit hash
   if take 5 branchP == "ref: "
-    then gitUpdateRef (drop 5 branchP) newCommitHashStr gitDir
+    then gitUpdateRef (drop 5 (removeCorrupts branchP)) newCommitHashStr gitDir
     else gitUpdateRef "HEAD" newCommitHashStr gitDir
+  where
+    isEscape c = c == '\n' || c == '\r'
+    -- Remove all escape characters in branch pointer
+    removeCorrupts = filter (not . isEscape)
 
 gitReset :: ByteString -> IO ()
 gitReset = undefined
