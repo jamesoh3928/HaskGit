@@ -7,12 +7,14 @@ module Util
     formatUTCTimeWithTimeZone,
     relativeToAbolutePath,
     getRepoDirectory,
+    removeCorrupts,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16
 import qualified Data.ByteString.Char8 as BSC
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
@@ -20,7 +22,6 @@ import GitHash (GitHash, bsToHash, getHash)
 import System.Directory (doesDirectoryExist, doesFileExist, getCurrentDirectory, getDirectoryContents, listDirectory)
 import System.FilePath
 import System.IO (readFile')
-import Data.ByteString.Base16
 
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
@@ -61,7 +62,7 @@ findGitDirectory fp = do
 --  arg2: valid git directory path (.git, .haskgit)
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
 gitRefToCommit ref gitDir = do
-  let refPath = refToFilePath ref gitDir
+  let refPath = refToFilePath (removeCorrupts ref) gitDir
   fileExist <- doesFileExist refPath
   if fileExist
     then do
@@ -72,6 +73,12 @@ gitRefToCommit ref gitDir = do
         else return (Just obj)
     else do
       return Nothing
+
+-- Remove all characters that should not exist in the branch name
+removeCorrupts :: [Char] -> [Char]
+removeCorrupts = filter (not . isEscape)
+  where
+    isEscape c = c == '\n' || c == '\r'
 
 -- | Convert unix time integer value to UTCTime
 unixToUTCTime :: Integer -> UTCTime

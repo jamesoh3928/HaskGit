@@ -1,6 +1,7 @@
 module Main (main) where
 
 import qualified Data.ByteString.Char8 as B
+import GitHash
 import HaskGit
 import System.Environment (getArgs)
 import Util (getGitDirectory)
@@ -37,20 +38,22 @@ processArgs args gitDir =
         _ -> putStrLn "Usage: updateRef refdest refsrc"
     "revList" ->
       case tail args of
-        [object] -> gitRevList (B.pack object) gitDir
+        [object] -> gitRevList (bsToHash $ B.pack object) gitDir
         _ -> putStrLn "Usage: revList <commit-object>"
     "log" ->
       case tail args of
-        [] ->
-          do
-            cmt <- gitHeadCommit gitDir
-            gitLog cmt gitDir
-        [object] -> gitLog (B.pack object) gitDir
+        [] -> gitLog Nothing gitDir
+        [object] -> gitLog (Just $ bsToHash (B.pack object)) gitDir
         _ -> putStrLn "Usage: log <commit-object>"
     "read-tree" ->
       case tail args of
         [object] -> gitReadTree (B.pack object) gitDir
         _ -> putStrLn "Usage: read-tree <tree-hash>"
+    "branch" ->
+      case tail args of
+        [] -> gitListBranch gitDir
+        [branchName] -> gitCreateBranch branchName gitDir
+        _ -> putStrLn "Error: haskgit branch only has one argument <branch-name>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
@@ -66,4 +69,5 @@ helpMsg cmd =
     "commit" -> "haskgit commit - Record changes to the repository"
     "revList" -> "haskgit revList - list commit objects in reverse chronological order"
     "log" -> "haskgit log - show commit logs"
+    "branch" -> "haskgit branch - list, create, or delete branches"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"
