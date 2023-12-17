@@ -493,19 +493,17 @@ hash2CommitObj hash gitdir = do
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitLog :: Maybe ByteString -> FilePath -> IO ()
 gitLog hashBsM gitdir = do
-  -- TODO: fix James
-  case hashBsM of
-    Nothing -> putStrLn "Invalid hash value given to gitLog. Please input a valid hash value."
-    Just hashBs -> do
-      case bsToHash hashBs of
-        Nothing -> putStrLn "Invalid hash value given to gitLog. Please input a valid hash value."
-        Just hash -> do
-          parents <- gitParentList hash gitdir
-          mapM_
-            ( \(cmt, hs) -> do
-                putStrLn $ gitShowStr (cmt, hs)
-            )
-            parents
+  hash <- case hashBsM of
+    Nothing -> gitHeadCommit gitdir
+    Just hashBs -> case bsToHash hashBs of
+      Nothing -> error "Invalid hash value given to gitLog. Please input a valid hash value."
+      Just hash -> return hash
+  parents <- gitParentList hash gitdir
+  mapM_
+    ( \(cmt, hs) -> do
+        putStrLn $ gitShowStr (cmt, hs)
+    )
+    parents
 
 -- | get the most updated commit
 -- extract ./haskgit/HEAD to get the path that contains the commit
