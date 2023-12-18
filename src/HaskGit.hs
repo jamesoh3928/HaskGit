@@ -10,7 +10,9 @@ module HaskGit
     gitCommit,
     gitRevList,
     gitReadTree,
+    gitHashObject,
     gitCheckout,
+    gitStatus,
     gitReset,
     gitResetSoft,
     gitResetMixed,
@@ -23,9 +25,11 @@ import Codec.Compression.Zlib (decompress)
 import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
+import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.List (sort, sortOn, stripPrefix)
+import Data.Graph (path)
+import Data.List (find, isPrefixOf, nub, sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -36,12 +40,20 @@ import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory, removeFile)
 import System.FilePath
 import System.IO (readFile')
 import Text.Parsec (parse)
 import Text.Printf (printf)
 import Util
+
+-- | Type of current status of the file in current repository
+data Status
+  = Modified (FilePath, GitHash)
+  | Added (FilePath, GitHash)
+  | Deleted (FilePath, GitHash)
+  | Untracked (FilePath, GitHash)
+  deriving (Show)
 
 -------------------------- List of plumbing commands --------------------------
 
@@ -93,10 +105,11 @@ gitWriteTree gitDir = do
             else -- Recurse with the rest of the keys
               traverse ks dict
 
--- -- This command Reads tree information into the index.
+-- | This command Reads tree information into the index.
 gitReadTree :: ByteString -> FilePath -> IO ()
 gitReadTree treeH gitDir = do
   treeHash <- case bsToHash treeH of
+    -- Abort if invalid hash value is given
     Nothing -> error "Invalid hash value given to gitReadTree. Please input a valid hash value."
     Just hashV -> return hashV
   -- Read tree
@@ -141,8 +154,7 @@ gitReadTree treeH gitDir = do
               GitIndex nested <- treeObjToIndex tree oldIndex (path ++ "/" ++ name)
               GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
               return (GitIndex (nested ++ rest))
-            _ -> do
-              treeObjToIndex (i, xs) oldIndex path
+            _ -> treeObjToIndex (i, xs) oldIndex path
         -- if hash exist reuse existing entry in index
         Just indexEntry -> do
           GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
@@ -310,6 +322,18 @@ gitCheckoutIndex gitDir = do
                 _ -> putStrLn "Not a blob."
         else addOrUpdateFile (GitIndex xs) hashFiles repoDir
 
+-- | Plumbing command for hasing a blob object
+gitHashObject :: FilePath -> IO ()
+gitHashObject file = do
+  exists <- doesPathExist file
+  if exists
+    then do
+      isDir <- doesDirectoryExist file
+      if isDir
+        then putStrLn "Current hash-object command does not support tree object."
+        else hashBlob file >>= putStrLn . (BSC.unpack . encode)
+    else putStrLn $ "The path " ++ file ++ " doesn't exist"
+
 -------------------------- List of porcelain commands --------------------------
 
 -- | Add the given files to the index.
@@ -342,10 +366,7 @@ gitAdd paths gitDir = do
       newIndex <- addOrUpdateEntries relativePaths index gitDir
       saveIndexFile (gitIndexSerialize newIndex) gitDir
 
-gitStatus :: ByteString -> IO ()
-gitStatus = undefined
-
--- | Commit the current index (staging area) to the repository with given message.
+-- Commit the current index (staging area) to the repository with given message.
 -- Out git commit does not gurantee that it will abort when there is no files to commit.
 gitCommit :: String -> FilePath -> IO ()
 gitCommit message gitDir = do
@@ -510,17 +531,19 @@ gitShow hash gitDir = do
         Nothing -> return ()
         Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
--- | A list of Commit w/ git show, start from provided hash
--- e.g. haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
+-- | a list of Commit w/ git show, start from provided hash
+-- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitLog :: Maybe ByteString -> FilePath -> IO ()
 gitLog hashBsM gitdir = do
   hash <- case hashBsM of
     Nothing -> do
       headM <- gitHeadCommit gitdir
       case headM of
+        -- Abort since there is no log to print
         Nothing -> error "HEAD is not pointing to any commit, no log to print."
         Just hash -> return hash
     Just hashBs -> case bsToHash hashBs of
+      -- Aboft since invalid hash is given
       Nothing -> error "Invalid hash value given to gitLog. Please input a valid hash value."
       Just hash -> return hash
   parents <- gitParentList hash gitdir
@@ -530,29 +553,49 @@ gitLog hashBsM gitdir = do
     )
     parents
 
+-- | Print the status of the repository.
+gitStatus :: FilePath -> IO ()
+gitStatus gitDir = do
+  modified <- gitStatusModified gitDir
+  untracked <- gitStatusUntracked gitDir
+  deleted <- gitStatusDeleted gitDir
+  staged <- gitStatusStaged gitDir
+
+  -- Print current branch
+  ref <- readFile' (gitDir ++ "/HEAD")
+  if take 16 ref == "ref: refs/heads/"
+    then putStrLn ("On branch " ++ drop 16 ref)
+    else putStrLn ("HEAD detached at " ++ ref)
+
+  Control.Monad.unless (null modified) $ do
+    putStrLn "Changes not staged for commit: "
+    putStrLn "  (use \"git add <file>...\" to update what will be committed)"
+    mapM_ printStatusInfo modified
+    putStrLn ""
+
+  Control.Monad.unless (null untracked) $ do
+    putStrLn "Untracked Files: "
+    putStrLn "  (use \"haskgit add <file>...\" to include in what will be committed)"
+    mapM_ printStatusInfo untracked
+    putStrLn ""
+
+  Control.Monad.unless (null staged) $ do
+    putStrLn "Staged, changes to be committed: "
+    mapM_ printStatusInfo staged
+    putStrLn ""
+
+  Control.Monad.unless (null deleted) $ do
+    putStrLn "Changes not staged for commit:"
+    mapM_ printStatusInfo deleted
+    putStrLn ""
+
+  Control.Monad.when (null modified && null untracked && null staged && null deleted) $ do
+    putStrLn "nothing to commit, working tree clean"
+
 -------------------------- Other helper functions --------------------------
 
--- | Get the commit hash that the HEAD is pointing to if exists
--- extract ./haskgit/HEAD to get the path that contains the commit
---   because the path would be different for different branch
-gitHeadCommit :: FilePath -> IO (Maybe GitHash)
-gitHeadCommit gitdir = do
-  head <- readFile' (gitdir ++ "/HEAD")
-  if take 5 head == "ref: "
-    then -- HEAD is pointing to branch
-    do
-      commit <- gitRefToCommit (drop 5 head) gitdir
-      case commit of
-        Nothing -> return Nothing
-        Just cmt -> case bsToHash $ BSC.pack cmt of
-          Nothing -> return Nothing
-          Just hash -> return (Just hash)
-    else -- HEAD is pointing to commit hash
-    case bsToHash $ BSC.pack (removeCorrupts head) of
-      Nothing -> return Nothing
-      Just hash -> return (Just hash)
-
--- | Get a list of parent (Git Object) in the tree
+-- | Get a list of parent (Git Commit) in the tree
+-- e.g. haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitParentList :: GitHash -> FilePath -> IO [GitObjectHash]
 gitParentList hash gitdir = do
   obj <- hash2CommitObj hash gitdir
@@ -563,7 +606,7 @@ gitParentList hash gitdir = do
       return ((cmt, hash) : concat recur)
     _ -> return []
 
--- | decompress gitObject and unpack ByteString to String
+-- | Decompress gitObject and unpack ByteString to String
 gitObjectContent :: GitHash -> FilePath -> IO String
 gitObjectContent hash gitdir = do
   let hashHex = BSC.unpack (getHash hash)
@@ -581,30 +624,267 @@ hash2CommitObj hash gitdir = do
       Commit (_, _, _, _, _, _) -> return (Just gitObject)
       _ -> return Nothing
 
--- | Validate commit hash and return commit object
-gitCommitHashToObj :: String -> FilePath -> IO (Maybe GitCommit)
-gitCommitHashToObj commit gitDir = do
-  -- Update the branch pointer
-  let commitHashM = bsToHash (BSC.pack commit)
-  case commitHashM of
-    -- Check if hash is valid
-    Just commitHash -> do
-      fullGitDir <- getGitDirectory gitDir
-      ref <- readFile' (fullGitDir ++ "/HEAD")
-      -- Check if HEAD is pointing to branch.
-      if take 5 ref == "ref: "
-        then do
-          -- Check if hash is commit
-          commitObj <- hash2CommitObj commitHash gitDir
-          case commitObj of
-            Just (Commit commitObj) -> do
-              return (Just commitObj)
-            _ -> do
-              putStrLn "Error: Hash must be commit hash."
-              return Nothing
-        else do
-          putStrLn "Error: HEAD is not pointing to branch. Make sure HEAD is on branch."
-          return Nothing
-    _ -> do
-      putStrLn "Error: invalid hash value. Please give valid commit hash."
-      return Nothing
+-- GitIndexEntry
+unpackIndex :: FilePath -> IO (Maybe GitIndex)
+unpackIndex gitDir = do
+  content <- BSLC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSLC.unpack content) of
+    Left err -> return Nothing
+    Right ls -> return $ Just ls
+
+-- | List files in the index with the actual working directory list
+gitListFiles :: FilePath -> IO ()
+gitListFiles gitDir = do
+  content <- BSLC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSLC.unpack content) of
+    Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
+    Right (GitIndex ls) -> mapM_ (putStrLn . name) ls
+
+-- | Hash the blob file in the given path.
+hashBlob :: FilePath -> IO ByteString
+hashBlob file = do
+  content <- BSC.readFile file
+  let len = BSC.length content
+      header = BSC.pack $ "blob " ++ show len ++ "\0"
+      hash = SHA1.hash (header `BSC.append` content)
+  return hash
+
+-- | A function that is used to look up hash of a path that is stored in the .git/index
+--  haskgit index "test/Spec.hs"
+getIndexEntry :: FilePath -> FilePath -> IO ()
+getIndexEntry gitDir file = do
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> putStrLn "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      Control.Monad.forM_
+        ls
+        ( \e ->
+            Control.Monad.when (name e == file) $ do
+              print (getHash (sha e))
+        )
+
+-- | Get the commit hash that the HEAD is pointing to if exists
+-- extract ./haskgit/HEAD to get the path that contains the commit
+--   because the path would be different for different branch
+gitHeadCommit :: FilePath -> IO (Maybe GitHash)
+gitHeadCommit gitdir = do
+  head <- readFile' (gitdir ++ "/HEAD")
+  if take 5 head == "ref: "
+    then -- HEAD is pointing to branch
+    do
+      commit <- gitRefToCommit (drop 5 head) gitdir
+      case commit of
+        Nothing -> return Nothing
+        Just cmt -> case bsToHash $ BSC.pack cmt of
+          Nothing -> return Nothing
+          Just hash -> return (Just hash)
+    else -- HEAD is pointing to commit hash
+    do
+      case bsToHash $ BSC.pack (removeCorrupts head) of
+        Nothing -> return Nothing
+        Just hash -> return (Just hash)
+
+-- | this function is used to convert hash of a tree into tree object
+-- NOTE this one can be merged w/ hash2CommitObj
+-- hash2TreeList :: GitHash -> FilePath -> IO (Maybe [(FilePath, GitHash)])
+hash2TreeList :: GitHash -> FilePath -> IO (Maybe [(String, String, GitHash)])
+hash2TreeList hash gitDir = do
+  content <- gitObjectContent hash gitDir
+  case parse parseGitObject "" content of
+    Left error -> fail $ "<hash2TreeList>: " ++ show error
+    Right gitObject -> case gitObject of
+      Tree (_, ls) -> return (Just ls)
+      _ -> return Nothing
+
+-- | This function is used to convert hash of a blob into blob object
+hash2Obj :: GitHash -> FilePath -> IO (Maybe GitObject)
+hash2Obj hash gitDir = do
+  content <- gitObjectContent hash gitDir
+  case parse parseGitObject "" content of
+    Left error -> fail $ "<hash2Obj>: " ++ show error
+    Right gitObject -> case gitObject of
+      Tree _ -> return (Just gitObject)
+      Commit _ -> return (Just gitObject)
+      Blob _ -> return (Just gitObject)
+
+-- | As there exists entry that is not in the filesystem
+-- this function will skip (checking if)
+-- - entry if not found (in the future, this part may be merged w/ status for deleted)
+--  - it skips any directory (dir should not be appeared in index)
+--  - in the test, it skips something like ".test_read_tree"
+gitStatusModified :: FilePath -> IO [Status]
+gitStatusModified gitDir = do
+  ls <- unpackIndex gitDir
+  case ls of
+    -- Abort if index is not able to unpack
+    Nothing -> error "Error: the index is unable to unpack during git status"
+    Just (GitIndex ls) -> do
+      modified <-
+        Control.Monad.filterM
+          ( \e -> do
+              let path = name e
+              exists <- doesPathExist path
+              isDir <- doesDirectoryExist path
+              if exists && not isDir
+                then do
+                  hash <- hashBlob path
+                  return $ getHash (sha e) /= encode hash
+                else return False
+          )
+          ls
+      return $ map (\i -> Modified (name i, sha i)) modified
+
+-- |
+-- ignore
+--  - what is stated in .gitignore
+--  - ignore the content under a new directory (just display the newDir/)
+--  - ignore empty directory, or directory with sub-directory only
+-- FIXME: (in the future)
+--  for subdirectory like this "docs/test/test1/file"
+--      return docs/test;
+--      the algo for testing if the directory has file doesn't work for it.
+--      it will stop at docs/test/. SEE function `getEntries`
+gitStatusUntracked :: FilePath -> IO [Status]
+gitStatusUntracked gitDir = do
+  entries <- getEntries "." gitDir
+  ls <- unpackIndex gitDir
+  case ls of
+    -- Abort if index is not able to unpack
+    Nothing -> error "Error: the index is unable to unpack during git status"
+    Just (GitIndex ls) -> do
+      let untracked = filter (not . hasFile (GitIndex ls)) entries
+          skippedPath = skipNewDirContent . skipNoUpdatedDir $ untracked
+      mapM untrackedS (sort skippedPath)
+  where
+    untrackedS p = do
+      hash <- blobToHash p
+      return $ Untracked (p, hash)
+    -- implement it to skip something like
+    -- "NewDir/wow" if exist "NewDir/" in the list
+    skipNewDirContent paths =
+      filter (\path -> not (any (\dir -> dir /= path && dir `isPrefixOf` path) paths)) paths
+    -- skip Dir/ without file under this dir is new
+    skipNoUpdatedDir paths =
+      filter (\path -> last path /= '/' || any (\dir -> dir /= path && path `isPrefixOf` dir && last dir /= '/') paths) paths
+
+-- | get deleted files in current working directory
+gitStatusDeleted :: FilePath -> IO [Status]
+gitStatusDeleted gitDir = do
+  entries <- getFullEntries "."
+  ls <- unpackIndex gitDir
+  case ls of
+    -- Abort if index is not able to unpack
+    Nothing -> error "Error: the index is unable to unpack during git status"
+    Just (GitIndex ls) -> do
+      let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
+      mapM (\p -> return $ Untracked (name p, sha p)) deleted
+
+gitFlatTree :: FilePath -> IO [(String, FilePath, GitHash)]
+gitFlatTree gitDir =
+  do
+    cmtM <- gitHeadCommit gitDir
+    cmt <- case cmtM of
+      -- Abort since we cannot continue without HEAD commit
+      Nothing -> error "HEAD is not pointing to any commit."
+      Just hash -> return hash
+    obj <- hash2CommitObj cmt gitDir
+    case obj of
+      Nothing -> error "This Hash is failed to covert to GitObject for Commit"
+      Just (Commit (_, tree, _, _, _, _)) -> do
+        list <- hash2TreeList tree gitDir
+        case list of
+          Nothing -> error "gitFlatTree list"
+          Just ls ->
+            do
+              result <- recTreeList "." gitDir ls
+              return $ map (\(s, p, g) -> (s, makeRelative "." p, g)) result
+
+-- | starting from the tree the HEAD points to,
+-- get a full list of "blob" node in this tree and parent trees
+recTreeList :: FilePath -> FilePath -> [(String, FilePath, GitHash)] -> IO [(String, FilePath, GitHash)]
+recTreeList _ _ [] = return []
+recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
+  obj <- hash2Obj hash gitDir
+  case obj of
+    Nothing -> error "<recTreeList>"
+    Just obj ->
+      case obj of
+        Blob (_, _) ->
+          recTreeList parentPath gitDir xs
+            >>= \list -> return (appendParent parentPath ts : list)
+        Commit (_, _, _, _, _, _) -> recTreeList parentPath gitDir xs
+        Tree (_, tr) ->
+          recTreeList (parentPath </> path) gitDir tr
+            >>= \list ->
+              recTreeList parentPath gitDir xs
+                >>= \list' -> return (list ++ list')
+  where
+    appendParent :: FilePath -> (String, FilePath, GitHash) -> (String, FilePath, GitHash)
+    appendParent p1 (mode, ph, hs) = (mode, p1 </> ph, hs)
+
+-- Tree
+
+-- | used for detecting added object (on the stage /index) but not in HEAD
+-- deleted: in head but not in index
+-- new: in index but not in head
+-- modfied: both in index and in head, but hash differs
+-- it is a bit of difficult to do everything under one loop
+-- this algo does two comparsions
+--    entries in HEAD compare with index entries to know if any file changed or deleted
+
+---   index entries compare with entries in HEAD to know if any file added
+gitStatusStaged :: FilePath -> IO [Status]
+gitStatusStaged gitDir = do
+  indexL <- unpackIndex gitDir
+  case indexL of
+    Nothing -> error "<gitStatusStaged>: fail to unpack index"
+    Just (GitIndex is) -> do
+      headL <- gitFlatTree gitDir
+      return (loopHeadCompareIndex headL is ++ loopIndexCompareHead headL is)
+  where
+    loopHeadCompareIndex :: [(String, FilePath, GitHash)] -> [GitIndexEntry] -> [Status]
+    loopHeadCompareIndex [] _ = []
+    loopHeadCompareIndex (h : hs) is =
+      case headCompareIndex h is of
+        Nothing -> loopHeadCompareIndex hs is
+        Just status -> status : loopHeadCompareIndex hs is
+
+    loopIndexCompareHead :: [(String, FilePath, GitHash)] -> [GitIndexEntry] -> [Status]
+    loopIndexCompareHead [] _ = []
+    loopIndexCompareHead hs [] = []
+    loopIndexCompareHead hs (i : is) =
+      case indexCompareHead hs i of
+        Nothing -> loopIndexCompareHead hs is
+        Just status -> status : loopIndexCompareHead hs is
+
+    indexCompareHead :: [(String, FilePath, GitHash)] -> GitIndexEntry -> Maybe Status
+    indexCompareHead hs i =
+      if not (any (\h -> headPath h == name i) hs)
+        then Just (Added (name i, sha i))
+        else Nothing
+
+    headCompareIndex :: (String, FilePath, GitHash) -> [GitIndexEntry] -> Maybe Status
+    headCompareIndex h is =
+      let fl = Data.List.find (\i -> name i == headPath h) is
+       in case fl of
+            Nothing -> Just (Deleted (headPath h, headHash h))
+            Just index ->
+              if sha index == headHash h
+                then Nothing
+                else Just (Modified (headPath h, headHash h))
+    headPath (_, ph, _) = ph
+    headHash (_, _, hs) = hs
+
+-- | Print the status info
+-- For future, there are two colors (red and green) to indicate modified and deleted
+--    to distinguish if the blob is staged (green for True, and red for false)
+printStatusInfo :: Status -> IO ()
+printStatusInfo s =
+  case s of
+    Modified (f, _) -> putStrLn $ "\tmodified: " ++ f
+    Added (f, _) -> putStrLn $ "\tnew file: " ++ f
+    Deleted (f, _) -> putStrLn $ "\tdeleted:  " ++ f
+    -- In git, it uses two colors (red and green) of "M"
+    --  in this case, use "U".
+    Untracked (f, _) -> putStrLn $ "\t\t" ++ f

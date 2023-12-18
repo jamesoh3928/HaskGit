@@ -154,3 +154,4 @@ Prepare for the presentation
 - Update existing tests to use tasty-golden
 - Tests for porcelain commands
 - Add test was done by parseIndex, saveIndex, and addEntry because directly updating index in metadata did not seem ideal.
+- Using tasty-golden created unexpected behavior

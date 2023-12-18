@@ -122,4 +122,3 @@ hashAndSaveObject obj gitDir = do
     Just hash -> do
       saveGitObject hash content gitDir
       return hash
-      
