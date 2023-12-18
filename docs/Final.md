@@ -140,3 +140,15 @@ Presentation - its on Tuesday 8am
 -- TODO: delete in the future
 
 Mention something about Operating System
+
+
+TODO list for our project
+Git status
+Git log testing
+Git commit testing
+Git checkout testing
+Git reset testing
+Update existing tests to use tasty-golden
+Move around functions to the correct file
+Write final doc
+Prepare for the presentation

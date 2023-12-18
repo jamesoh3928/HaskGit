@@ -1,5 +1,3 @@
--- {-# LANGUAGE TypeApplications #-}
-
 module Main (main) where
 
 import Codec.Compression.Zlib (compress, decompress)
@@ -19,14 +17,21 @@ import Shelly
 import System.Directory (removeFile)
 import System.IO.Silently (capture)
 import Test.Tasty
+import Test.Tasty.Golden
 import Test.Tasty.HUnit
 import Text.Parsec (parse)
 
+-- Some of the test .haskgit directories that are used by tests
 testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
 testGitDirReadTree :: FilePath
 testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
+
+testGitDirLog :: FilePath
+testGitDirLog = "test/TestData/.test_log/"
+
+--------------------------------------------------------------------------------
 
 main :: IO ()
 main = tests >>= defaultMain
@@ -35,51 +40,52 @@ tests :: IO TestTree
 tests =
   testGroup "Unit Tests"
     <$> sequence
-      [ showTests,
-        updateRefTests,
+      [ gitShowTests,
+        gitUpdateRefTests,
         hashObjectTests,
         saveObjectTests,
         parseSaveIndexTests,
-        listBranchTests,
+        gitListBranchTests,
         addOrUpdateEntriesTests,
-        readTreeTests
+        gitReadTreeTests,
+        gitLogTests
       ]
 
 -- Make sure if haskgit show produces expected output
-showTests :: IO TestTree
-showTests = do
+gitShowTests :: IO TestTree
+gitShowTests = do
   let blobHash = "04efa50ffad0bc03edea5cbca1936c29aee18553"
-  expectedBlobShow <- readFile "test/TestData/expectedBlobShow.dat"
-  (actualBlobShow, ()) <- capture $ gitShow (BSC.pack blobHash) testGitDir
+  let captureGitShowBlob = do
+        (actualShow, ()) <- capture $ gitShow (BSC.pack blobHash) testGitDir
+        return (BSLC.pack actualShow)
 
   let treeHash = "0013ee97b010dc8e9646f3c5a9841b62eb754f77"
-  expectedTreeShow <- readFile "test/TestData/expectedTreeShow.dat"
-  (actualTreeShow, ()) <- capture $ gitShow (BSC.pack treeHash) testGitDir
+  let captureGitShowTree = do
+        (actualShow, ()) <- capture $ gitShow (BSC.pack treeHash) testGitDir
+        return (BSLC.pack actualShow)
 
   let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
-  expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
-  (actualCommitShow1, ()) <- capture $ gitShow (BSC.pack commitHash1) testGitDir
+  let captureGitShowCommit1 = do
+        (actualShow, ()) <- capture $ gitShow (BSC.pack commitHash1) testGitDir
+        return (BSLC.pack actualShow)
 
   let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
-  (actualCommitShow2, ()) <- capture $ gitShow (BSC.pack commitHash2) testGitDir
-  expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
+  let captureGitShowCommit2 = do
+        (actualShow, ()) <- capture $ gitShow (BSC.pack commitHash2) testGitDir
+        return (BSLC.pack actualShow)
 
   let showTest =
         testGroup
           "gitShow"
-          [ testCase "blob object" $
-              actualBlobShow @?= expectedBlobShow,
-            testCase "tree object" $
-              actualTreeShow @?= expectedTreeShow,
-            testCase "commit object 1" $
-              actualCommitShow1 @?= expectedCommitShow1,
-            testCase "commit object 2" $
-              actualCommitShow2 @?= expectedCommitShow2
+          [ goldenVsString "blob object" "test/TestData/expectedBlobShow.golden" captureGitShowBlob,
+            goldenVsString "tree object" "test/TestData/expectedTreeShow.golden" captureGitShowTree,
+            goldenVsString "commit object" "test/TestData/expectedCommitShow1.golden" captureGitShowCommit1,
+            goldenVsString "commit object" "test/TestData/expectedCommitShow2.golden" captureGitShowCommit2
           ]
   return showTest
 
-updateRefTests :: IO TestTree
-updateRefTests = do
+gitUpdateRefTests :: IO TestTree
+gitUpdateRefTests = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
   let refMainPath = ".haskgit/refs/heads/main"
@@ -105,7 +111,7 @@ updateRefTests = do
   let expectedCase3 = T.pack (hash2 ++ "\n")
   actualCase3 <- TIO.readFile (testGitDir ++ "/HEAD")
 
-  let updateRefTests =
+  let gitUpdateRefTests =
         testGroup
           "gitUpdateRef"
           [ testCase "refname hash-value" $
@@ -120,7 +126,7 @@ updateRefTests = do
   TIO.writeFile refMainPath originalMainRef
   TIO.writeFile ".haskgit/HEAD" originalHeadRef
 
-  return updateRefTests
+  return gitUpdateRefTests
 
 -- Test for hashObject
 -- read content from real ".git" and see if hashvalue is the same as expected.
@@ -251,8 +257,8 @@ parseSaveIndexTests = do
 
 -- HEAD pointing to hash value at the end of the test.
 -- TODO make sure HEAD points to correct branch or fix lock issue
-listBranchTests :: IO TestTree
-listBranchTests = do
+gitListBranchTests :: IO TestTree
+gitListBranchTests = do
   -- Case1: when HEAD is pointing main (default)
   gitUpdateSymbRef "HEAD" "refs/heads/main" testGitDir
   expectedMainBranch <- readFile "test/TestData/expectedMainBranch.dat"
@@ -311,8 +317,8 @@ addOrUpdateEntriesTests = do
 
 -- Checks if index is updated with correct files and hashes after read-tree
 -- Use customize cases in .test_readtree/ which contains few text files with couple commits
-readTreeTests :: IO TestTree
-readTreeTests = do
+gitReadTreeTests :: IO TestTree
+gitReadTreeTests = do
   -- Case 1: tree dc1a169e2bd287931839c35eaec477be39d5d855
   -- Should contain text1.txt, text2.txt, dir1/text3.txt
   let treeHash1 = "dc1a169e2bd287931839c35eaec477be39d5d855"
@@ -353,9 +359,9 @@ readTreeTests = do
     Left err -> assertFailure (show err)
     Right index -> return index
 
-  let readTreeTests =
+  let gitReadTreeTests =
         testGroup
-          "readTreeTests"
+          "gitReadTreeTests"
           [ testCase "Check path for case 1" $
               -- Check if files in paths are in the new index
               all (hasFile newIndex1) path1 @?= True,
@@ -375,4 +381,24 @@ readTreeTests = do
   -- Write original index file back to the directory
   BSC.writeFile (testGitDirReadTree ++ "/index") originalindexContent
 
-  return readTreeTests
+  return gitReadTreeTests
+
+-- Make sure if haskgit log produces expected output
+gitLogTests :: IO TestTree
+gitLogTests = do
+  let captureGitLogDefault = do
+        (actualLogDefault, ()) <- capture $ gitLog Nothing testGitDirLog
+        return (BSLC.pack actualLogDefault)
+
+  let commitHash = "15b0503ba06d25055d0b7a951a59b7eed0a97267"
+  let captureGitLogWithHash = do
+        (actualLogWithHash, ()) <- capture $ gitLog (Just $ BSC.pack commitHash) testGitDirLog
+        return (BSLC.pack actualLogWithHash)
+
+  let showTest =
+        testGroup
+          "gitLog"
+          [ goldenVsString "without commit hash" "test/TestData/expectedLogDefault.golden" captureGitLogDefault,
+            goldenVsString "with commit hash" "test/TestData/expectedLogWithHash.golden" captureGitLogWithHash
+          ]
+  return showTest

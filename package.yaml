@@ -52,6 +52,7 @@ tests:
       - HaskGit
       - bytestring
       - tasty
+      - tasty-golden
       - tasty-hunit
       - tasty-quickcheck
       - text
