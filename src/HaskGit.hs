@@ -14,6 +14,7 @@ module HaskGit
     gitReset,
     gitResetSoft,
     gitResetMixed,
+    gitUpdateSymbRef,
   )
 where
 
@@ -384,7 +385,7 @@ gitCommit message gitDir = do
         then gitUpdateRef (drop 5 branchP) newCommitHashStr gitDir
         else gitUpdateRef "HEAD" newCommitHashStr gitDir
 
--- Unstage, (cancel add and remove all “changed” from index)
+-- | Unstage, (cancel add and remove all “changed” from index)
 gitReset :: FilePath -> IO ()
 gitReset gitDir = do
   commitHash <- gitHeadCommit gitDir
@@ -394,7 +395,7 @@ gitReset gitDir = do
       gitReadTree (getHash treeHash) gitDir
     Nothing -> putStrLn "Error: invalid commit hash."
 
--- Change the branch pointer to point commit hash
+-- | Change the branch pointer to point commit hash
 -- Return commitObject if hash is valid
 -- Note: HEAD must be pointing to valid branch
 gitResetSoft :: String -> FilePath -> IO (Maybe GitCommit)
@@ -426,7 +427,7 @@ gitResetSoft commit gitDir = do
       putStrLn "Error: invalid hash value. Please give valid commit hash."
       return Nothing
 
--- Default reset command when commit hash is given
+-- | Default reset command when commit hash is given
 -- Change the branch pointer and update index capturing hash input
 gitResetMixed :: String -> FilePath -> IO ()
 gitResetMixed commit gitDir = do
@@ -497,38 +498,7 @@ gitShow hash gitDir = do
         Nothing -> return ()
         Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
--- | Get a list of parent (Git Object) in the tree
-gitParentList :: GitHash -> FilePath -> IO [GitObjectHash]
-gitParentList hash gitdir = do
-  obj <- hash2CommitObj hash gitdir
-  case obj of
-    Nothing -> return []
-    Just cmt@(Commit (_, _, parents, _, _, _)) -> do
-      recur <- Control.Monad.forM parents (`gitParentList` gitdir)
-      return ((cmt, hash) : concat recur)
-    _ -> return []
-
--- |
--- decompress gitObject and unpack ByteString to String
-gitObjectContent :: GitHash -> FilePath -> IO String
-gitObjectContent hash gitdir = do
-  let hashHex = BSC.unpack (getHash hash)
-  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
-  filecontent <- BSLC.readFile filename
-  return (BSLC.unpack (decompress filecontent))
-
--- |
--- Convert the hash to Git Object of Commit (only)
-hash2CommitObj :: GitHash -> FilePath -> IO (Maybe GitObject)
-hash2CommitObj hash gitdir = do
-  content <- gitObjectContent hash gitdir
-  case parse parseGitObject "" content of
-    Left error -> return Nothing
-    Right gitObject -> case gitObject of
-      Commit (_, _, _, _, _, _) -> return (Just gitObject)
-      _ -> return Nothing
-
--- | a list of Commit w/ git show, start from provided hash
+-- | A list of Commit w/ git show, start from provided hash
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 -- TODO: handle when head is detached
 gitLog :: Maybe ByteString -> FilePath -> IO ()
@@ -561,6 +531,35 @@ gitHeadCommit gitdir = do
     Just cmt -> case bsToHash $ BSC.pack cmt of
       Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
       Just hash -> return hash
+
+-- | Get a list of parent (Git Object) in the tree
+gitParentList :: GitHash -> FilePath -> IO [GitObjectHash]
+gitParentList hash gitdir = do
+  obj <- hash2CommitObj hash gitdir
+  case obj of
+    Nothing -> return []
+    Just cmt@(Commit (_, _, parents, _, _, _)) -> do
+      recur <- Control.Monad.forM parents (`gitParentList` gitdir)
+      return ((cmt, hash) : concat recur)
+    _ -> return []
+
+-- | decompress gitObject and unpack ByteString to String
+gitObjectContent :: GitHash -> FilePath -> IO String
+gitObjectContent hash gitdir = do
+  let hashHex = BSC.unpack (getHash hash)
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+  filecontent <- BSLC.readFile filename
+  return (BSLC.unpack (decompress filecontent))
+
+-- | Convert the hash to Git Object of Commit (only)
+hash2CommitObj :: GitHash -> FilePath -> IO (Maybe GitObject)
+hash2CommitObj hash gitdir = do
+  content <- gitObjectContent hash gitdir
+  case parse parseGitObject "" content of
+    Left error -> return Nothing
+    Right gitObject -> case gitObject of
+      Commit (_, _, _, _, _, _) -> return (Just gitObject)
+      _ -> return Nothing
 
 -- Validate commit hash and return commit object
 gitCommitHashToObj :: String -> FilePath -> IO (Maybe GitCommit)
