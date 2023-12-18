@@ -28,7 +28,6 @@ library
       GitParser
       HaskGit
       Index
-      Lib
       Ref
       Util
       Experiment
