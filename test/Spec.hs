@@ -288,7 +288,6 @@ parseSaveIndexTests = do
   return parseSaveIndexTests
 
 -- HEAD pointing to hash value at the end of the test.
--- TODO make sure HEAD points to correct branch or fix lock issue
 gitListBranchTests :: IO TestTree
 gitListBranchTests = do
   -- Case1: when HEAD is pointing main (default)
@@ -429,7 +428,6 @@ gitCommitTests = do
 
   -- Read git object file corresponding the recentCommitH and parse it
   let newCommitH = removeCorrupts newCommitHR
-  putStrLn $ "newCommitH: " ++ newCommitH
   content <- BSLC.readFile (testGitDirCommit ++ "/objects/" ++ take 2 newCommitH ++ "/" ++ drop 2 newCommitH)
   actualCommitObj <- case parse parseGitObject "" (BSLC.unpack (decompress content)) of
     Left err -> return Nothing
