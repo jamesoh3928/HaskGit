@@ -88,25 +88,25 @@ gitUpdateRefTests :: IO TestTree
 gitUpdateRefTests = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
-  let refMainPath = ".haskgit/refs/heads/main"
+  let refMainPath = testGitDir ++ "/refs/heads/main"
   originalMainRef <- TIO.readFile refMainPath
-  originalHeadRef <- TIO.readFile ".haskgit/HEAD"
+  originalHeadRef <- TIO.readFile (testGitDir ++ "/HEAD")
 
   -- Case1: refname, hash-value
-  let refTestPath = ".test_haskgit/refs/heads/test"
+  let refTestPath = testGitDir ++ "/refs/heads/test"
   gitUpdateRef "refs/heads/test" hash1 testGitDir
   let expectedCase1 = T.pack (hash1 ++ "\n")
   -- Use strick IO to prevent access to same file due Haskell lazy eval
   actualCase1 <- TIO.readFile refTestPath
 
   -- Case2: refname, refname
-  -- .haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
+  -- .test_haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
   gitUpdateRef "refs/heads/main" "refs/heads/test" testGitDir
   let expectedCase2 = T.pack (hash1 ++ "\n")
   actualCase2 <- TIO.readFile refMainPath
 
   -- Case3: symbolic-ref, hash-value
-  -- .haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
+  -- .test_haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
   gitUpdateRef "HEAD" hash2 testGitDir
   let expectedCase3 = T.pack (hash2 ++ "\n")
   actualCase3 <- TIO.readFile (testGitDir ++ "/HEAD")
@@ -124,7 +124,7 @@ gitUpdateRefTests = do
 
   -- Go back to original ref
   TIO.writeFile refMainPath originalMainRef
-  TIO.writeFile ".haskgit/HEAD" originalHeadRef
+  TIO.writeFile ".test_haskgit/HEAD" originalHeadRef
 
   return gitUpdateRefTests
 
