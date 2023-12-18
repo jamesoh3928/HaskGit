@@ -702,7 +702,7 @@ gitStatusModified gitDir = do
 --      it will stop at docs/test/. SEE function `getEntries`
 gitStatusUntracked :: FilePath -> IO [Status]
 gitStatusUntracked gitDir = do
-  entries <- getEntries "."
+  entries <- getEntries "." gitDir
   ls <- unpackIndex gitDir
   case ls of
     Nothing -> error "Error: the index is unable to unpack"
@@ -831,30 +831,45 @@ gitStatus gitDir = do
   deleted <- gitStatusDeleted gitDir
   staged <- gitStatusStaged gitDir
 
-  Control.Monad.unless (null staged) $ do
-    putStrLn "Staged: "
-    mapM_ printStatusInfo staged
+  -- Print current branch
+  ref <- readFile' (gitDir ++ "/HEAD")
+  if take 16 ref == "ref: refs/heads/"
+    then putStrLn ("On branch " ++ drop 16 ref)
+    else putStrLn ("HEAD detached at " ++ ref)
 
   Control.Monad.unless (null modified) $ do
-    putStrLn "Modified: "
+    putStrLn "Changes not staged for commit: "
+    putStrLn "  (use \"git add <file>...\" to update what will be committed)"
     mapM_ printStatusInfo modified
-
-  Control.Monad.unless (null deleted) $ do
-    putStrLn "Deleted: "
-    mapM_ printStatusInfo deleted
+    putStrLn ""
 
   Control.Monad.unless (null untracked) $ do
-    putStrLn "Untracked: "
+    putStrLn "Untracked Files: "
+    putStrLn "  (use \"haskgit add <file>...\" to include in what will be committed)"
     mapM_ printStatusInfo untracked
+    putStrLn ""
+
+  Control.Monad.unless (null staged) $ do
+    putStrLn "Staged, changes to be committed: "
+    mapM_ printStatusInfo staged
+    putStrLn ""
+
+  Control.Monad.unless (null deleted) $ do
+    putStrLn "Changes not staged for commit:"
+    mapM_ printStatusInfo deleted
+    putStrLn ""
+
+  Control.Monad.when (null modified && null untracked && null staged && null deleted) $ do
+    putStrLn "nothing to commit, working tree clean"
 
 -- TODO for future, there are two colors (red and green) to indicate modified and deleted
 --    to distinguish if the blob is staged (green for True, and red for false)
 printStatusInfo :: Status -> IO ()
 printStatusInfo s =
   case s of
-    Modified (f, _) -> putStrLn $ "M  " ++ f
-    Added (f, _) -> putStrLn $ "A  " ++ f
-    Deleted (f, _) -> putStrLn $ "D  " ++ f
+    Modified (f, _) -> putStrLn $ "\tmodified: " ++ f
+    Added (f, _) -> putStrLn $ "\tnew file: " ++ f
+    Deleted (f, _) -> putStrLn $ "\tdeleted:  " ++ f
     -- In git, it uses two colors (red and green) of "M"
     --  in this case, use "U".
     Untracked (f, _) -> putStrLn $ "\t\t" ++ f

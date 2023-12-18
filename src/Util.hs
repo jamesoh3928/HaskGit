@@ -110,13 +110,13 @@ relativeToAbolutePath relativePath = do
 
 -- | Get a list of all valid entries in current directory
 --  without the speical entries . and .., empty directories, ignored entires
-recurEntries :: FilePath -> IO [FilePath]
-recurEntries dir = do
+recurEntries :: FilePath -> FilePath -> IO [FilePath]
+recurEntries dir gitDir = do
   isDir <- doesDirectoryExist dir
   if isDir
     then do
       entriesCurrDir <- listDirectory dir
-      entriesCurrDirS <- mapM (appendSlash dir) (filter (/= ".git") entriesCurrDir)
+      entriesCurrDirS <- mapM (appendSlash dir) (filter (\x -> x /= gitDir && x /= ".git") entriesCurrDir)
       nonEmptyEntries <-
         Control.Monads.filterM
           ( \f ->
@@ -125,14 +125,14 @@ recurEntries dir = do
                 else return True
           )
           entriesCurrDirS
-      validEntries <- filterIgnoredPath nonEmptyEntries
-      concat <$> mapM recurEntries validEntries
+      validEntries <- filterIgnoredPath nonEmptyEntries gitDir
+      concat <$> mapM (`recurEntries` gitDir) validEntries
     else return [dir]
 
 -- | get all valid entries
-getEntries :: FilePath -> IO [FilePath]
-getEntries dir = do
-  paths <- recurEntries dir
+getEntries :: FilePath -> FilePath -> IO [FilePath]
+getEntries dir gitDir = do
+  paths <- recurEntries dir gitDir
   let relPaths = Data.List.nub $ map (makeRelative dir) paths
   return relPaths
 
@@ -185,8 +185,8 @@ ifIgnored :: FilePath -> FilePath -> Bool
 ifIgnored path pattern = match (compile pattern) path
 
 -- filter ignored Path
-filterIgnoredPath :: [FilePath] -> IO [FilePath]
-filterIgnoredPath ls = do
+filterIgnoredPath :: [FilePath] -> FilePath -> IO [FilePath]
+filterIgnoredPath ls gitDir = do
   patterns <- getGitIgnores
   return $ filter (\path -> not (any (ifIgnored path) patterns)) ls
 
