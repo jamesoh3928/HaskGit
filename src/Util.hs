@@ -12,6 +12,7 @@ module Util
     removeCorrupts,
     listFilesRecursively,
     hashListFiles,
+    blobToHash
   )
 where
 
@@ -129,7 +130,7 @@ recurEntries dir = do
                 else return True
           )
           entriesCurrDirS
-      validEntries <- filterIgnoredPath (map (makeRelative dir) nonEmptyEntries)
+      validEntries <- filterIgnoredPath nonEmptyEntries
       subEntries <- concat <$> mapM recurEntries validEntries
       return (validEntries ++ subEntries)
     else return [dir]
@@ -148,8 +149,7 @@ fullRecurEntries dir = do
     then do
       entriesCurrDir <- listDirectory dir
       entriesCurrDirS <- mapM (appendSlash dir) (filter (/= ".git") entriesCurrDir)
-      subEntries <- concat <$> mapM fullRecurEntries entriesCurrDirS
-      return (entriesCurrDirS ++ subEntries)
+      concat <$> mapM fullRecurEntries entriesCurrDirS
     else return [dir]
 
 getFullEntries :: FilePath -> IO [FilePath]
@@ -183,7 +183,6 @@ getGitIgnores = do
   content <- readFile ".gitignore"
   return $ lines content
 
--- TOCHECK if it is applicable to pattern for sub-directories
 ifIgnored :: FilePath -> FilePath -> Bool
 ifIgnored path pattern = match (compile pattern) path
 
@@ -259,8 +258,3 @@ hashListFiles (x : xs) = do
   rest <- hashListFiles xs
   return (hash : rest)
 
--- stringToGitHash :: String -> GitHash
--- stringToGitHash = GitHash BSC.pack
-  -- case bsToHash (BSC.pack str) of
-  --   Nothing -> getHash (BSC.pack "000")
-  --   Just hs -> hs

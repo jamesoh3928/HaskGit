@@ -12,16 +12,9 @@ module HaskGit
     gitRevList,
     gitHeadCommit,
     gitReadTree,
-    gitStatusUntracked,
-    gitStatusDeleted,
-    gitStatusModifiedHash,
     gitHashObject,
     gitCheckout,
-    getIndexEntry,
-    gitFlatTree,
-    hash2CommitObj,
-    hash2Tree,
-    gitStatusStaged,
+    gitStatus,
   )
 where
 
@@ -45,7 +38,6 @@ import GitHash (GitHash, bsToHash, getHash)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index
-import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, hasFile, removeEntries, saveIndexFile)
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory, removeFile)
 import System.FilePath
@@ -358,9 +350,6 @@ gitAdd paths gitDir = do
       newIndex <- addOrUpdateEntries relativePaths index gitDir
       saveIndexFile (gitIndexSerialize newIndex) gitDir
 
-gitStatus :: ByteString -> IO ()
-gitStatus = undefined
-
 -- Commit the current index (staging area) to the repository with given message.
 -- Out git commit does not gurantee that it will abort when there is no files to commit.
 gitCommit :: String -> FilePath -> IO ()
@@ -543,6 +532,7 @@ hashBlob file = do
       hash = SHA1.hash (header `BSC.append` content)
   return hash
 
+-- TODO in the future
 hashTree :: FilePath -> IO ByteString
 hashTree path = undefined
 
@@ -557,15 +547,17 @@ getIndexEntry gitDir file = do
       Control.Monad.forM_
         ls
         ( \e ->
-            -- print (name e) -- print name for all entries
             Control.Monad.when (name e == file) $ do
               print (getHash (sha e))
-              -- return ()
         )
 
--- putStrLn $ "Not find " ++ file ++ " in the index"
+data Status
+  = Modified (FilePath, GitHash)
+  | Added (FilePath, GitHash)
+  | Deleted (FilePath, GitHash)
+  | Untracked (FilePath, GitHash)
+  deriving (Show)
 
--- TODO: hash a object that is a directory
 gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
   exists <- doesPathExist file
@@ -576,72 +568,6 @@ gitHashObject file = do
         then hashTree file >>= putStrLn . (BSC.unpack . encode)
         else hashBlob file >>= putStrLn . (BSC.unpack . encode)
     else putStrLn $ "The path " ++ file ++ " doesn't exist"
-
--- | as there exists entry that is not in the filesystem
--- this function will skip (checking if)
-
---- - entry if not found (in the future, this part may be merged w/ status for deleted)
---  - it skips any directory (dir should not be appeared in index)
---  - in the test, it skips something like ".test_read_tree"
-gitStatusModifiedHash :: FilePath -> IO ()
-gitStatusModifiedHash gitDir = do
-  ls <- unpackIndex gitDir
-  case ls of
-    Nothing -> putStrLn "Error: the index is unable to unpack"
-    Just (GitIndex ls) -> do
-      modified <-
-        Control.Monad.filterM
-          ( \e -> do
-              let path = name e
-              exists <- doesPathExist path
-              isDir <- doesDirectoryExist path
-              if exists && not isDir
-                then do
-                  hash <- hashBlob path
-                  return $ getHash (sha e) /= encode hash
-                else return False
-          )
-          ls
-      mapM_ (putStrLn . name) modified
-
--- |
--- ignore
---  - what is stated in .gitignore
---  - ignore the content under a new directory (just display the newDir/)
---  - ignore empty directory, or directory with sub-directory only
--- FIXME:
---  for subdirectory like this "docs/test/test1/file"
---      return docs/test;
---      the algo for testing if the directory has file doesn't work for it.
---      it will stop at docs/test/. SEE function `getEntries`
-gitStatusUntracked :: FilePath -> IO ()
-gitStatusUntracked gitDir = do
-  entries <- getEntries "."
-  ls <- unpackIndex gitDir
-  case ls of
-    Nothing -> putStrLn "Error: the index is unable to unpack"
-    Just (GitIndex ls) -> do
-      let untracked = filter (not . hasFile (GitIndex ls)) entries
-          skippedPath = skipNewDirContent . skipNoUpdatedDir $ untracked
-      mapM_ putStrLn (sort skippedPath)
-  where
-    -- implement it to skip something like
-    -- "NewDir/wow" if exist "NewDir/" in the list
-    skipNewDirContent paths =
-      filter (\path -> not (any (\dir -> dir /= path && dir `isPrefixOf` path) paths)) paths
-    -- skip Dir/ without file under this dir is new
-    skipNoUpdatedDir paths =
-      filter (\path -> last path /= '/' || any (\dir -> dir /= path && path `isPrefixOf` dir && last dir /= '/') paths) paths
-
-gitStatusDeleted :: FilePath -> IO ()
-gitStatusDeleted gitDir = do
-  entries <- getFullEntries "."
-  ls <- unpackIndex gitDir
-  case ls of
-    Nothing -> putStrLn "Error: the index is unable to unpack"
-    Just (GitIndex ls) -> do
-      let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
-      mapM_ (putStrLn . name) deleted
 
 -- | get the most updated commit
 -- extract ./haskgit/HEAD to get the path that contains the commit
@@ -657,12 +583,6 @@ gitHeadCommit gitdir = do
     Just cmt -> case bsToHash $ BSC.pack cmt of
       Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
       Just hash -> return hash
-
--- gitHeadEntries :: FilePath -> [GitHash]
-gitHeadEntries :: FilePath -> IO ()
-gitHeadEntries = undefined
-
--- hashType :: GitHash -> FilePath ->
 
 -- | this function is used to convert hash of a tree into tree object
 -- NOTE this one can be merged w/ hash2CommitObj
@@ -686,25 +606,74 @@ hash2Obj hash gitDir = do
       Commit _ -> return (Just gitObject)
       Blob _ -> return (Just gitObject)
 
-hash2Tree :: String -> FilePath -> IO ()
-hash2Tree hash gitDir = do
-  case bsToHash $ BSC.pack hash of
-    Nothing -> print "wrong hash"
-    Just hash -> do
-      content <- gitObjectContent hash gitDir
-      case parse parseGitObject "" content of
-        Left error -> fail $ "<hash2TreeList>: " ++ show error
-        Right gitObject ->
-          -- case gitObject of
-          print gitObject
+-- | as there exists entry that is not in the filesystem
+-- this function will skip (checking if)
+-- - entry if not found (in the future, this part may be merged w/ status for deleted)
+--  - it skips any directory (dir should not be appeared in index)
+--  - in the test, it skips something like ".test_read_tree"
+gitStatusModified :: FilePath -> IO [Status]
+gitStatusModified gitDir = do
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> error "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      modified <-
+        Control.Monad.filterM
+          ( \e -> do
+              let path = name e
+              exists <- doesPathExist path
+              isDir <- doesDirectoryExist path
+              if exists && not isDir
+                then do
+                  hash <- hashBlob path
+                  return $ getHash (sha e) /= encode hash
+                else return False
+          )
+          ls
+      return $ map (\i -> Modified (name i, sha i)) modified
 
--- Tree (_, [(_, path, hs)]) -> return (Just gitObject)
--- _ -> return Nothing
--- gitFlatTree :: GitObject -> [GitObject]
--- NOTE: you need append parent dir with sub-dir or filename
--- NOTE: commit with two parents can't be parsed.
--- You need directory w/o branch for test
---  The HEAD needs to point a address w/ a commit that is not used for parent
+-- |
+-- ignore
+--  - what is stated in .gitignore
+--  - ignore the content under a new directory (just display the newDir/)
+--  - ignore empty directory, or directory with sub-directory only
+-- FIXME: (in the future)
+--  for subdirectory like this "docs/test/test1/file"
+--      return docs/test;
+--      the algo for testing if the directory has file doesn't work for it.
+--      it will stop at docs/test/. SEE function `getEntries`
+gitStatusUntracked :: FilePath -> IO [Status]
+gitStatusUntracked gitDir = do
+  entries <- getEntries "."
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> error "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      let untracked = filter (not . hasFile (GitIndex ls)) entries
+          skippedPath = skipNewDirContent . skipNoUpdatedDir $ untracked
+      mapM untrackedS (sort skippedPath)
+  where
+    untrackedS p = do
+      hash <- blobToHash p
+      return $ Untracked (p, hash)
+    -- implement it to skip something like
+    -- "NewDir/wow" if exist "NewDir/" in the list
+    skipNewDirContent paths =
+      filter (\path -> not (any (\dir -> dir /= path && dir `isPrefixOf` path) paths)) paths
+    -- skip Dir/ without file under this dir is new
+    skipNoUpdatedDir paths =
+      filter (\path -> last path /= '/' || any (\dir -> dir /= path && path `isPrefixOf` dir && last dir /= '/') paths) paths
+
+gitStatusDeleted :: FilePath -> IO [Status]
+gitStatusDeleted gitDir = do
+  entries <- getFullEntries "."
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> error "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
+      mapM (\p -> return $ Untracked (name p, sha p)) deleted
+
 gitFlatTree :: FilePath -> IO [(String, FilePath, GitHash)]
 gitFlatTree gitDir =
   do
@@ -721,7 +690,8 @@ gitFlatTree gitDir =
               result <- recTreeList "." gitDir ls
               return $ map (\(s, p, g) -> (s, makeRelative "." p, g)) result
 
--- TBD: append parent path
+-- | starting from the tree the HEAD points to,
+-- get a full list of "blob" node in this tree and parent trees
 recTreeList :: FilePath -> FilePath -> [(String, FilePath, GitHash)] -> IO [(String, FilePath, GitHash)]
 recTreeList _ _ [] = return []
 recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
@@ -733,12 +703,10 @@ recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
         Blob (_, _) ->
           recTreeList parentPath gitDir xs
             >>= \list -> return (appendParent parentPath ts : list)
-        Commit (_, _, _, _, _, _) -> recTreeList parentPath gitDir xs -- simply skip commits (no care of old modification, only these things that are not changed)
+        Commit (_, _, _, _, _, _) -> recTreeList parentPath gitDir xs
         Tree (_, tr) ->
           recTreeList (parentPath </> path) gitDir tr
-            >>=
-            -- BUG: maybe
-            \list ->
+            >>= \list ->
               recTreeList parentPath gitDir xs
                 >>= \list' -> return (list ++ list')
   where
@@ -746,9 +714,6 @@ recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
     appendParent p1 (mode, ph, hs) = (mode, p1 </> ph, hs)
 
 -- Tree
-
-data Status = Modified (FilePath, GitHash) | Added (FilePath, GitHash) | Deleted (FilePath, GitHash) | Untracked (FilePath, GitHash)
-  deriving (Show)
 
 -- | used for detecting added object (on the stage /index) but not in HEAD
 -- deleted: in head but not in index
@@ -759,14 +724,14 @@ data Status = Modified (FilePath, GitHash) | Added (FilePath, GitHash) | Deleted
 --    entries in HEAD compare with index entries to know if any file changed or deleted
 
 ---   index entries compare with entries in HEAD to know if any file added
-gitStatusStaged :: FilePath -> IO ()
+gitStatusStaged :: FilePath -> IO [Status]
 gitStatusStaged gitDir = do
   indexL <- unpackIndex gitDir
   case indexL of
     Nothing -> fail $ error "<gitStatusStaged>: fail to unpack index"
     Just (GitIndex is) -> do
       headL <- gitFlatTree gitDir
-      mapM_ printStatusInfo (loopHeadCompareIndex headL is ++ loopIndexCompareHead headL is)
+      return (loopHeadCompareIndex headL is ++ loopIndexCompareHead headL is)
   where
     loopHeadCompareIndex :: [(String, FilePath, GitHash)] -> [GitIndexEntry] -> [Status]
     loopHeadCompareIndex [] _ = []
@@ -801,6 +766,31 @@ gitStatusStaged gitDir = do
     headPath (_, ph, _) = ph
     headHash (_, _, hs) = hs
 
+gitStatus :: FilePath -> IO ()
+gitStatus gitDir = do
+  modified <- gitStatusModified gitDir
+  untracked <- gitStatusUntracked gitDir
+  deleted <- gitStatusDeleted gitDir
+  staged <- gitStatusStaged gitDir
+
+  Control.Monad.unless (null staged) $ do
+    putStrLn "Staged: "
+    mapM_ printStatusInfo staged
+
+  Control.Monad.unless (null modified) $ do
+    putStrLn "Modified: "
+    mapM_ printStatusInfo modified
+
+  Control.Monad.unless (null deleted) $ do
+    putStrLn "Deleted: "
+    mapM_ printStatusInfo deleted
+
+  Control.Monad.unless (null untracked) $ do
+    putStrLn "Untracked: "
+    mapM_ printStatusInfo untracked
+
+-- TODO for future, there are two colors (red and green) to indicate modified and deleted
+--    to distinguish if the blob is staged (green for True, and red for false)
 printStatusInfo :: Status -> IO ()
 printStatusInfo s =
   case s of
@@ -809,4 +799,4 @@ printStatusInfo s =
     Deleted (f, _) -> putStrLn $ "D  " ++ f
     -- In git, it uses two colors (red and green) of "M"
     --  in this case, use "U".
-    Untracked (f, _) -> putStrLn $ "U  " ++ f
+    Untracked (f, _) -> putStrLn $ "?? " ++ f

@@ -55,7 +55,7 @@ processArgs args gitDir =
         _ -> putStrLn "Usage: hash-object <file>"
     "status" ->
       case tail args of
-        [] -> gitStatusModifiedHash gitDir
+        [] -> gitStatus gitDir
     "branch" ->
       case tail args of
         [] -> gitListBranch gitDir
@@ -65,26 +65,6 @@ processArgs args gitDir =
       case tail args of
         [object] -> gitCheckout object gitDir
         _ -> putStrLn "Error: haskgit checkout needs one argument <branch-name> or <commit-hash>"
-        [] -> gitStatusModifiedHash gitDir
-    "index" -> -- ^ used for test
-      case tail args of
-        [path] -> getIndexEntry gitDir path
-    "hash2commit" ->
-      case tail args of
-        [hash] -> do 
-            case bsToHash (B.pack hash) of
-              Nothing -> error "invalid hash"
-              Just bs -> do
-                  obj <- hash2CommitObj bs gitDir
-                  case obj of
-                    Nothing -> error "fail on hash2CommitObj"
-                    Just obj -> print obj
-    "hash2tree" ->
-      case tail args of
-        [hs] -> hash2Tree hs gitDir
-    "test" ->
-      case tail args of
-        [] -> gitStatusStaged gitDir
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
