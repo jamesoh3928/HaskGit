@@ -4,33 +4,28 @@ module HaskGit
   ( gitAdd,
     gitShow,
     gitUpdateRef,
-    gitUpdateSymbRef,
     gitListBranch,
     gitCreateBranch,
     gitLog,
     gitCommit,
     gitRevList,
-    gitHeadCommit,
     gitReadTree,
     gitCheckout,
   )
 where
 
-import Codec.Compression.Zlib (compress, decompress)
+import Codec.Compression.Zlib (decompress)
 import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.Graph (path)
 import Data.List (sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Data.Time.Format
-import Foreign (castForeignPtr)
-import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
@@ -45,7 +40,7 @@ import Util
 
 -------------------------- List of plumbing commands --------------------------
 
--- This command creates a tree object from the current index (staging area).
+-- | Creates a tree object from the current index file
 gitWriteTree :: FilePath -> IO (Maybe GitHash)
 gitWriteTree gitDir = do
   index <- BSC.readFile (gitDir ++ "/index")
@@ -65,7 +60,7 @@ gitWriteTree gitDir = do
         -- Return the hash of the root tree object after traversing all the keys
         Just hash -> return (Just hash)
   where
-    -- \| Given a list of keys, and the dict, create and save the tree object and add to dict if the parent directory is in the dict
+    -- Given a list of keys, and the dict, create and save the tree object and add to dict if the parent directory is in the dict
     traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
     traverse [] _ = return Nothing
     traverse (k : ks) dict = do
@@ -238,16 +233,16 @@ gitRevList hashBs gitdir = do
       parents <- gitParentList hash gitdir
       hashList <-
         concat
-          <$> Control.Monad.forM
-            parents
+          <$> Control.Monad.mapM
             ( \(Commit (_, _, ps, _, _, _), _) ->
-                Control.Monad.forM ps (return . getHash)
+                Control.Monad.mapM (return . getHash) ps
             )
+            parents
       if not (null hashList)
         then do
           putStrLn $ BSC.unpack (getHash hash)
           mapM_ (putStrLn . BSC.unpack) hashList
-        else print $ show hash ++ " is not a commit"
+        else print $ show (getHash hash) ++ " is not a commit"
 
 -- | Copy files from the index to the working tree
 gitCheckoutIndex :: FilePath -> IO ()
@@ -331,6 +326,7 @@ gitAdd paths gitDir = do
           ( \case
               Just x -> x
               Nothing ->
+                -- We should abort program if there is an invalid path
                 error "Invalid path given to gitAdd. Please input a valid path."
           )
           pathsWithMaybe
@@ -347,7 +343,7 @@ gitAdd paths gitDir = do
 gitStatus :: ByteString -> IO ()
 gitStatus = undefined
 
--- Commit the current index (staging area) to the repository with given message.
+-- | Commit the current index (staging area) to the repository with given message.
 -- Out git commit does not gurantee that it will abort when there is no files to commit.
 gitCommit :: String -> FilePath -> IO ()
 gitCommit message gitDir = do
@@ -379,7 +375,7 @@ gitCommit message gitDir = do
 
       -- Convert gitHash to encoded string hash value
       let newCommitHashStr = BSC.unpack (getHash newCommitHash)
-      -- TODO: (real git prints how many files and lines changed. Can we do this?)
+      -- Real git prints how many files and lines changed, but we are printing created commit
       putStrLn $ "Created commit " ++ newCommitHashStr
 
       -- Call updateRef to update the current branch to the new commit hash
@@ -391,15 +387,10 @@ gitCommit message gitDir = do
 gitReset :: ByteString -> IO ()
 gitReset = undefined
 
--- Branch name, change branch pointer and checkout
--- Commit hash,
--- gitCheckout :: ByteString -> IO ()
+-- | Checkout the given commit or branch.
 gitCheckout :: String -> FilePath -> IO ()
 gitCheckout arg gitDir = do
-  -- Check if branch
   let ref = "refs/heads/" ++ arg
-  -- let branchPath = refToFilePath branch gitDir
-  -- isBranch <- doesFileExist branchPath
 
   refHash <- gitRefToCommit ref gitDir
   case refHash of
@@ -491,6 +482,7 @@ hash2CommitObj hash gitdir = do
 
 -- | a list of Commit w/ git show, start from provided hash
 -- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
+-- TODO: handle when head is detached
 gitLog :: Maybe ByteString -> FilePath -> IO ()
 gitLog hashBsM gitdir = do
   hash <- case hashBsM of
@@ -504,6 +496,8 @@ gitLog hashBsM gitdir = do
         putStrLn $ gitShowStr (cmt, hs)
     )
     parents
+
+-------------------------- Other helper functions --------------------------
 
 -- | get the most updated commit
 -- extract ./haskgit/HEAD to get the path that contains the commit
