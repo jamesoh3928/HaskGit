@@ -30,7 +30,6 @@ library
       Index
       Ref
       Util
-      Experiment
   other-modules:
       Paths_HaskGit
   autogen-modules:

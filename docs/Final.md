@@ -8,8 +8,7 @@ Team members:
 
 ## Summary Description
 
-Reiterate the summary description of the overall goal of the project (updated as
-necessary from the Proposal and/or Checkpoint documents).
+HaskGit is a Git implementation crafted in Haskell, with the primary objective of providing a lightweight and minimalistic set of Git commands for local file version control.
 
 ## Project Execution Summary
 
@@ -143,11 +142,15 @@ Mention something about Operating System
 
 
 TODO list for our project
-Git status
-Git add/commit testing
+Move around functions to the correct file
+Git status/testing
 Git checkout testing
 Git reset testing
-Update existing tests to use tasty-golden
-Move around functions to the correct file
 Write final doc
 Prepare for the presentation
+
+
+### Testing
+- Update existing tests to use tasty-golden
+- Tests for porcelain commands
+- Add test was done by parseIndex, saveIndex, and addEntry because directly updating index in metadata did not seem ideal.
