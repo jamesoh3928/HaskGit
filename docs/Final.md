@@ -144,8 +144,7 @@ Mention something about Operating System
 
 TODO list for our project
 Git status
-Git log testing
-Git commit testing
+Git add/commit testing
 Git checkout testing
 Git reset testing
 Update existing tests to use tasty-golden

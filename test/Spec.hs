@@ -402,3 +402,16 @@ gitLogTests = do
             goldenVsString "with commit hash" "test/TestData/expectedLogWithHash.golden" captureGitLogWithHash
           ]
   return showTest
+
+-- TODO: James
+-- gitAddTests :: IO TestTree
+-- gitAddTests = undefined
+
+-- gitCommitTests :: IO TestTree
+-- gitCommitTests = do
+--   let commitTest =
+--         testGroup
+--           "gitCommit"
+--           [ goldenVsFile "commit test" "test/TestData/expectedCommit.golden" (testGitDir ++ "TODO") (gitCommit "Commit in gitCommitTests" testGitDir)
+--           ]
+--   return commitTest
