@@ -30,7 +30,6 @@ library
       Index
       Ref
       Util
-      Experiment
   other-modules:
       Paths_HaskGit
   autogen-modules:
@@ -86,6 +85,7 @@ test-suite HaskGit-test
     , shelly
     , silently
     , tasty
+    , tasty-golden
     , tasty-hunit
     , tasty-quickcheck
     , text

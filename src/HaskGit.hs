@@ -360,12 +360,10 @@ gitCommit message gitDir = do
     Just treeHash -> do
       -- Get the current commit hash
       branchP <- readFile' (gitDir ++ "/HEAD")
-      curCommitMaybe <- gitRefToCommit (drop 5 branchP) gitDir
+      curCommitMaybe <- gitHeadCommit gitDir
       curCommitHash <- case curCommitMaybe of
         Nothing -> return []
-        Just hash -> case bsToHash (BSC.pack hash) of
-          Nothing -> return []
-          Just hashV -> return [hashV]
+        Just hash -> return [hash]
 
       -- Get all data we need to create commit object
       utcTime <- getCurrentTime
@@ -393,12 +391,15 @@ gitCommit message gitDir = do
 -- | Unstage, (cancel add and remove all “changed” from index)
 gitReset :: FilePath -> IO ()
 gitReset gitDir = do
-  commitHash <- gitHeadCommit gitDir
-  commitObj <- hash2CommitObj commitHash gitDir
-  case commitObj of
-    Just (Commit (_, treeHash, _, _, _, _)) -> do
-      gitReadTree (getHash treeHash) gitDir
-    Nothing -> putStrLn "Error: invalid commit hash."
+  headM <- gitHeadCommit gitDir
+  case headM of
+    Nothing -> putStrLn "HEAD is not pointing to any commit, no reset to perform."
+    Just hash -> do
+      commitObj <- hash2CommitObj hash gitDir
+      case commitObj of
+        Just (Commit (_, treeHash, _, _, _, _)) -> do
+          gitReadTree (getHash treeHash) gitDir
+        Nothing -> putStrLn "Error: HEAD is pointing invalid commit hash."
 
 -- | Change the branch pointer to point commit hash
 -- Return commitObject if hash is valid
@@ -549,7 +550,11 @@ hash2CommitObj hash gitdir = do
 gitLog :: Maybe ByteString -> FilePath -> IO ()
 gitLog hashBsM gitdir = do
   hash <- case hashBsM of
-    Nothing -> gitHeadCommit gitdir
+    Nothing -> do
+      headM <- gitHeadCommit gitdir
+      case headM of
+        Nothing -> error "HEAD is not pointing to any commit, no log to print."
+        Just hash -> return hash
     Just hashBs -> case bsToHash hashBs of
       Nothing -> error "Invalid hash value given to gitLog. Please input a valid hash value."
       Just hash -> return hash
@@ -621,10 +626,10 @@ gitHashObject file = do
         else hashBlob file >>= putStrLn . (BSC.unpack . encode)
     else putStrLn $ "The path " ++ file ++ " doesn't exist"
 
--- | get the most updated commit
+-- | Get the commit hash that the HEAD is pointing to if exists
 -- extract ./haskgit/HEAD to get the path that contains the commit
 --   because the path would be different for different branch
-gitHeadCommit :: FilePath -> IO GitHash
+gitHeadCommit :: FilePath -> IO (Maybe GitHash)
 gitHeadCommit gitdir = do
   head <- readFile' (gitdir ++ "/HEAD")
   if take 5 head == "ref: "
@@ -632,15 +637,14 @@ gitHeadCommit gitdir = do
     do
       commit <- gitRefToCommit (drop 5 head) gitdir
       case commit of
-        -- Should never occur
-        Nothing -> error "HEAD is pointing to invalid ref. Please check your .haskgit/HEAD file."
+        Nothing -> return Nothing
         Just cmt -> case bsToHash $ BSC.pack cmt of
-          Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
-          Just hash -> return hash
+          Nothing -> return Nothing
+          Just hash -> return (Just hash)
     else -- HEAD is pointing to commit hash
     case bsToHash $ BSC.pack (removeCorrupts head) of
-      Nothing -> error "HEAD is pointing to invalid ref (invalid hash value). Please check your .haskgit/HEAD file."
-      Just hash -> return hash
+      Nothing -> return Nothing
+      Just hash -> return (Just hash)
 
 -- | this function is used to convert hash of a tree into tree object
 -- NOTE this one can be merged w/ hash2CommitObj
@@ -735,7 +739,10 @@ gitStatusDeleted gitDir = do
 gitFlatTree :: FilePath -> IO [(String, FilePath, GitHash)]
 gitFlatTree gitDir =
   do
-    cmt <- gitHeadCommit gitDir
+    cmtM <- gitHeadCommit gitDir
+    cmt <- case cmtM of
+      Nothing -> error "HEAD is not pointing to any commit, no log to print."
+      Just hash -> return hash
     obj <- hash2CommitObj cmt gitDir
     case obj of
       Nothing -> fail $ error "This Hash is failed to covert to GitObject for Commit"

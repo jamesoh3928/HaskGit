@@ -1,0 +1,25 @@
+commit 3eb064f52519deefa3c8678b23be5f10bb50afbd
+Author: Codey Devinson <codey@example.com>
+Date:   Mon Dec 18 10:05:24 2023 -0500
+
+    world.dat
+
+commit 8a8cb488e4520922afebebcfd88b964c4829c878
+Author: Codey Devinson <codey@example.com>
+Date:   Mon Dec 18 10:05:00 2023 -0500
+
+    hello.dat
+
+commit 15b0503ba06d25055d0b7a951a59b7eed0a97267
+Author: Codey Devinson <codey@example.com>
+Date:   Mon Dec 18 10:04:27 2023 -0500
+
+    Adding text1.txt
+
+commit 78a73c511bcb84c0ff5cb6fd471be649017094bb
+Author: James Oh <jo9347@cs.rit.edu>
+Date:   Sun Dec 17 18:40:21 2023 -0500
+
+    Initial commit
+
+
