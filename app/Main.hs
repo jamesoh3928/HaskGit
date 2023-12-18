@@ -58,7 +58,14 @@ processArgs args gitDir =
     "checkout" ->
       case tail args of
         [object] -> gitCheckout object gitDir
-        _ -> putStrLn "Error: haskgit checkout needs one argument <branch-name> or <commit-hash>"
+        [flag, object] ->
+          -- Create a new branch and checkout
+          if flag == "-b"
+            then do
+              gitCreateBranch object gitDir
+              gitCheckout object gitDir
+            else putStrLn "Error: haskgit checkout needs one argument. haskgit checkout [-b] <branch-name> or <commit-hash>"
+        _ -> putStrLn "Error: haskgit checkout needs one argument. haskgit checkout [-b] <branch-name> or <commit-hash>"
     "reset" ->
       case tail args of
         [] -> gitReset gitDir
