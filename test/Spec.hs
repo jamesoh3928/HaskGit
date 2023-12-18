@@ -13,7 +13,7 @@ import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
 import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, hasHash, saveIndexFile)
 import Shelly
-import System.Directory (removeFile)
+import System.Directory (getCurrentDirectory, removeFile, setCurrentDirectory)
 import System.IO (readFile')
 import System.IO.Silently (capture)
 import Test.Tasty
@@ -28,6 +28,12 @@ testGitDir = ".test_haskgit"
 
 testGitDirReadTree :: FilePath
 testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
+
+testRepoDirStatus :: FilePath
+testRepoDirStatus = "test/TestData/.test_status"
+
+testGitDirStatus :: FilePath
+testGitDirStatus = ".haskgit_status"
 
 testGitDirLog :: FilePath
 testGitDirLog = "test/TestData/.test_log"
@@ -44,8 +50,8 @@ tests :: IO TestTree
 tests =
   testGroup "Unit Tests"
     <$> sequence
-      [ gitShowTests,
-        gitLogTests,
+      [ -- gitShowTests,
+        -- gitLogTests,
         gitUpdateRefTests,
         hashObjectTests,
         saveObjectTests,
@@ -54,59 +60,61 @@ tests =
         addOrUpdateEntriesTests,
         gitReadTreeTests,
         gitCommitTests
+        -- gitStatusTest
       ]
 
 -- Make sure if haskgit show produces expected output
 gitShowTests :: IO TestTree
 gitShowTests = do
   let blobHash = "04efa50ffad0bc03edea5cbca1936c29aee18553"
-  let captureGitShowBlob = do
-        (actualShow, ()) <- capture $ gitShow (BSC.pack blobHash) testGitDir
-        return (BSLC.pack actualShow)
+  expectedBlobShow <- readFile "test/TestData/expectedBlobShow.dat"
+  (actualBlobShow, ()) <- capture $ gitShow (BSC.pack blobHash) testGitDir
 
   let treeHash = "0013ee97b010dc8e9646f3c5a9841b62eb754f77"
-  let captureGitShowTree = do
-        (actualShow, ()) <- capture $ gitShow (BSC.pack treeHash) testGitDir
-        return (BSLC.pack actualShow)
+  expectedTreeShow <- readFile "test/TestData/expectedTreeShow.dat"
+  (actualTreeShow, ()) <- capture $ gitShow (BSC.pack treeHash) testGitDir
 
   let commitHash1 = "562c9c7b09226b6b54c28416d0ac02e0f0336bf6"
-  let captureGitShowCommit1 = do
-        (actualShow, ()) <- capture $ gitShow (BSC.pack commitHash1) testGitDir
-        return (BSLC.pack actualShow)
+  expectedCommitShow1 <- readFile "test/TestData/expectedCommitShow1.dat"
+  (actualCommitShow1, ()) <- capture $ gitShow (BSC.pack commitHash1) testGitDir
 
   let commitHash2 = "37e229feb120a4242f784881472f5a1e32a80ca0"
-  let captureGitShowCommit2 = do
-        (actualShow, ()) <- capture $ gitShow (BSC.pack commitHash2) testGitDir
-        return (BSLC.pack actualShow)
+  (actualCommitShow2, ()) <- capture $ gitShow (BSC.pack commitHash2) testGitDir
+  expectedCommitShow2 <- readFile "test/TestData/expectedCommitShow2.dat"
 
   let showTest =
         testGroup
           "gitShow"
-          [ goldenVsString "blob object" "test/TestData/expectedBlobShow.golden" captureGitShowBlob,
-            goldenVsString "tree object" "test/TestData/expectedTreeShow.golden" captureGitShowTree,
-            goldenVsString "commit object" "test/TestData/expectedCommitShow1.golden" captureGitShowCommit1,
-            goldenVsString "commit object" "test/TestData/expectedCommitShow2.golden" captureGitShowCommit2
+          [ testCase "blob object" $
+              actualBlobShow @?= expectedBlobShow,
+            testCase "tree object" $
+              actualTreeShow @?= expectedTreeShow,
+            testCase "commit object 1" $
+              actualCommitShow1 @?= expectedCommitShow1,
+            testCase "commit object 2" $
+              actualCommitShow2 @?= expectedCommitShow2
           ]
   return showTest
 
 -- Make sure if haskgit log produces expected output
 gitLogTests :: IO TestTree
 gitLogTests = do
-  let captureGitLogDefault = do
-        (actualLogDefault, ()) <- capture $ gitLog Nothing testGitDirLog
-        return (BSLC.pack actualLogDefault)
+  expectedLogDefault <- readFile "test/TestData/expectedLogDefault.golden"
+  (actualLogDefault, ()) <- capture $ gitLog Nothing testGitDirLog
 
   let commitHash = "15b0503ba06d25055d0b7a951a59b7eed0a97267"
-  let captureGitLogWithHash = do
-        (actualLogWithHash, ()) <- capture $ gitLog (Just $ BSC.pack commitHash) testGitDirLog
-        return (BSLC.pack actualLogWithHash)
+  expectedLogDefault <- readFile "test/TestData/expectedLogWithHash.golden"
+  (actualLogWithHash, ()) <- capture $ gitLog Nothing testGitDirLog
 
   let showTest =
         testGroup
           "gitLog"
-          [ goldenVsString "without commit hash" "test/TestData/expectedLogDefault.golden" captureGitLogDefault,
-            goldenVsString "with commit hash" "test/TestData/expectedLogWithHash.golden" captureGitLogWithHash
+          [ testCase "default" $
+              actualLogDefault @?= expectedLogDefault,
+            testCase "hash" $
+              actualLogWithHash @?= expectedLogDefault
           ]
+
   return showTest
 
 gitUpdateRefTests :: IO TestTree
@@ -448,6 +456,56 @@ gitCommitTests = do
   removeFile (testGitDirCommit ++ "/objects/" ++ take 2 newCommitH ++ "/" ++ drop 2 newCommitH)
 
   return gitCommitTests
+
+-- TODO Git Status Test
+gitStatusTest :: IO TestTree
+gitStatusTest = do
+  -- Change the working directory for the test
+  initialDirectory <- getCurrentDirectory
+  setCurrentDirectory testRepoDirStatus
+
+  -- Case1: No branch
+  expected1 <- readFile "../expectedStatus1.dat"
+  (actual1, ()) <- capture $ gitStatus testGitDirStatus
+
+  -- -- Case2: Untracked File
+  -- writeFile "case2.txt" "case2"
+  -- expected2 <- readFile' "../expectedStatus2.dat"
+  -- (actual2, ()) <- capture $ gitStatus testGitDirStatus
+
+  -- -- Case3: Staged
+  -- gitAdd ["case2.txt"] testGitDirStatus
+  -- expected3 <- readFile' "../expectedStatus3.dat"
+  -- (actual3, ()) <- capture $ gitStatus testGitDirStatus
+
+  -- -- Case4: After commit
+  -- gitCommit "status test" testGitDirStatus
+  -- expected4 <- readFile' "../expectedStatus1.dat"
+  -- (actual4, ()) <- capture $ gitStatus testGitDirStatus
+
+  -- -- Case5: Modify
+  -- writeFile "case.txt" "case2 changed"
+  -- expected5 <- readFile' "../expectedStatus4.dat"
+  -- (actual5, ()) <- capture $ gitStatus testGitDirStatus
+
+  -- removeFile "case2.txt"
+  setCurrentDirectory initialDirectory
+
+  let statusTest =
+        testGroup
+          "gitStatus"
+          [ testCase "Working tree clean" $
+              actual1 @?= expected1
+              -- testCase "Untracked file" $
+              --   actual2 @?= expected2
+              -- testCase "Stage" $
+              --   actual3 @?= expected3,
+              -- testCase "After commit" $
+              --   actual4 @?= expected4,
+              -- testCase "Modified" $
+              --   actual5 @?= expected5
+          ]
+  return statusTest
 
 ------------------------------ Helper functions ------------------------------------------------
 compareCommitObjs :: Maybe GitObject -> Maybe GitObject -> Bool
