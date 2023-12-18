@@ -13,6 +13,9 @@ module HaskGit
     gitHeadCommit,
     gitReadTree,
     gitCheckout,
+    gitReset,
+    gitResetSoft,
+    gitResetMixed,
   )
 where
 
@@ -255,9 +258,6 @@ gitCheckoutIndex gitDir = do
   -- Parse the index
   repoDir <- getRepoDirectory gitDir
   fullGitDir <- getGitDirectory gitDir
-  print gitDir
-  print repoDir
-  print fullGitDir
   filesFullPath <- listFilesRecursively repoDir fullGitDir
   let files = map (makeRelative repoDir) filesFullPath
   indexContent <- BSC.readFile (fullGitDir ++ "/index")
@@ -388,18 +388,66 @@ gitCommit message gitDir = do
         then gitUpdateRef (drop 5 branchP) newCommitHashStr gitDir
         else gitUpdateRef "HEAD" newCommitHashStr gitDir
 
-gitReset :: ByteString -> IO ()
-gitReset = undefined
+-- Unstage, (cancel add and remove all “changed” from index)
+gitReset :: FilePath -> IO ()
+gitReset gitDir = do
+  commitHash <- gitHeadCommit gitDir
+  commitObj <- hash2CommitObj commitHash gitDir
+  case commitObj of
+    Just (Commit (_, treeHash, _, _, _, _)) -> do
+      gitReadTree (getHash treeHash) gitDir
+    Nothing -> putStrLn "Error: invalid commit hash."
 
--- Branch name, change branch pointer and checkout
--- Commit hash,
--- gitCheckout :: ByteString -> IO ()
+-- Change the branch pointer to point commit hash
+-- Return commitObject if hash is valid
+-- Note: HEAD must be pointing to valid branch
+gitResetSoft :: String -> FilePath -> IO (Maybe GitCommit)
+gitResetSoft commit gitDir = do
+  -- Update the branch pointer
+  let commitHashM = bsToHash (BSC.pack commit)
+  case commitHashM of
+    -- Check if hash is valid
+    Just commitHash -> do
+      fullGitDir <- getGitDirectory gitDir
+      ref <- readFile' (fullGitDir ++ "/HEAD")
+      -- Check if HEAD is pointing to branch.
+      if take 5 ref == "ref: "
+        then do
+          -- Check if hash is commit
+          commitObj <- hash2CommitObj commitHash gitDir
+          case commitObj of
+            Just (Commit commitObj) -> do
+              -- Update branch pointer
+              gitUpdateRef (drop 5 ref) commit gitDir
+              return (Just commitObj)
+            _ -> do
+              putStrLn "Error: Hash must be commit hash."
+              return Nothing
+        else do
+          putStrLn "Error: HEAD is not pointing to branch. Make sure HEAD is on branch."
+          return Nothing
+    _ -> do
+      putStrLn "Error: invalid hash value. Please give valid commit hash."
+      return Nothing
+
+-- Default reset command when commit hash is given
+-- Change the branch pointer and update index capturing hash input
+gitResetMixed :: String -> FilePath -> IO ()
+gitResetMixed commit gitDir = do
+  -- Update branch pointer
+  commitObj <- gitResetSoft commit gitDir
+  case commitObj of
+    Just (_, treeHash, _, _, _, _) ->
+      gitReadTree (getHash treeHash) gitDir
+    Nothing -> return ()
+
+-- when arg is branch name, change branch pointer and checkout
+-- when arg is commit hash, let HEAD poitnt to the commit hash
+-- After updating refs, working directory will be updated to appropriate hashes
 gitCheckout :: String -> FilePath -> IO ()
 gitCheckout arg gitDir = do
   -- Check if branch
   let ref = "refs/heads/" ++ arg
-  -- let branchPath = refToFilePath branch gitDir
-  -- isBranch <- doesFileExist branchPath
 
   refHash <- gitRefToCommit ref gitDir
   case refHash of
@@ -431,11 +479,9 @@ gitCheckout arg gitDir = do
           case commitObj of
             Just (Commit (_, treeHash, _, _, _, _)) -> do
               -- Update HEAD to commit has
-              gitUpdateRef "HEAD" (BSC.unpack (getHash treeHash)) gitDir
+              gitUpdateRef "HEAD" (BSC.unpack (getHash hash)) gitDir
               -- Update index with treehash
-              print (getHash treeHash)
               gitReadTree (getHash treeHash) gitDir
-              print "after readtree"
               -- Update working directory
               gitCheckoutIndex gitDir
             _ -> putStrLn "Invalid input. Please provide valid commit hash or branch name"
@@ -519,3 +565,31 @@ gitHeadCommit gitdir = do
     Just cmt -> case bsToHash $ BSC.pack cmt of
       Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
       Just hash -> return hash
+
+-- Validate commit hash and return commit object
+gitCommitHashToObj :: String -> FilePath -> IO (Maybe GitCommit)
+gitCommitHashToObj commit gitDir = do
+  -- Update the branch pointer
+  let commitHashM = bsToHash (BSC.pack commit)
+  case commitHashM of
+    -- Check if hash is valid
+    Just commitHash -> do
+      fullGitDir <- getGitDirectory gitDir
+      ref <- readFile' (fullGitDir ++ "/HEAD")
+      -- Check if HEAD is pointing to branch.
+      if take 5 ref == "ref: "
+        then do
+          -- Check if hash is commit
+          commitObj <- hash2CommitObj commitHash gitDir
+          case commitObj of
+            Just (Commit commitObj) -> do
+              return (Just commitObj)
+            _ -> do
+              putStrLn "Error: Hash must be commit hash."
+              return Nothing
+        else do
+          putStrLn "Error: HEAD is not pointing to branch. Make sure HEAD is on branch."
+          return Nothing
+    _ -> do
+      putStrLn "Error: invalid hash value. Please give valid commit hash."
+      return Nothing
