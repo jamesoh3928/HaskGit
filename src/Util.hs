@@ -13,13 +13,11 @@ module Util
   )
 where
 
-import Codec.Compression.Zlib (compress, decompress)
 import qualified Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16
 import qualified Data.ByteString.Char8 as BSC
-import Data.Graph (path)
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
@@ -30,10 +28,10 @@ import System.IO (readFile')
 -- | Given hash value, return corresponding git directory
 -- Example input: hashToFilePath "f6f754dbe0808826bed2237eb651558f75215cc6"
 -- Example output: IO ".haskgit/objects/f6/f754dbe0808826bed2237eb651558f75215cc6"
-hashToFilePath :: GitHash -> FilePath -> IO FilePath
-hashToFilePath hash gitDir = do
-  let hashStr = BSC.unpack (getHash hash)
-  return (gitDir ++ "/objects/" ++ take 2 hashStr ++ "/" ++ drop 2 hashStr)
+hashToFilePath :: GitHash -> FilePath -> FilePath
+hashToFilePath hash gitDir = gitDir ++ "/objects/" ++ take 2 hashStr ++ "/" ++ drop 2 hashStr
+  where
+    hashStr = BSC.unpack (getHash hash)
 
 -- | Returns path to reference
 -- Example input: refToFilePath refs/heads/main
@@ -57,14 +55,9 @@ findGitDirectory fp gitDir = do
       isGitDir <- doesDirectoryExist (fp ++ "/" ++ gitDir)
       if isGitDir then return (fp ++ "/" ++ gitDir) else findGitDirectory (takeDirectory fp) gitDir
 
--- xs <- getDirectoryContents fp
--- if gitDir `elem` xs
---   then return (fp ++ "/" ++ gitDir)
---   else findGitDirectory (takeDirectory fp) gitDir
-
 -- | Given ref, return hash of the commit object.
 -- If ref is pointing to other ref, recurse it until it finds commit hash value.
--- Invariant:
+-- Invariants:
 --  arg1: valid git reference which are either refs or HEAD. (e.g. refs/heads/main, HEAD)
 --  arg2: valid git directory path (.git, .haskgit)
 gitRefToCommit :: String -> FilePath -> IO (Maybe String)
@@ -111,6 +104,7 @@ relativeToAbolutePath relativePath = do
 getRepoDirectory :: FilePath -> IO FilePath
 getRepoDirectory gitDir = takeDirectory <$> getGitDirectory gitDir
 
+-- | Hash a blob file in given path.
 hashBlob :: FilePath -> IO ByteString
 hashBlob file = do
   content <- BSC.readFile file
@@ -119,14 +113,14 @@ hashBlob file = do
       hash = SHA1.hash (header `BSC.append` content)
   return hash
 
--- TODO: hash a object that is a directory
+-- | Print the hash of a blob file in given path.
 gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
   hash <- hashBlob file
   putStrLn $ (BSC.unpack . encode) hash
 
 -- | Takes a directory path and returns a list of all file paths in that directory and its subdirectories
--- | Returns "full" path, not relative
+-- Returns "full" path, not relative
 listFilesRecursively :: FilePath -> FilePath -> IO [FilePath]
 listFilesRecursively path gitDir = do
   if path == gitDir
@@ -154,6 +148,7 @@ listFilesRecursively path gitDir = do
       rest <- listFilesOfDirectories xs path
       return (res ++ rest)
 
+-- | Take a path to blob file and return a hash of the blob file
 blobToHash :: FilePath -> IO GitHash
 blobToHash file = do
   -- cont <- readFile' file
@@ -167,6 +162,7 @@ blobToHash file = do
         Nothing -> error "Invalid hash value was computed from SHA1.hash function in blobToHash"
   return hash
 
+-- | Take a list of file paths and return a list of hashes of the blob files
 hashListFiles :: [FilePath] -> IO [GitHash]
 hashListFiles [] = return []
 hashListFiles (x : xs) = do

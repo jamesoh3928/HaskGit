@@ -11,7 +11,7 @@ module Index
     getIndexEntryByHash,
     blobToIndexEntry,
     extractNameIndex,
-    extractHashIndex,
+    extractHashesIndex,
     updateMetaData,
   )
 where
@@ -178,9 +178,9 @@ addOrUpdateEntries paths index gitDir = do
   addEntries paths index' gitDir
 
 -- | Extract the hash values (in bytestring forms) from the index
-extractHashIndex :: GitIndex -> [ByteString]
-extractHashIndex (GitIndex []) = []
-extractHashIndex (GitIndex (x : xs)) = getHash (sha x) : extractHashIndex (GitIndex xs)
+extractHashesIndex :: GitIndex -> [GitHash]
+extractHashesIndex (GitIndex []) = []
+extractHashesIndex (GitIndex (x : xs)) = sha x : extractHashesIndex (GitIndex xs)
 
 -- | Extract the file names from the index
 extractNameIndex :: GitIndex -> [String]

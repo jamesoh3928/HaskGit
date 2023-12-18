@@ -100,7 +100,7 @@ gitReadTree treeH gitDir = do
     Nothing -> error "Invalid hash value given to gitReadTree. Please input a valid hash value."
     Just hashV -> return hashV
   -- Read tree
-  treePath <- hashToFilePath treeHash gitDir
+  let treePath = hashToFilePath treeHash gitDir
   treeContent <- BSLC.readFile treePath
   -- Read in the index file located in gitDir/.haskgit/index
   indexContent <- BSC.readFile (gitDir ++ "/index")
@@ -296,7 +296,7 @@ gitCheckoutIndex gitDir = do
     addOrUpdateFile (GitIndex (x : xs)) hashFiles repoDir =
       if sha x `notElem` hashFiles
         then do
-          path <- hashToFilePath (sha x) gitDir
+          let path = hashToFilePath (sha x) gitDir
           -- parse blob
           cont <- BSC.readFile path
           let content = BSLC.fromStrict cont
@@ -484,7 +484,7 @@ gitCheckout arg gitDir = do
     Nothing -> do
       let hashM = bsToHash (BSC.pack arg)
       case hashM of
-        Nothing -> putStrLn "Invalid hash value given. Please input a valid hash value."
+        Nothing -> putStrLn "Invalid input given. Please input a valid hash value or branch name."
         Just hash -> do
           commitObj <- hash2CommitObj hash gitDir
           case commitObj of
@@ -495,7 +495,7 @@ gitCheckout arg gitDir = do
               gitReadTree (getHash treeHash) gitDir
               -- Update working directory
               gitCheckoutIndex gitDir
-            _ -> putStrLn "Invalid input. Please provide valid commit hash or branch name"
+            _ -> putStrLn "Invalid input given. Please input a valid hash value or branch name"
 
 -- Display the contents of the git object for the given hash.
 gitShow :: ByteString -> FilePath -> IO ()
@@ -510,8 +510,7 @@ gitShow hash gitDir = do
         Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
 -- | A list of Commit w/ git show, start from provided hash
--- haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
--- TODO: handle when head is detached
+-- e.g. haskgit log 3154bdc4928710b08f61297e87c4900e0f9b5869
 gitLog :: Maybe ByteString -> FilePath -> IO ()
 gitLog hashBsM gitdir = do
   hash <- case hashBsM of
@@ -545,7 +544,7 @@ gitHeadCommit gitdir = do
           Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
           Just hash -> return hash
     else -- HEAD is pointing to commit hash
-    case bsToHash $ BSC.pack head of
+    case bsToHash $ BSC.pack (removeCorrupts head) of
       Nothing -> error "HEAD is pointing to invalid ref (invalid hash value). Please check your .haskgit/HEAD file."
       Just hash -> return hash
 
