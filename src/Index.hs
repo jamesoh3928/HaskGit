@@ -160,7 +160,6 @@ addEntry gitDir (GitIndex entries) path = do
 
   -- Use hashAndSaveObject to save the blob object as well
   let blob = Blob (0, file)
-  -- TODO: double check if we can refactor somehow
   sha <- hashAndSaveObject blob gitDir
 
   -- -- Add the entry to the index
@@ -234,7 +233,6 @@ updateMetaData (GitIndex (x : xs)) repoDir gitDir = do
   file <- readFile' fp
   -- Use hashAndSaveObject to save the blob object as well
   let blob = Blob (0, file)
-  -- TODO: double check if we can refactor somehow
   let sha = hashObject blob
 
   (GitIndex rest) <- updateMetaData (GitIndex xs) repoDir gitDir

@@ -7,7 +7,6 @@ import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import GitHash
 import GitObject
 import GitParser (parseGitObject, parseIndexFile)
@@ -15,11 +14,13 @@ import HaskGit
 import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, hasHash, saveIndexFile)
 import Shelly
 import System.Directory (removeFile)
+import System.IO (readFile')
 import System.IO.Silently (capture)
 import Test.Tasty
 import Test.Tasty.Golden
 import Test.Tasty.HUnit
 import Text.Parsec (parse)
+import Util (removeCorrupts)
 
 -- Some of the test .haskgit directories that are used by tests
 testGitDir :: FilePath
@@ -29,7 +30,10 @@ testGitDirReadTree :: FilePath
 testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
 
 testGitDirLog :: FilePath
-testGitDirLog = "test/TestData/.test_log/"
+testGitDirLog = "test/TestData/.test_log"
+
+testGitDirCommit :: FilePath
+testGitDirCommit = "test/TestData/.test_commit"
 
 --------------------------------------------------------------------------------
 
@@ -41,6 +45,7 @@ tests =
   testGroup "Unit Tests"
     <$> sequence
       [ gitShowTests,
+        gitLogTests,
         gitUpdateRefTests,
         hashObjectTests,
         saveObjectTests,
@@ -48,7 +53,7 @@ tests =
         gitListBranchTests,
         addOrUpdateEntriesTests,
         gitReadTreeTests,
-        gitLogTests
+        gitCommitTests
       ]
 
 -- Make sure if haskgit show produces expected output
@@ -84,32 +89,52 @@ gitShowTests = do
           ]
   return showTest
 
+-- Make sure if haskgit log produces expected output
+gitLogTests :: IO TestTree
+gitLogTests = do
+  let captureGitLogDefault = do
+        (actualLogDefault, ()) <- capture $ gitLog Nothing testGitDirLog
+        return (BSLC.pack actualLogDefault)
+
+  let commitHash = "15b0503ba06d25055d0b7a951a59b7eed0a97267"
+  let captureGitLogWithHash = do
+        (actualLogWithHash, ()) <- capture $ gitLog (Just $ BSC.pack commitHash) testGitDirLog
+        return (BSLC.pack actualLogWithHash)
+
+  let showTest =
+        testGroup
+          "gitLog"
+          [ goldenVsString "without commit hash" "test/TestData/expectedLogDefault.golden" captureGitLogDefault,
+            goldenVsString "with commit hash" "test/TestData/expectedLogWithHash.golden" captureGitLogWithHash
+          ]
+  return showTest
+
 gitUpdateRefTests :: IO TestTree
 gitUpdateRefTests = do
   let hash1 = "f6f754dbe0808826bed2237eb651558f75215cc6"
   let hash2 = "f6e1af0b636897ed62c8c6dad0828f1172b9b82a"
   let refMainPath = testGitDir ++ "/refs/heads/main"
-  originalMainRef <- TIO.readFile refMainPath
-  originalHeadRef <- TIO.readFile (testGitDir ++ "/HEAD")
+  originalMainRef <- readFile' refMainPath
+  originalHeadRef <- readFile' (testGitDir ++ "/HEAD")
 
   -- Case1: refname, hash-value
   let refTestPath = testGitDir ++ "/refs/heads/test"
   gitUpdateRef "refs/heads/test" hash1 testGitDir
-  let expectedCase1 = T.pack (hash1 ++ "\n")
+  let expectedCase1 = hash1 ++ "\n"
   -- Use strick IO to prevent access to same file due Haskell lazy eval
-  actualCase1 <- TIO.readFile refTestPath
+  actualCase1 <- readFile' refTestPath
 
   -- Case2: refname, refname
   -- .test_haskgit/refs/heads/test will contain f6f754dbe0808826bed2237eb651558f75215cc6
   gitUpdateRef "refs/heads/main" "refs/heads/test" testGitDir
-  let expectedCase2 = T.pack (hash1 ++ "\n")
-  actualCase2 <- TIO.readFile refMainPath
+  let expectedCase2 = hash1 ++ "\n"
+  actualCase2 <- readFile' refMainPath
 
   -- Case3: symbolic-ref, hash-value
   -- .test_haskgit/HEAD will contain f6e1af0b636897ed62c8c6dad0828f1172b9b82a
   gitUpdateRef "HEAD" hash2 testGitDir
-  let expectedCase3 = T.pack (hash2 ++ "\n")
-  actualCase3 <- TIO.readFile (testGitDir ++ "/HEAD")
+  let expectedCase3 = hash2 ++ "\n"
+  actualCase3 <- readFile' (testGitDir ++ "/HEAD")
 
   let gitUpdateRefTests =
         testGroup
@@ -123,8 +148,8 @@ gitUpdateRefTests = do
           ]
 
   -- Go back to original ref
-  TIO.writeFile refMainPath originalMainRef
-  TIO.writeFile ".test_haskgit/HEAD" originalHeadRef
+  writeFile refMainPath originalMainRef
+  writeFile ".test_haskgit/HEAD" originalHeadRef
 
   return gitUpdateRefTests
 
@@ -223,7 +248,6 @@ saveObjectTests = do
               actualCommit @?= expectedCommit
           ]
 
-  -- TODO: double check later Windows vs Unix
   -- remove created directory
   removeFile blobTempPath
   removeFile treeTempPath
@@ -383,35 +407,50 @@ gitReadTreeTests = do
 
   return gitReadTreeTests
 
--- Make sure if haskgit log produces expected output
-gitLogTests :: IO TestTree
-gitLogTests = do
-  let captureGitLogDefault = do
-        (actualLogDefault, ()) <- capture $ gitLog Nothing testGitDirLog
-        return (BSLC.pack actualLogDefault)
+-- Make sure git commit create correct commit object (correct message, correct root hash, and correct parent)
+gitCommitTests :: IO TestTree
+gitCommitTests = do
+  -- Read what is in original refs/heads/master and save it to a variable
+  originalMainRef <- readFile' (testGitDirCommit ++ "/refs/heads/master")
 
-  let commitHash = "15b0503ba06d25055d0b7a951a59b7eed0a97267"
-  let captureGitLogWithHash = do
-        (actualLogWithHash, ()) <- capture $ gitLog (Just $ BSC.pack commitHash) testGitDirLog
-        return (BSLC.pack actualLogWithHash)
+  -- Create a new commit with message "Commit in gitCommitTests"
+  _ <- capture $ gitCommit "Commit in gitCommitTests" testGitDirCommit
 
-  let showTest =
+  -- Read what is in refs/heads/master and save it as recentCommitH
+  newCommitHR <- readFile' (testGitDirCommit ++ "/refs/heads/master")
+
+  -- Read git object file corresponding the recentCommitH and parse it
+  let newCommitH = removeCorrupts newCommitHR
+  putStrLn $ "newCommitH: " ++ newCommitH
+  content <- BSLC.readFile (testGitDirCommit ++ "/objects/" ++ take 2 newCommitH ++ "/" ++ drop 2 newCommitH)
+  actualCommitObj <- case parse parseGitObject "" (BSLC.unpack (decompress content)) of
+    Left err -> return Nothing
+    Right result -> return $ Just result
+
+  -- Read exepcted commit and parse
+  let expectedPath = "test/TestData/expectedCommit.golden"
+  expectedContent <- BSLC.readFile expectedPath
+  expectedCommitObj <- case parse parseGitObject "" (BSLC.unpack (decompress expectedContent)) of
+    Left err -> return Nothing
+    Right result -> return $ Just result
+
+  let gitCommitTests =
         testGroup
-          "gitLog"
-          [ goldenVsString "without commit hash" "test/TestData/expectedLogDefault.golden" captureGitLogDefault,
-            goldenVsString "with commit hash" "test/TestData/expectedLogWithHash.golden" captureGitLogWithHash
+          "gitCommitTests"
+          [ testCase "Check commit object" $
+              compareCommitObjs actualCommitObj expectedCommitObj @?= True
           ]
-  return showTest
 
--- TODO: James
--- gitAddTests :: IO TestTree
--- gitAddTests = undefined
+  -- Write original refs/heads/main file back to the directory
+  writeFile (testGitDirCommit ++ "/refs/heads/master") originalMainRef
 
--- gitCommitTests :: IO TestTree
--- gitCommitTests = do
---   let commitTest =
---         testGroup
---           "gitCommit"
---           [ goldenVsFile "commit test" "test/TestData/expectedCommit.golden" (testGitDir ++ "TODO") (gitCommit "Commit in gitCommitTests" testGitDir)
---           ]
---   return commitTest
+  return gitCommitTests
+
+------------------------------ Helper functions ------------------------------------------------
+compareCommitObjs :: Maybe GitObject -> Maybe GitObject -> Bool
+compareCommitObjs (Just (Commit (bs1, treeH1, parentHs1, _, _, message1))) (Just (Commit (bs2, treeH2, parentHs2, _, _, message2))) =
+  bs1 == bs2
+    && treeH1 == treeH2
+    && parentHs1 == parentHs2
+    && message1 == message2
+compareCommitObjs _ _ = False
