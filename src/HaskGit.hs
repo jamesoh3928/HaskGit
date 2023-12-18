@@ -16,6 +16,7 @@ module HaskGit
     gitReset,
     gitResetSoft,
     gitResetMixed,
+    gitResetHard,
   )
 where
 
@@ -431,14 +432,27 @@ gitResetSoft commit gitDir = do
       return Nothing
 
 -- Default reset command when commit hash is given
--- Change the branch pointer and update index capturing hash input
+-- Change the branch pointer and update index based on commitHsah
 gitResetMixed :: String -> FilePath -> IO ()
 gitResetMixed commit gitDir = do
   -- Update branch pointer
   commitObj <- gitResetSoft commit gitDir
   case commitObj of
     Just (_, treeHash, _, _, _, _) ->
+      -- Update the index
       gitReadTree (getHash treeHash) gitDir
+    Nothing -> return ()
+
+-- Change the branch pointer and update index and working directory based on commitHsah
+gitResetHard :: String -> FilePath -> IO ()
+gitResetHard commit gitDir = do
+  -- Update branch pointer
+  commitObj <- gitResetSoft commit gitDir
+  case commitObj of
+    Just (_, treeHash, _, _, _, _) -> do
+      -- Update the index and working directory
+      gitReadTree (getHash treeHash) gitDir
+      gitCheckoutIndex gitDir
     Nothing -> return ()
 
 -- when arg is branch name, change branch pointer and checkout

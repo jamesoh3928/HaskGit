@@ -67,7 +67,8 @@ processArgs args gitDir =
           case flag of
             "--soft" -> void $ gitResetSoft object gitDir
             "--mixed" -> gitResetMixed object gitDir
-            _ -> putStrLn "Error: invalid format. haskgit reset [--soft | --mixed] [commit_hash] "
+            "--hard" -> gitResetHard object gitDir
+            _ -> putStrLn "Error: invalid format. haskgit reset [--soft | --mixed | --hard] [commit_hash] "
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
