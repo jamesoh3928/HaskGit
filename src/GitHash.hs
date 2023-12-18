@@ -11,7 +11,7 @@ newtype GitHash = GitHash ByteString
 -- | Constructor that takes a ByteString and returns a GitHash
 -- The length is 40 even though sha1 return 160 bits because it is encoded in hexadecimal format
 -- I.e. 160 bits converted to hexadecimal -> 4 bits become 8 bits, therefore 320 bits -> 40 bytes
--- - @bs@: the length of bs is no longer than 40
+-- - @bs@: the length of bs should be exactly equal to 40
 bsToHash :: ByteString -> Maybe GitHash
 bsToHash bs = if BS.length bs == 40 then Just (GitHash bs) else Nothing
 

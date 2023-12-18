@@ -131,3 +131,12 @@ Git checkout
 Tests
 Final doc
 Presentation - its on Tuesday 8am 
+
+
+-- Test in GHCI:
+-- Blob: gitShow (B.pack "f6f754dbe0808826bed2237eb651558f75215cc6")
+-- Tree: gitShow (B.pack "f6e1af0b636897ed62c8c6dad0828f1172b9b82a")
+-- Commit: gitShow (B.pack "562c9c7b09226b6b54c28416d0ac02e0f0336bf6")
+-- TODO: delete in the future
+
+Mention something about Operating System

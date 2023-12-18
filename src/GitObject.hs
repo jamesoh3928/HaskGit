@@ -98,7 +98,7 @@ gitObjectSerialize (Commit (_, treeHash, parentHashes, authorObj, committerObj, 
 saveGitObject :: GitHash -> ByteString -> FilePath -> IO ()
 saveGitObject hash content gitDir = do
   let obj = compress (BSC.fromStrict content)
-  path <- hashToFilePath hash gitDir
+  let path = hashToFilePath hash gitDir
   createDirectoryIfMissing True (takeDirectory path)
   BSC.writeFile path (BSC.toStrict obj)
 

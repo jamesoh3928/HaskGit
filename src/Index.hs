@@ -11,7 +11,7 @@ module Index
     getIndexEntryByHash,
     blobToIndexEntry,
     extractNameIndex,
-    extractHashIndex,
+    extractHashesIndex,
     updateMetaData,
   )
 where
@@ -51,7 +51,7 @@ data GitIndexEntry = GitIndexEntry
 newtype GitIndex = GitIndex [GitIndexEntry]
   deriving (Show)
 
--- Convert integer to string (opposite of parseInt function in GitParser.hs).
+-- | Convert integer to string (opposite of parseInt function in GitParser.hs).
 intToBytes :: Int -> Int -> String
 intToBytes length n = reverse (aux length n)
   where
@@ -59,15 +59,15 @@ intToBytes length n = reverse (aux length n)
     aux length 0 = replicate length '\0'
     aux length n = chr (n `mod` 256) : aux (length - 1) (n `div` 256)
 
--- Convert int to 4 bytes string.
+-- | Convert int to 4 bytes string.
 intTo4Bytes :: Int -> String
 intTo4Bytes = intToBytes 4
 
--- Convert int to 2 bytes string.
+-- | Convert int to 2 bytes string.
 intTo2Bytes :: Int -> String
 intTo2Bytes = intToBytes 2
 
--- Serialize GitIndexEntry to ByteString.
+-- | Serialize GitIndexEntry to ByteString.
 gitIndexEntrySerialize :: GitIndexEntry -> ByteString
 gitIndexEntrySerialize entry =
   mconcat
@@ -104,7 +104,7 @@ gitIndexEntrySerialize entry =
             ]
     )
 
--- Serialize GitIndex to ByteString.
+-- | Serialize GitIndex to ByteString.
 -- Header: 12 bytes - "DIRC" + version (4 bytes - always 2 for mvp) + number of entries (4 bytes).
 gitIndexSerialize :: GitIndex -> ByteString
 gitIndexSerialize (GitIndex entries) = content <> checkSum
@@ -113,28 +113,28 @@ gitIndexSerialize (GitIndex entries) = content <> checkSum
     -- hash the content at the end of index file
     checkSum = SHA1.hash content
 
--- Save the index file to {gitDir}/index
+-- | Save the index file to {gitDir}/index
 saveIndexFile :: ByteString -> FilePath -> IO ()
 saveIndexFile content gitDir = do
   BSC.writeFile (gitDir ++ "/index") content
 
--- Check if the entry is the same file
+-- | Check if the entry is the same file
 isEntryNotSameFile :: GitIndexEntry -> FilePath -> Bool
 isEntryNotSameFile entry path = name entry /= path
 
--- Check if the index has the file
+-- | Check if the index has the file
 hasFile :: GitIndex -> FilePath -> Bool
 hasFile (GitIndex entries) path = any (\x -> name x == path) entries
 
--- Check if the index has hash
+-- | Check if the index has hash
 hasHash :: GitIndex -> GitHash -> Bool
 hasHash (GitIndex entries) hash = any (\x -> sha x == hash) entries
 
--- Remove the file if it exists in the index
+-- | Remove the file if it exists in the index
 removeEntry :: FilePath -> GitIndex -> GitIndex
 removeEntry path (GitIndex entries) = GitIndex (filter (`isEntryNotSameFile` path) entries)
 
--- Remove the files from the index if they exist
+-- | Remove the files from the index if they exist
 removeEntries :: [FilePath] -> GitIndex -> GitIndex
 removeEntries paths index = foldr removeEntry index paths
 
@@ -171,25 +171,28 @@ addEntries :: [FilePath] -> GitIndex -> FilePath -> IO GitIndex
 addEntries paths index gitDir = foldM (addEntry gitDir) index paths
 
 -- | Add or update given file paths to the index
--- | The given paths must be relative to the repository
+-- The given paths must be relative to the repository
 addOrUpdateEntries :: [FilePath] -> GitIndex -> FilePath -> IO GitIndex
 addOrUpdateEntries paths index gitDir = do
   let index' = removeEntries paths index
   addEntries paths index' gitDir
 
-extractHashIndex :: GitIndex -> [ByteString]
-extractHashIndex (GitIndex []) = []
-extractHashIndex (GitIndex (x : xs)) = getHash (sha x) : extractHashIndex (GitIndex xs)
+-- | Extract the hash values (in bytestring forms) from the index
+extractHashesIndex :: GitIndex -> [GitHash]
+extractHashesIndex (GitIndex []) = []
+extractHashesIndex (GitIndex (x : xs)) = sha x : extractHashesIndex (GitIndex xs)
 
+-- | Extract the file names from the index
 extractNameIndex :: GitIndex -> [String]
 extractNameIndex (GitIndex []) = []
 extractNameIndex (GitIndex (x : xs)) = name x : extractNameIndex (GitIndex xs)
 
+-- | Get the index entry by hash value
 getIndexEntryByHash :: GitHash -> GitIndex -> Maybe GitIndexEntry
 getIndexEntryByHash _ (GitIndex []) = Nothing
 getIndexEntryByHash hash (GitIndex (x : xs)) = if hash == sha x then Just x else getIndexEntryByHash hash (GitIndex xs)
 
--- Return a GitINdexEntry with the hash value.
+-- | Return a GitINdexEntry with the hash value.
 -- All the metadata is set as 0 and time is set as current time
 blobToIndexEntry :: GitHash -> String -> IO GitIndexEntry
 blobToIndexEntry hash path = do
@@ -210,7 +213,7 @@ blobToIndexEntry hash path = do
 
   return (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize hash False 0 path)
 
--- Returns new index with updated meta data
+-- | Returns new index with updated meta data
 updateMetaData :: GitIndex -> FilePath -> FilePath -> IO GitIndex
 updateMetaData (GitIndex []) _ _ = return (GitIndex [])
 updateMetaData (GitIndex (x : xs)) repoDir gitDir = do

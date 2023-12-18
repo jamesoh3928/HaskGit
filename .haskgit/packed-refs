@@ -1,0 +1,5 @@
+# pack-refs with: peeled fully-peeled sorted 
+4657ad61645a3a05cb07bbac4995f6a6c880b704 refs/remotes/origin/ls-file-status
+efb2e6c30ab51fbcf2d3c6c33ade28d436ba70ef refs/remotes/origin/main
+b11c97968f01d5a02e9f3ee0be634055219d5c64 refs/remotes/origin/test
+fcc89f2ab9cc1d80647e99a280bfa179f43251ef refs/remotes/origin/test-git-show

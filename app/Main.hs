@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Monad (void)
 import qualified Data.ByteString.Char8 as B
 import GitHash
 import HaskGit
@@ -64,7 +65,24 @@ processArgs args gitDir =
     "checkout" ->
       case tail args of
         [object] -> gitCheckout object gitDir
-        _ -> putStrLn "Error: haskgit checkout needs one argument <branch-name> or <commit-hash>"
+        [flag, object] ->
+          -- Create a new branch and checkout
+          if flag == "-b"
+            then do
+              gitCreateBranch object gitDir
+              gitCheckout object gitDir
+            else putStrLn "Error: haskgit checkout needs one argument. haskgit checkout [-b] <branch-name> or <commit-hash>"
+        _ -> putStrLn "Error: haskgit checkout needs one argument. haskgit checkout [-b] <branch-name> or <commit-hash>"
+    "reset" ->
+      case tail args of
+        [] -> gitReset gitDir
+        [object] -> gitResetMixed object gitDir
+        [flag, object] ->
+          case flag of
+            "--soft" -> void $ gitResetSoft object gitDir
+            "--mixed" -> gitResetMixed object gitDir
+            "--hard" -> gitResetHard object gitDir
+            _ -> putStrLn "Error: invalid format. haskgit reset [--soft | --mixed | --hard] [commit_hash] "
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
