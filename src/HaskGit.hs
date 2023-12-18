@@ -20,7 +20,8 @@ module HaskGit
     getIndexEntry,
     gitFlatTree,
     hash2CommitObj,
-    hash2Tree
+    hash2Tree,
+    gitStatusStaged,
   )
 where
 
@@ -31,9 +32,8 @@ import Data.ByteString (ByteString)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.List (isPrefixOf, nub, sort, sortOn, stripPrefix)
 import Data.Graph (path)
-import Data.List (sort, sortOn, stripPrefix)
+import Data.List (find, isPrefixOf, nub, sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
@@ -44,12 +44,10 @@ import GHC.ExecutionStack (Location (objectName))
 import GitHash (GitHash, bsToHash, getHash)
 import GitObject
 import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
+import Index
 import Index (GitIndex (GitIndex), GitIndexEntry (..), addOrUpdateEntries, blobToIndexEntry, getIndexEntryByHash, gitIndexSerialize, hasFile, removeEntries, saveIndexFile)
 import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory)
-import Index
-import Ref (GitRef)
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory, removeFile)
 import System.FilePath
 import System.IO (readFile')
 import Text.Parsec (parse)
@@ -556,14 +554,16 @@ getIndexEntry gitDir file = do
   case ls of
     Nothing -> putStrLn "Error: the index is unable to unpack"
     Just (GitIndex ls) -> do
-      Control.Monad.forM_ ls
-        (\e ->
-          -- print (name e) -- print name for all entries
-          Control.Monad.when (name e == file) $ do
-            print (getHash (sha e))
-            -- return ()
+      Control.Monad.forM_
+        ls
+        ( \e ->
+            -- print (name e) -- print name for all entries
+            Control.Monad.when (name e == file) $ do
+              print (getHash (sha e))
+              -- return ()
         )
-      -- putStrLn $ "Not find " ++ file ++ " in the index"
+
+-- putStrLn $ "Not find " ++ file ++ " in the index"
 
 -- TODO: hash a object that is a directory
 gitHashObject :: FilePath -> IO ()
@@ -579,6 +579,7 @@ gitHashObject file = do
 
 -- | as there exists entry that is not in the filesystem
 -- this function will skip (checking if)
+
 --- - entry if not found (in the future, this part may be merged w/ status for deleted)
 --  - it skips any directory (dir should not be appeared in index)
 --  - in the test, it skips something like ".test_read_tree"
@@ -661,7 +662,7 @@ gitHeadCommit gitdir = do
 gitHeadEntries :: FilePath -> IO ()
 gitHeadEntries = undefined
 
--- hashType :: GitHash -> FilePath -> 
+-- hashType :: GitHash -> FilePath ->
 
 -- | this function is used to convert hash of a tree into tree object
 -- NOTE this one can be merged w/ hash2CommitObj
@@ -684,7 +685,7 @@ hash2Obj hash gitDir = do
       Tree _ -> return (Just gitObject)
       Commit _ -> return (Just gitObject)
       Blob _ -> return (Just gitObject)
-      
+
 hash2Tree :: String -> FilePath -> IO ()
 hash2Tree hash gitDir = do
   case bsToHash $ BSC.pack hash of
@@ -693,37 +694,35 @@ hash2Tree hash gitDir = do
       content <- gitObjectContent hash gitDir
       case parse parseGitObject "" content of
         Left error -> fail $ "<hash2TreeList>: " ++ show error
-        Right gitObject -> -- case gitObject of
+        Right gitObject ->
+          -- case gitObject of
           print gitObject
 
-      -- Tree (_, [(_, path, hs)]) -> return (Just gitObject)
-      -- _ -> return Nothing
+-- Tree (_, [(_, path, hs)]) -> return (Just gitObject)
+-- _ -> return Nothing
 -- gitFlatTree :: GitObject -> [GitObject]
 -- NOTE: you need append parent dir with sub-dir or filename
 -- NOTE: commit with two parents can't be parsed.
 -- You need directory w/o branch for test
 --  The HEAD needs to point a address w/ a commit that is not used for parent
-gitFlatTree :: FilePath -> IO ()
+gitFlatTree :: FilePath -> IO [(String, FilePath, GitHash)]
 gitFlatTree gitDir =
   do
     cmt <- gitHeadCommit gitDir
-    print cmt
     obj <- hash2CommitObj cmt gitDir
-    print obj
     case obj of
       Nothing -> fail $ error "This Hash is failed to covert to GitObject for Commit"
-      Just(Commit (_, tree, _, _, _, _)) -> do
+      Just (Commit (_, tree, _, _, _, _)) -> do
         list <- hash2TreeList tree gitDir
         case list of
           Nothing -> error "gitFlatTree list"
           Just ls ->
-            -- print ls
-            do 
-              rec <- recTreeList gitDir gitDir ls
-              print rec
+            do
+              result <- recTreeList "." gitDir ls
+              return $ map (\(s, p, g) -> (s, makeRelative "." p, g)) result
 
 -- TBD: append parent path
-recTreeList :: FilePath -> FilePath -> [(String, String, GitHash)] -> IO [(String, String, GitHash)]
+recTreeList :: FilePath -> FilePath -> [(String, FilePath, GitHash)] -> IO [(String, FilePath, GitHash)]
 recTreeList _ _ [] = return []
 recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
   obj <- hash2Obj hash gitDir
@@ -731,13 +730,83 @@ recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
     Nothing -> fail $ error "<recTreeList>"
     Just obj ->
       case obj of
-        Blob (_,_) -> recTreeList parentPath gitDir xs >>= \list -> return (ts : list)
-        Commit (_,_,_,_,_,_) -> recTreeList parentPath gitDir xs 
-        Tree (_, tr) -> recTreeList parentPath gitDir tr >>= \list -> recTreeList parentPath gitDir xs >>= \list' -> return (list ++ list')
-    -- Tree 
+        Blob (_, _) ->
+          recTreeList parentPath gitDir xs
+            >>= \list -> return (appendParent parentPath ts : list)
+        Commit (_, _, _, _, _, _) -> recTreeList parentPath gitDir xs -- simply skip commits (no care of old modification, only these things that are not changed)
+        Tree (_, tr) ->
+          recTreeList (parentPath </> path) gitDir tr
+            >>=
+            -- BUG: maybe
+            \list ->
+              recTreeList parentPath gitDir xs
+                >>= \list' -> return (list ++ list')
+  where
+    appendParent :: FilePath -> (String, FilePath, GitHash) -> (String, FilePath, GitHash)
+    appendParent p1 (mode, ph, hs) = (mode, p1 </> ph, hs)
 
-  
+-- Tree
+
+data Status = Modified (FilePath, GitHash) | Added (FilePath, GitHash) | Deleted (FilePath, GitHash) | Untracked (FilePath, GitHash)
+  deriving (Show)
 
 -- | used for detecting added object (on the stage /index) but not in HEAD
+-- deleted: in head but not in index
+-- new: in index but not in head
+-- modfied: both in index and in head, but hash differs
+-- it is a bit of difficult to do everything under one loop
+-- this algo does two comparsions
+--    entries in HEAD compare with index entries to know if any file changed or deleted
+
+---   index entries compare with entries in HEAD to know if any file added
 gitStatusStaged :: FilePath -> IO ()
-gitStatusStaged = undefined
+gitStatusStaged gitDir = do
+  indexL <- unpackIndex gitDir
+  case indexL of
+    Nothing -> fail $ error "<gitStatusStaged>: fail to unpack index"
+    Just (GitIndex is) -> do
+      headL <- gitFlatTree gitDir
+      mapM_ printStatusInfo (loopHeadCompareIndex headL is ++ loopIndexCompareHead headL is)
+  where
+    loopHeadCompareIndex :: [(String, FilePath, GitHash)] -> [GitIndexEntry] -> [Status]
+    loopHeadCompareIndex [] _ = []
+    loopHeadCompareIndex (h : hs) is =
+      case headCompareIndex h is of
+        Nothing -> loopHeadCompareIndex hs is
+        Just status -> status : loopHeadCompareIndex hs is
+
+    loopIndexCompareHead :: [(String, FilePath, GitHash)] -> [GitIndexEntry] -> [Status]
+    loopIndexCompareHead [] _ = []
+    loopIndexCompareHead hs [] = []
+    loopIndexCompareHead hs (i : is) =
+      case indexCompareHead hs i of
+        Nothing -> loopIndexCompareHead hs is
+        Just status -> status : loopIndexCompareHead hs is
+
+    indexCompareHead :: [(String, FilePath, GitHash)] -> GitIndexEntry -> Maybe Status
+    indexCompareHead hs i =
+      if not (any (\h -> headPath h == name i) hs)
+        then Just (Added (name i, sha i))
+        else Nothing
+
+    headCompareIndex :: (String, FilePath, GitHash) -> [GitIndexEntry] -> Maybe Status
+    headCompareIndex h is =
+      let fl = Data.List.find (\i -> name i == headPath h) is
+       in case fl of
+            Nothing -> Just (Deleted (headPath h, headHash h))
+            Just index ->
+              if sha index == headHash h
+                then Nothing
+                else Just (Modified (headPath h, headHash h))
+    headPath (_, ph, _) = ph
+    headHash (_, _, hs) = hs
+
+printStatusInfo :: Status -> IO ()
+printStatusInfo s =
+  case s of
+    Modified (f, _) -> putStrLn $ "M  " ++ f
+    Added (f, _) -> putStrLn $ "A  " ++ f
+    Deleted (f, _) -> putStrLn $ "D  " ++ f
+    -- In git, it uses two colors (red and green) of "M"
+    --  in this case, use "U".
+    Untracked (f, _) -> putStrLn $ "U  " ++ f

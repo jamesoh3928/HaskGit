@@ -84,7 +84,7 @@ processArgs args gitDir =
         [hs] -> hash2Tree hs gitDir
     "test" ->
       case tail args of
-        [] -> gitFlatTree gitDir
+        [] -> gitStatusStaged gitDir
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
