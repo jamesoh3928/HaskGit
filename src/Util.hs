@@ -258,3 +258,9 @@ hashListFiles (x : xs) = do
   hash <- blobToHash x
   rest <- hashListFiles xs
   return (hash : rest)
+
+-- stringToGitHash :: String -> GitHash
+-- stringToGitHash = GitHash BSC.pack
+  -- case bsToHash (BSC.pack str) of
+  --   Nothing -> getHash (BSC.pack "000")
+  --   Just hs -> hs

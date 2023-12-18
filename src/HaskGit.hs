@@ -17,6 +17,10 @@ module HaskGit
     gitStatusModifiedHash,
     gitHashObject,
     gitCheckout,
+    getIndexEntry,
+    gitFlatTree,
+    hash2CommitObj,
+    hash2Tree
   )
 where
 
@@ -470,7 +474,7 @@ gitShow hash gitDir = do
         Nothing -> return ()
         Just (gitObj, hashV) -> Prelude.putStrLn $ gitShowStr (gitObj, hashV)
 
--- | Get a list of parent (Git Object) in the tree
+-- | Get a list of parent (Git Commit) in the tree
 gitParentList :: GitHash -> FilePath -> IO [GitObjectHash]
 gitParentList hash gitdir = do
   obj <- hash2CommitObj hash gitdir
@@ -544,6 +548,23 @@ hashBlob file = do
 hashTree :: FilePath -> IO ByteString
 hashTree path = undefined
 
+-- | used to look up hash of a path that is stored in the .git/index
+-- haskgit index "test/Spec.hs"
+getIndexEntry :: FilePath -> FilePath -> IO ()
+getIndexEntry gitDir file = do
+  ls <- unpackIndex gitDir
+  case ls of
+    Nothing -> putStrLn "Error: the index is unable to unpack"
+    Just (GitIndex ls) -> do
+      Control.Monad.forM_ ls
+        (\e ->
+          -- print (name e) -- print name for all entries
+          Control.Monad.when (name e == file) $ do
+            print (getHash (sha e))
+            -- return ()
+        )
+      -- putStrLn $ "Not find " ++ file ++ " in the index"
+
 -- TODO: hash a object that is a directory
 gitHashObject :: FilePath -> IO ()
 gitHashObject file = do
@@ -557,10 +578,10 @@ gitHashObject file = do
     else putStrLn $ "The path " ++ file ++ " doesn't exist"
 
 -- | as there exists entry that is not in the filesystem
--- this function will skip such entry if not found
--- BUG: as the directory is unable to be hash as a blob,
---  it skips any directory.
---  in the test, it skips something like ".test_read_tree"
+-- this function will skip (checking if)
+--- - entry if not found (in the future, this part may be merged w/ status for deleted)
+--  - it skips any directory (dir should not be appeared in index)
+--  - in the test, it skips something like ".test_read_tree"
 gitStatusModifiedHash :: FilePath -> IO ()
 gitStatusModifiedHash gitDir = do
   ls <- unpackIndex gitDir
@@ -620,6 +641,7 @@ gitStatusDeleted gitDir = do
     Just (GitIndex ls) -> do
       let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
       mapM_ (putStrLn . name) deleted
+
 -- | get the most updated commit
 -- extract ./haskgit/HEAD to get the path that contains the commit
 --   because the path would be different for different branch
@@ -634,3 +656,88 @@ gitHeadCommit gitdir = do
     Just cmt -> case bsToHash $ BSC.pack cmt of
       Nothing -> error "HEAD is pointing to invalid ref (incvalid hash value). Please check your .haskgit/HEAD file."
       Just hash -> return hash
+
+-- gitHeadEntries :: FilePath -> [GitHash]
+gitHeadEntries :: FilePath -> IO ()
+gitHeadEntries = undefined
+
+-- hashType :: GitHash -> FilePath -> 
+
+-- | this function is used to convert hash of a tree into tree object
+-- NOTE this one can be merged w/ hash2CommitObj
+-- hash2TreeList :: GitHash -> FilePath -> IO (Maybe [(FilePath, GitHash)])
+hash2TreeList :: GitHash -> FilePath -> IO (Maybe [(String, String, GitHash)])
+hash2TreeList hash gitDir = do
+  content <- gitObjectContent hash gitDir
+  case parse parseGitObject "" content of
+    Left error -> fail $ "<hash2TreeList>: " ++ show error
+    Right gitObject -> case gitObject of
+      Tree (_, ls) -> return (Just ls)
+      _ -> return Nothing
+
+hash2Obj :: GitHash -> FilePath -> IO (Maybe GitObject)
+hash2Obj hash gitDir = do
+  content <- gitObjectContent hash gitDir
+  case parse parseGitObject "" content of
+    Left error -> fail $ "<hash2Obj>: " ++ show error
+    Right gitObject -> case gitObject of
+      Tree _ -> return (Just gitObject)
+      Commit _ -> return (Just gitObject)
+      Blob _ -> return (Just gitObject)
+      
+hash2Tree :: String -> FilePath -> IO ()
+hash2Tree hash gitDir = do
+  case bsToHash $ BSC.pack hash of
+    Nothing -> print "wrong hash"
+    Just hash -> do
+      content <- gitObjectContent hash gitDir
+      case parse parseGitObject "" content of
+        Left error -> fail $ "<hash2TreeList>: " ++ show error
+        Right gitObject -> -- case gitObject of
+          print gitObject
+
+      -- Tree (_, [(_, path, hs)]) -> return (Just gitObject)
+      -- _ -> return Nothing
+-- gitFlatTree :: GitObject -> [GitObject]
+-- NOTE: you need append parent dir with sub-dir or filename
+-- NOTE: commit with two parents can't be parsed.
+-- You need directory w/o branch for test
+--  The HEAD needs to point a address w/ a commit that is not used for parent
+gitFlatTree :: FilePath -> IO ()
+gitFlatTree gitDir =
+  do
+    cmt <- gitHeadCommit gitDir
+    print cmt
+    obj <- hash2CommitObj cmt gitDir
+    print obj
+    case obj of
+      Nothing -> fail $ error "This Hash is failed to covert to GitObject for Commit"
+      Just(Commit (_, tree, _, _, _, _)) -> do
+        list <- hash2TreeList tree gitDir
+        case list of
+          Nothing -> error "gitFlatTree list"
+          Just ls ->
+            -- print ls
+            do 
+              rec <- recTreeList gitDir gitDir ls
+              print rec
+
+-- TBD: append parent path
+recTreeList :: FilePath -> FilePath -> [(String, String, GitHash)] -> IO [(String, String, GitHash)]
+recTreeList _ _ [] = return []
+recTreeList parentPath gitDir (ts@(mode, path, hash) : xs) = do
+  obj <- hash2Obj hash gitDir
+  case obj of
+    Nothing -> fail $ error "<recTreeList>"
+    Just obj ->
+      case obj of
+        Blob (_,_) -> recTreeList parentPath gitDir xs >>= \list -> return (ts : list)
+        Commit (_,_,_,_,_,_) -> recTreeList parentPath gitDir xs 
+        Tree (_, tr) -> recTreeList parentPath gitDir tr >>= \list -> recTreeList parentPath gitDir xs >>= \list' -> return (list ++ list')
+    -- Tree 
+
+  
+
+-- | used for detecting added object (on the stage /index) but not in HEAD
+gitStatusStaged :: FilePath -> IO ()
+gitStatusStaged = undefined
