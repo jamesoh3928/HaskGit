@@ -444,6 +444,9 @@ gitCommitTests = do
   -- Write original refs/heads/main file back to the directory
   writeFile (testGitDirCommit ++ "/refs/heads/master") originalMainRef
 
+  -- Remove the commit object created
+  removeFile (testGitDirCommit ++ "/objects/" ++ take 2 newCommitH ++ "/" ++ drop 2 newCommitH)
+
   return gitCommitTests
 
 ------------------------------ Helper functions ------------------------------------------------
