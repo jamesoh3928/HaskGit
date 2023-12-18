@@ -57,6 +57,7 @@ processArgs args gitDir =
     "status" ->
       case tail args of
         [] -> gitStatus gitDir
+        _ -> putStrLn "Usage: status"
     "branch" ->
       case tail args of
         [] -> gitListBranch gitDir
@@ -98,5 +99,6 @@ helpMsg cmd =
     "commit" -> "haskgit commit - Record changes to the repository"
     "revList" -> "haskgit revList - list commit objects in reverse chronological order"
     "log" -> "haskgit log - show commit logs"
+    "status" -> "haskgit status - show the working tree status"
     "branch" -> "haskgit branch - list, create, or delete branches"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"
