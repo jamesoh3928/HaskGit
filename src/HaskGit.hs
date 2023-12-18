@@ -857,4 +857,4 @@ printStatusInfo s =
     Deleted (f, _) -> putStrLn $ "D  " ++ f
     -- In git, it uses two colors (red and green) of "M"
     --  in this case, use "U".
-    Untracked (f, _) -> putStrLn $ "?? " ++ f
+    Untracked (f, _) -> putStrLn $ "\t\t" ++ f

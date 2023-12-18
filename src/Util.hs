@@ -12,19 +12,19 @@ module Util
     removeCorrupts,
     listFilesRecursively,
     hashListFiles,
-    blobToHash
+    blobToHash,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
-import qualified Control.Monad as Control.Monads
 import qualified Control.Monad
+import qualified Control.Monad as Control.Monads
 import qualified Crypto.Hash.SHA1 as SHA1
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16
 import qualified Data.ByteString.Char8 as BSC
-import Data.List
 import Data.Graph (path)
+import Data.List
 import Data.Time
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GitHash (GitHash, bsToHash, getHash)
@@ -126,8 +126,7 @@ recurEntries dir = do
           )
           entriesCurrDirS
       validEntries <- filterIgnoredPath nonEmptyEntries
-      subEntries <- concat <$> mapM recurEntries validEntries
-      return (validEntries ++ subEntries)
+      concat <$> mapM recurEntries validEntries
     else return [dir]
 
 -- | get all valid entries
@@ -175,8 +174,12 @@ hasFiles dir = do
 -- | get pattern list for ignoring file/dir
 getGitIgnores :: IO [FilePath]
 getGitIgnores = do
-  content <- readFile ".gitignore"
-  return $ lines content
+  isIgnore <- doesFileExist ".gitignore"
+  if isIgnore
+    then do
+      content <- readFile ".gitignore"
+      return $ lines content
+    else return []
 
 ifIgnored :: FilePath -> FilePath -> Bool
 ifIgnored path pattern = match (compile pattern) path
