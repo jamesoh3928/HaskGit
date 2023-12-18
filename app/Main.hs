@@ -1,14 +1,15 @@
 module Main (main) where
 
 import qualified Data.ByteString.Char8 as B
+import GitHash
 import HaskGit
 import System.Environment (getArgs)
 import Util (getGitDirectory)
 
 main :: IO ()
 main = do
+  let gitDir = ".haskgit"
   argsRaw <- getArgs
-  gitDir <- getGitDirectory
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
@@ -41,7 +42,8 @@ processArgs args gitDir =
         _ -> putStrLn "Usage: revList <commit-object>"
     "log" ->
       case tail args of
-        [object] -> gitLog (B.pack object) gitDir
+        [] -> gitLog Nothing gitDir
+        [object] -> gitLog (Just $ B.pack object) gitDir
         _ -> putStrLn "Usage: log <commit-object>"
     "read-tree" ->
       case tail args of
@@ -54,6 +56,15 @@ processArgs args gitDir =
     "status" ->
       case tail args of
         [] -> gitStatusModifiedHash "git"
+    "branch" ->
+      case tail args of
+        [] -> gitListBranch gitDir
+        [branchName] -> gitCreateBranch branchName gitDir
+        _ -> putStrLn "Error: haskgit branch only has one argument <branch-name>"
+    "checkout" ->
+      case tail args of
+        [object] -> gitCheckout object gitDir
+        _ -> putStrLn "Error: haskgit checkout needs one argument <branch-name> or <commit-hash>"
     "help" ->
       case tail args of
         [cmd] -> putStrLn $ helpMsg cmd
@@ -69,4 +80,5 @@ helpMsg cmd =
     "commit" -> "haskgit commit - Record changes to the repository"
     "revList" -> "haskgit revList - list commit objects in reverse chronological order"
     "log" -> "haskgit log - show commit logs"
+    "branch" -> "haskgit branch - list, create, or delete branches"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"

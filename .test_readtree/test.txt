@@ -1,0 +1,5 @@
+test case
+
+tree object : cb6005f83cf42bbe846b98ddfcd1771ecb01c6c9
+
+current directory: test.txt, text1.txt, dir1/dir2/text4.txt

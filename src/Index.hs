@@ -10,6 +10,9 @@ module Index
     removeEntries,
     getIndexEntryByHash,
     blobToIndexEntry,
+    extractNameIndex,
+    extractHashIndex,
+    updateMetaData,
   )
 where
 
@@ -22,7 +25,7 @@ import Data.Char (chr)
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import GitHash (GitHash, getHash)
-import GitObject (GitBlob, GitObject (..), GitTree, hashAndSaveObject)
+import GitObject (GitBlob, GitObject (..), GitTree, hashAndSaveObject, hashObject)
 import System.IO (readFile')
 import System.Posix.Files
 
@@ -83,6 +86,7 @@ gitIndexEntrySerialize entry =
               intTo4Bytes (fsize entry),
               -- Decode the sha hew ByteString because index must store in binary not hex representation
               case B16.decode (getHash (sha entry)) of
+                -- Should not be reachable
                 Left err -> error ("Invalid hash fo base16 decoding - " ++ err ++ "\n sha entry: " ++ show (sha entry))
                 Right result -> BSC.unpack result,
               -- Concat flagAssumeValid, flagStage, and nameLength
@@ -205,3 +209,31 @@ blobToIndexEntry hash path = do
       fsize = 0
 
   return (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize hash False 0 path)
+
+-- Returns new index with updated meta data
+updateMetaData :: GitIndex -> FilePath -> FilePath -> IO GitIndex
+updateMetaData (GitIndex []) _ _ = return (GitIndex [])
+updateMetaData (GitIndex (x : xs)) repoDir gitDir = do
+  let fp = repoDir ++ "/" ++ name x
+  metadata <- getFileStatus fp
+  let ctime = floor (statusChangeTimeHiRes metadata * 1e9)
+      ctimeS = ctime `div` (10 ^ 9)
+      ctimeNS = ctime `mod` (10 ^ 9)
+      mtime = floor (modificationTimeHiRes metadata * (10 ^ 9))
+      mtimeS = mtime `div` (10 ^ 9)
+      mtimeNS = mtime `mod` (10 ^ 9)
+      dev = fromIntegral (deviceID metadata)
+      ino = fromIntegral (fileID metadata)
+      mode = fromIntegral (fileMode metadata)
+      uid = fromIntegral (fileOwner metadata)
+      gid = fromIntegral (fileGroup metadata)
+      fsize = fromIntegral (fileSize metadata)
+  file <- readFile' fp
+  -- Use hashAndSaveObject to save the blob object as well
+  let blob = Blob (0, file)
+  -- TODO: double check if we can refactor somehow
+  let sha = hashObject blob
+
+  (GitIndex rest) <- updateMetaData (GitIndex xs) repoDir gitDir
+  -- -- Add the entry to the index
+  return $ GitIndex (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize sha False 0 (name x) : rest)

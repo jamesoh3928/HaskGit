@@ -22,23 +22,11 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Parsec (parse)
 
--- import Test.Tasty.QuickCheck
-
----------------------------Test for git Show------------------------------------
--- 0. cp .git to .haskgit (bcs, `git` only use .git)
--- 1. get a list of git object paths
--- 2. call git
--- 3. compare git show <object> with haskgit show <object>
--- see `test.sh`
--- NOTE: this approach is easier to do with bash.
--- for later unit test, there will be a .dat file stores all result
--- of `git show` then do comparison
-
 testGitDir :: FilePath
 testGitDir = ".test_haskgit"
 
 testGitDirReadTree :: FilePath
-testGitDirReadTree = ".test_read_tree/.test_haskgit"
+testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
 
 main :: IO ()
 main = tests >>= defaultMain
@@ -160,11 +148,11 @@ hashObjectTests = do
         testGroup
           "hashObejct"
           [ testCase "blob object" $
-              Just (BSC.pack actualBlobHash) @?= encode <$> expectedBlob,
+              Just (BSC.pack actualBlobHash) @?= expectedBlob,
             testCase "tree object" $
-              Just (BSC.pack actualTreeHash) @?= encode <$> expectedTree,
+              Just (BSC.pack actualTreeHash) @?= expectedTree,
             testCase "commit object" $
-              Just (BSC.pack actualCommitHash) @?= encode <$> expectedCommit
+              Just (BSC.pack actualCommitHash) @?= expectedCommit
           ]
 
   return hashObjectTests
@@ -175,42 +163,48 @@ saveObjectTests = do
   -- Blob (bytestring of "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
   let blobHash = BSC.pack (replicate 20 '\170')
   let blobTempPath = testGitDir ++ "/objects/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  contentBlob <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
-  case parse parseGitObject "" (BSLC.unpack (decompress contentBlob)) of
+  contentBlob <- BSC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
+  case parse parseGitObject "" (BSLC.unpack (decompress (BSC.fromStrict contentBlob))) of
     Left err -> assertFailure (show err)
-    Right result -> saveGitObject (bsToHash $ encode blobHash) (gitObjectSerialize result) testGitDir
+    Right result -> case bsToHash (encode blobHash) of
+      Nothing -> assertFailure "Invalid hash value"
+      Just hash -> saveGitObject hash (gitObjectSerialize result) testGitDir
 
   -- check the strings (need to decompress since compression data might depend on machine)
-  tmpBlob1 <- BSLC.readFile blobTempPath
-  let expectedBlob = decompress tmpBlob1
-  tmpBlob2 <- BSLC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
-  let actualBlob = decompress tmpBlob2
+  tmpBlob1 <- BSC.readFile blobTempPath
+  let expectedBlob = decompress (BSC.fromStrict tmpBlob1)
+  tmpBlob2 <- BSC.readFile (testGitDir ++ "/objects/04/efa50ffad0bc03edea5cbca1936c29aee18553")
+  let actualBlob = decompress (BSC.fromStrict tmpBlob2)
 
   -- Tree (byteString of "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
   let treeHash = BSC.pack (replicate 20 '\187')
   let treeTempPath = testGitDir ++ "/objects/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  contentTree <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
-  case parse parseGitObject "" (BSLC.unpack (decompress contentTree)) of
+  contentTree <- BSC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
+  case parse parseGitObject "" (BSLC.unpack (decompress (BSC.fromStrict contentTree))) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash $ encode treeHash) (gitObjectSerialize result) testGitDir
+    Right result -> case bsToHash (encode treeHash) of
+      Nothing -> assertFailure "Invalid hash value"
+      Just hash -> saveGitObject hash (gitObjectSerialize result) testGitDir
 
-  tmpTree1 <- BSLC.readFile treeTempPath
-  let expectedTree = decompress tmpTree1
-  tmpTree2 <- BSLC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
-  let actualTree = decompress tmpTree2
+  tmpTree1 <- BSC.readFile treeTempPath
+  let expectedTree = decompress (BSC.fromStrict tmpTree1)
+  tmpTree2 <- BSC.readFile (testGitDir ++ "/objects/00/13ee97b010dc8e9646f3c5a9841b62eb754f77")
+  let actualTree = decompress (BSC.fromStrict tmpTree2)
 
   -- Commit (bytestring of "cccccccccccccccccccccccccccccccccccccc"")
   let commitHash = BSC.pack (replicate 20 '\204')
   let commitTempPath = testGitDir ++ "/objects/cc/cccccccccccccccccccccccccccccccccccccc"
-  contentCommit <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
-  case parse parseGitObject "" (BSLC.unpack (decompress contentCommit)) of
+  contentCommit <- BSC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
+  case parse parseGitObject "" (BSLC.unpack (decompress (BSC.fromStrict contentCommit))) of
     Left err -> assertFailure (show err)
-    Right result -> do saveGitObject (bsToHash $ encode commitHash) (gitObjectSerialize result) testGitDir
+    Right result -> case bsToHash (encode commitHash) of
+      Nothing -> assertFailure "Invalid hash value"
+      Just hash -> saveGitObject hash (gitObjectSerialize result) testGitDir
 
-  tmpCommit1 <- BSLC.readFile commitTempPath
-  let expectedCommit = decompress tmpCommit1
-  tmpCommit2 <- BSLC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
-  let actualCommit = decompress tmpCommit2
+  tmpCommit1 <- BSC.readFile commitTempPath
+  let expectedCommit = decompress (BSC.fromStrict tmpCommit1)
+  tmpCommit2 <- BSC.readFile (testGitDir ++ "/objects/56/2c9c7b09226b6b54c28416d0ac02e0f0336bf6")
+  let actualCommit = decompress (BSC.fromStrict tmpCommit2)
 
   let saveObjectTests =
         testGroup
@@ -316,18 +310,16 @@ addOrUpdateEntriesTests = do
   return addOrUpdateEntriesTests
 
 -- Checks if index is updated with correct files and hashes after read-tree
--- Use customize cases in .test_read_tree/ which contains few text files with couple commits
+-- Use customize cases in .test_readtree/ which contains few text files with couple commits
 readTreeTests :: IO TestTree
 readTreeTests = do
   -- Case 1: tree dc1a169e2bd287931839c35eaec477be39d5d855
   -- Should contain text1.txt, text2.txt, dir1/text3.txt
   let treeHash1 = "dc1a169e2bd287931839c35eaec477be39d5d855"
   let path1 = ["text1.txt", "text2.txt", "/dir1/text3.txt"]
-  let hashes1 =
-        [ bsToHash (BSC.pack "1664584d9a5168247c12877b7fdd2f5549d1d1dd"),
-          bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4"),
-          bsToHash (BSC.pack "f483c776c42f8ef2aa00d827805dfeaf7d9ce02b")
-        ]
+  let hashes1 = case (bsToHash (BSC.pack "1664584d9a5168247c12877b7fdd2f5549d1d1dd"), bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4"), bsToHash (BSC.pack "f483c776c42f8ef2aa00d827805dfeaf7d9ce02b")) of
+        (Just x, Just y, Just z) -> [x, y, z]
+        _ -> error "Failed to convert valid hash. Check the test file."
 
   gitReadTree (BSC.pack treeHash1) testGitDirReadTree
   indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
@@ -338,7 +330,9 @@ readTreeTests = do
   -- Case 2:
   let treeHash2 = "46f22aaca0731550afc91adf63739012a7e70481"
   let path2 = ["text1.txt"]
-  let hashes2 = [bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")]
+  let hashes2 = case bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4") of
+        Just x -> [x]
+        _ -> error "Failed to convert valid hash. Check the test file."
   gitReadTree (BSC.pack treeHash2) testGitDirReadTree
   indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
   newIndex2 <- case parse parseIndexFile "" (BSC.unpack indexContent) of
@@ -348,11 +342,9 @@ readTreeTests = do
   -- Case 3: go back to original index
   let originalTree = "c49122098fd599325d3eb2b688819990dcbae382"
   let originalPath = ["text1.txt", "test.txt", "/dir1/dir2/text4.txt"]
-  let originalHash =
-        [ bsToHash (BSC.pack "9e9d6c3d83f973a03c508b354af0d383aca94cb5"),
-          bsToHash (BSC.pack "94a6a0a6bd8087721ec594f304cb881f20d61345"),
-          bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")
-        ]
+  let originalHash = case (bsToHash (BSC.pack "9e9d6c3d83f973a03c508b354af0d383aca94cb5"), bsToHash (BSC.pack "94a6a0a6bd8087721ec594f304cb881f20d61345"), bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")) of
+        (Just x, Just y, Just z) -> [x, y, z]
+        _ -> error "Failed to convert valid hash. Check the test file."
   gitReadTree (BSC.pack originalTree) testGitDirReadTree
   indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
   originalIndex <- case parse parseIndexFile "" (BSC.unpack indexContent) of

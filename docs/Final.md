@@ -55,6 +55,20 @@ To resolve this issue, we decided to follow the invariant that the `GitHash` typ
 - The index stores the hash value that is not encoded in base16.
 - Our invariant: `GitHash` stores the ByteString that is encoded in base16.
 
+### Using editor may add weird characters ('\r')
+- TODO: James
+
+### Shadowing + Lazy Evaluation
+What do you think will happen with following lines?
+
+ghci> l = "dafdkjlaksdjfa\r\n"
+ghci> branchP = Prelude.filter (not . isEscape) l
+ghci> branchP = if Prelude.last branchP == '\n' then Prelude.init branchP else branchP
+ghci> branchP
+
+The answer is, this code never terminates!
+
+TODO: continue
 
 <!-- Proving the IO heavy application can still have benefits by using Haskell as implementation language -->
 
@@ -74,3 +88,46 @@ IMPORTANT
 
 Notes
 - Some of the metadata are not crucial for our mvp (file mode, byte size, etc). While we read in data correctly if these data are found in the existing files, but when we are creating new git objects or new index entry on our own, we are writing default data. If these data become crucial in the future, we may need to modify our codebase little bit.
+
+
+<!-- TODO: delete -->
+### git checkout
+1. No modified file, no staged file: change all the files in index from tree
+
+2. Modified files, no staged file: change all the files in index from tree except modified files
+
+3. No modified file, staged files: change all the files in index from tree except staged files
+
+4. Modified files, staged files: 
+
+
+Main                Test
+
+Final V3            Final V1
+<!--  add Modify Final -->
+--- Current file hash object exist?
+
+Index             Tree
+Final v1 hash     Final V2 hash
+
+1. If hashes are equal? fine
+2. If not - is current entry in index pr file in the working directory modified after most recent commit 
+
+
+Checkout-index
+1. Current directory exist, but not in index
+New file
+2. text1 text2      text1
+
+
+Git reset
+- Soft, Mixed
+
+Git checkout
+- Git checkout-index (Evening) - Only when everything is committed
+- Git checkout
+- default `git reset` (Evening)
+
+Tests
+Final doc
+Presentation - its on Tuesday 8am 

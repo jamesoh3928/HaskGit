@@ -1,20 +1,19 @@
-module GitHash (GitHash, bsToHash, gitHashValue, getHash) where
+module GitHash (GitHash, bsToHash, getHash) where
 
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 
--- | GitHash is simply a wraper for "ByteString"
+-- | GitHash is a type represnting a SHA-1 hash used in Git.
 -- Invariant: the bytestring must be encoded in hexadecimal format to be stored in GitHash
 newtype GitHash = GitHash ByteString
   deriving (Eq, Ord, Show)
 
-bsToHash :: ByteString -> GitHash
-bsToHash = GitHash
-
 -- | Constructor that takes a ByteString and returns a GitHash
+-- The length is 40 even though sha1 return 160 bits because it is encoded in hexadecimal format
+-- I.e. 160 bits converted to hexadecimal -> 4 bits become 8 bits, therefore 320 bits -> 40 bytes
 -- - @bs@: the length of bs is no longer than 40
-gitHashValue :: ByteString -> Maybe GitHash
-gitHashValue bs = if BS.length bs == 40 then Just (GitHash bs) else Nothing
+bsToHash :: ByteString -> Maybe GitHash
+bsToHash bs = if BS.length bs == 40 then Just (GitHash bs) else Nothing
 
 getHash :: GitHash -> ByteString
 getHash (GitHash bs) = bs
