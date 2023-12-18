@@ -2,3 +2,5 @@
 8a0f4f52ea2141506c22fbd004ed26c7dc97fb34 cb6005f83cf42bbe846b98ddfcd1771ecb01c6c9 Jack Oh <jo8842@g.rit.edu> 1702751287 -0500	commit: text2 and text3
 cb6005f83cf42bbe846b98ddfcd1771ecb01c6c9 c225a7b5a329c92c436d7ead01f81e98fc3fb0a2 Jack Oh <jo8842@g.rit.edu> 1702751460 -0500	commit: Remove text2 and add text4
 c225a7b5a329c92c436d7ead01f81e98fc3fb0a2 4a65f7521dab11e308961e2eb45b268d9d5692b4 Jack Oh <jo8842@g.rit.edu> 1702751658 -0500	commit: Removed dir1/text3.txt and added test.txt
+4a65f7521dab11e308961e2eb45b268d9d5692b4 4a65f7521dab11e308961e2eb45b268d9d5692b4 Jack Oh <jo8842@g.rit.edu> 1702757249 -0500	reset: moving to HEAD
+4a65f7521dab11e308961e2eb45b268d9d5692b4 c37202b66d3f20d835c9a085f62ed5b7c7ce3097 Jack Oh <jo8842@g.rit.edu> 1702757335 -0500	commit: modified test.txt

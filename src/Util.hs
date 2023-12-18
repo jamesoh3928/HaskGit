@@ -161,7 +161,7 @@ blobToHash file = do
   -- let content = BSC.pack cont
   let len = BSC.length content
       header = BSC.pack $ "blob " ++ show len ++ "\0"
-      hash = case bsToHash $ SHA1.hash (header `BSC.append` content) of
+      hash = case bsToHash $ encode (SHA1.hash (header `BSC.append` content)) of
         Just h -> h
         -- Should never happen since we are hashing a blob ourselves
         Nothing -> error "Invalid hash value was computed from SHA1.hash function in blobToHash"
