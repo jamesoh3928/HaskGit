@@ -321,6 +321,8 @@ readTreeTests = do
         (Just x, Just y, Just z) -> [x, y, z]
         _ -> error "Failed to convert valid hash. Check the test file."
 
+  originalindexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
+
   gitReadTree (BSC.pack treeHash1) testGitDirReadTree
   indexContent <- BSC.readFile (testGitDirReadTree ++ "/index")
   newIndex1 <- case parse parseIndexFile "" (BSC.unpack indexContent) of
@@ -369,5 +371,8 @@ readTreeTests = do
             testCase "Check the hashes are same for case 1" $
               all (hasHash originalIndex) originalHash @?= True
           ]
+
+  -- Write original index file back to the directory
+  BSC.writeFile (testGitDirReadTree ++ "/index") originalindexContent
 
   return readTreeTests
