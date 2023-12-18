@@ -72,8 +72,8 @@ parseCommit = do
     Nothing -> fail "Not a valid byte size in commit file"
     Just bytesize -> do
       rootTree <- string "tree " >> manyTill anyChar (char '\n')
-      --   Assuming only one or zero parent for MVP
-      parent <- option "" (string "parent " >> manyTill anyChar (char '\n'))
+      -- There can be multiple parents (although merge conflict is not handled in mvp)
+      parent <- many (string "parent " >> manyTill anyChar (char '\n'))
       authorNameWithSpace <- string "author " >> manyTill (noneOf "<") (char '<')
       authorEmail <- manyTill (noneOf ">") (char '>')
       spaces
@@ -88,19 +88,31 @@ parseCommit = do
       message <- manyTill anyChar eof
       let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
           committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
-      case (bsToHash (BC.pack rootTree), bsToHash (BC.pack parent)) of
-        (Just rootTreeHash, Just parentHash) ->
+
+      let parentHashMs = Prelude.map (bsToHash . BC.pack) parent 
+      let rootTreeHashM = bsToHash (BC.pack rootTree)
+      case (rootTreeHashM, hashesMtoHashes parentHashMs) of
+        (Just rootTreeHash, Just parentHashes) ->
           return
             ( Commit
                 ( bytesize,
                   rootTreeHash,
-                  [parentHash],
+                  parentHashes,
                   authorInfo,
                   committerInfo,
                   message
                 )
             )
         _ -> fail "Invalid hash value in commit file  found during parsing"
+  where
+    -- If at least one of the hashes in parentHashes or rootTreeHash is invalid, fail
+    hashesMtoHashes :: [Maybe GitHash] -> Maybe [GitHash]
+    hashesMtoHashes [] = Just []
+    hashesMtoHashes (x:xs) = case x of
+      Just x' -> case hashesMtoHashes xs of
+        Just xs' -> Just (x':xs')
+        Nothing -> Nothing
+      Nothing -> Nothing
 
 -- | Parse the git object.
 parseGitObject :: Parser GitObject
