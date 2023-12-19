@@ -6,7 +6,6 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import qualified Data.Text as T
 import GitHash
 import GitObject
 import HaskGit
