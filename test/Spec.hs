@@ -6,7 +6,6 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import qualified Data.Text as T
 import GitHash
 import GitObject
 import HaskGit
@@ -454,7 +453,7 @@ gitCommitTests = do
 
   return gitCommitTests
 
--- TODO Git Status Test
+-- | Make sure git status produces expected output
 gitStatusTest :: IO TestTree
 gitStatusTest = do
   -- Change the working directory for the test

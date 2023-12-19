@@ -54,7 +54,6 @@ tests:
       - tasty-golden
       - tasty-hunit
       - tasty-quickcheck
-      - text
       - parsec
       - zlib
       - base16-bytestring

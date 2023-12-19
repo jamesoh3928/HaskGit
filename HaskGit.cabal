@@ -87,6 +87,5 @@ test-suite HaskGit-test
     , tasty-golden
     , tasty-hunit
     , tasty-quickcheck
-    , text
     , zlib
   default-language: Haskell2010
