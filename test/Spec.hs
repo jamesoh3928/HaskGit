@@ -453,7 +453,7 @@ gitCommitTests = do
 
   return gitCommitTests
 
--- TODO Git Status Test
+-- | Make sure git status produces expected output
 gitStatusTest :: IO TestTree
 gitStatusTest = do
   -- Change the working directory for the test

@@ -43,7 +43,7 @@ The list of implemented porcelain commands is as follows:
     haskgit reset commit-hash
     ```
   - status: Displays differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
-  TODO: update based on our progress
+  TODO: Ask Chen about the untracked files
     ```console
     haskgit status
     ```
@@ -270,7 +270,7 @@ We used the [`readFile'`](https://hackage.haskell.org/package/base-4.19.0.0/docs
 - Testing was particularly challenging and required tedious work, such as setting up a test repository.
 
 
-### Idiomatic Haskell
+### Idiomatic Haskell Features
 
 A lot of our codebase requires the `IO` monad, which may not seem as idiomatic Haskell. However, we were still able to find a lot of useful features in Haskell.
 
@@ -291,32 +291,38 @@ parseIndexFile = do
   return (GitIndex entries)
 ```
 
-2. We were also able to leverage the immutable [`Data.Map`](https://hackage.haskell.org/package/containers-0.4.0.0/docs/Data-Map.html) module, which is based on a size-balanced binary tree. This data structure was useful when creating a tree object from the current index file. Note that we did not delete the current key from the map after each iteration because that would reduce performance in an immutable data structure (and we knew we would never reaccess that key again, so there was no reason to delete it).
+2. We were also able to leverage the [`Data.Map`](https://hackage.haskell.org/package/containers-0.4.0.0/docs/Data-Map.html) and [`Data.Set`](https://hackage.haskell.org/package/containers-0.7/docs/Data-Set.html) modules, both of which are implemented with a size-balanced binary tree. The `Set` data structure was useful for extracting the maximum value from the data structure in O(log(n)) time, and the `Map` data structure was useful for finding key-value pairs in O(log(n)) time.
 
-Data.Map insertion: O(log(n)), size balanced binary tree
+Data.Map: insertion = O(log(n)), lookup = O(log(n)), member = O(log(n))
+Data.Set: maxView = O(log(n)), insert = O(log(n))
 
 ```haskell
-traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
-traverse [] _ = return Nothing
-traverse (k : ks) dict = do
-  let tree = Tree (0, sortOn (\(_, name, _) -> name) (dict Map.! k))
-  -- Save the tree object
-  treeHash <- hashAndSaveObject tree gitDir
-  -- If the parent directory is in the dict
-  let parentDir = takeDirectory k
-  case k of
-    -- Finished traversing the keys, return the hash of the root tree object (base case)
-    "." -> return $ Just treeHash
-    _ ->
-      if Map.member parentDir dict
-        then do
-          let (Just entries) = Map.lookup parentDir dict
+traverse :: Set.Set (Int, [Char]) -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
+traverse ks dict = do
+  -- O(log(n))
+  case Set.maxView ks of
+    Nothing -> return Nothing
+    Just ((_, k), lks) -> do
+      -- Also sort the entries based on the name (tree object file stores entries in sorted order)
+      let tree = Tree (0, sortOn (\(_, name, _) -> name) (dict Map.! k))
+      treeHash <- hashAndSaveObject tree gitDir
+      let parentDir = takeDirectory k
+      case k of
+        -- Finished traversing the keys, return the hash of the root tree object (base case)
+        "." -> return $ Just treeHash
+        _ -> do
+          entries <-
+            if Map.member parentDir dict
+              then do
+                let (Just entries) = Map.lookup parentDir dict
+                return entries
+              else return []
           let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), takeFileName k, treeHash) : entries
-          -- Add the new tree object to the dict
+
+          -- Add the new tree object to the dict and new key to the set (both O(log(n)))
           let newDict' = Map.insert parentDir newEntries dict
-          traverse ks newDict'
-        else
-          traverse ks dict
+          let newKs = Set.insert (length parentDir, parentDir) lks
+          traverse newKs newDict'
 ```
 
 
@@ -329,7 +335,3 @@ traverse (k : ks) dict = do
 ### Conclusion
 
 This project was challenging to complete within a couple of weeks during the semester, but we believe our team accomplished our goal of building a minimalistic Git implementation with Haskell. We had to delve into dealing with binary files and overcome some tough bugs, but we made it through. This project compelled us to write tons of Haskell code, making us more comfortable working with it and deepening our understanding of how Git works. Along the way, we learned other valuable lessons mentioned above. We believe that our project demonstrates how Haskell can bring beneficial features to IO-heavy software, showcasing the language's extensibility. Overall, it was enjoyable to work on a project to replicate the software we use daily with a purely functional language!
-
-TODO: Review the final project grading rubric and discuss any relevant aspects of the
-project.
-
