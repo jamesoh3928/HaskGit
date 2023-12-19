@@ -151,7 +151,7 @@ gitReadTree treeH gitDir = do
               return (GitIndex (blobIndex : rest))
             -- if object is tree recurse the treeObjToIndex
             Just (Tree tree, _) -> do
-              GitIndex nested <- treeObjToIndex tree oldIndex (path ++ "/" ++ name)
+              GitIndex nested <- treeObjToIndex tree oldIndex (if path == "" then name else path ++ "/" ++ name)
               GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
               return (GitIndex (nested ++ rest))
             _ -> treeObjToIndex (i, xs) oldIndex path
@@ -317,7 +317,9 @@ gitCheckoutIndex gitDir = do
             Right gitObj ->
               case gitObj of
                 (Blob (_, blobContent)) -> do
-                  writeFile (repoDir ++ "/" ++ name x) blobContent
+                  let fp = repoDir ++ "/" ++ name x
+                  createDirectoryIfMissing True (takeDirectory fp)
+                  writeFile fp blobContent
                   addOrUpdateFile (GitIndex xs) hashFiles repoDir
                 _ -> putStrLn "Not a blob."
         else addOrUpdateFile (GitIndex xs) hashFiles repoDir
