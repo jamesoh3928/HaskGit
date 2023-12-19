@@ -180,6 +180,9 @@ some text
 > cp -r .git .haskgit
 > rm -rf .git
 
+-- If you need to update permission:
+> chmod -R a+rwx .haskgit
+
 -- Ready for haskgit!
 > haskgit status
 

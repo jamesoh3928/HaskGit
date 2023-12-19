@@ -142,8 +142,8 @@ gitReadTree treeH gitDir = do
     treeObjToIndex :: GitTree -> GitIndex -> String -> IO GitIndex
     treeObjToIndex (i, []) _ _ = return (GitIndex [])
     treeObjToIndex (i, (fmode, name, hash) : xs) oldIndex path = do
-      -- print name
-      case getIndexEntryByHash hash oldIndex of
+      let relativeName = (if path == "" then name else path ++ "/" ++ name)
+      case getIndexEntryByHashAndName hash relativeName oldIndex of
         -- If hash doesn't exist in index
         Nothing -> do
           gitObj <- readObjectByHash hash gitDir
@@ -152,12 +152,12 @@ gitReadTree treeH gitDir = do
             Nothing -> treeObjToIndex (i, xs) oldIndex path
             -- if object is blob turn blob into indexEntry
             Just (Blob blob, _) -> do
-              blobIndex <- blobToIndexEntry hash (if path == "" then name else path ++ "/" ++ name)
+              blobIndex <- blobToIndexEntry hash relativeName
               GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
               return (GitIndex (blobIndex : rest))
             -- if object is tree recurse the treeObjToIndex
             Just (Tree tree, _) -> do
-              GitIndex nested <- treeObjToIndex tree oldIndex (if path == "" then name else path ++ "/" ++ name)
+              GitIndex nested <- treeObjToIndex tree oldIndex relativeName
               GitIndex rest <- treeObjToIndex (i, xs) oldIndex path
               return (GitIndex (nested ++ rest))
             _ -> treeObjToIndex (i, xs) oldIndex path
@@ -283,12 +283,12 @@ gitCheckoutIndex gitDir = do
       let indexFiles = extractNameIndex index
 
       -- Get list of hashes of files
-      hashFiles <- hashListFiles filesFullPath
+      hashFiles <- hashAndNameFiles filesFullPath
 
       -- If file name doesn't exist in index entries, delete file
       deleteFile files indexFiles repoDir
 
-      -- -- If hash does not exist in the working directory, overwrite
+      -- -- If hash and name does not exist in the working directory, overwrite
       addOrUpdateFile index hashFiles repoDir
 
       -- Update index metadata
@@ -307,12 +307,12 @@ gitCheckoutIndex gitDir = do
           deleteFile xs indexFiles repoDir
         else deleteFile xs indexFiles repoDir
 
-    -- Add or update files in index if the hash of the index entry doesn't exist in current working directory.
+    -- Add or update files in index if the hash and name of the index entry doesn't exist in current working directory.
     -- Finds the hash in object file to create a file.
-    addOrUpdateFile :: GitIndex -> [GitHash] -> FilePath -> IO ()
+    addOrUpdateFile :: GitIndex -> [(GitHash, FilePath)] -> FilePath -> IO ()
     addOrUpdateFile (GitIndex []) _ _ = return ()
-    addOrUpdateFile (GitIndex (x : xs)) hashFiles repoDir =
-      if sha x `notElem` hashFiles
+    addOrUpdateFile (GitIndex (x : xs)) hashAndName repoDir =
+      if (sha x, name x) `notElem` hashAndName
         then do
           let path = hashToFilePath (sha x) gitDir
           -- parse blob
@@ -326,9 +326,10 @@ gitCheckoutIndex gitDir = do
                   let fp = repoDir ++ "/" ++ name x
                   createDirectoryIfMissing True (takeDirectory fp)
                   writeFile fp blobContent
-                  addOrUpdateFile (GitIndex xs) hashFiles repoDir
+                  addOrUpdateFile (GitIndex xs) hashAndName repoDir
                 _ -> putStrLn "Not a blob."
-        else addOrUpdateFile (GitIndex xs) hashFiles repoDir
+        else do
+          addOrUpdateFile (GitIndex xs) hashAndName repoDir
 
 -- | Plumbing command for hasing a blob object
 gitHashObject :: FilePath -> IO ()

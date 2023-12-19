@@ -11,7 +11,7 @@ module Util
     getFullEntries,
     removeCorrupts,
     listFilesRecursively,
-    hashListFiles,
+    hashAndNameFiles,
     blobToHash,
   )
 where
@@ -251,9 +251,9 @@ blobToHash file = do
   return hash
 
 -- | Take a list of file paths and return a list of hashes of the blob files
-hashListFiles :: [FilePath] -> IO [GitHash]
-hashListFiles [] = return []
-hashListFiles (x : xs) = do
+hashAndNameFiles :: [FilePath] -> IO [(GitHash, FilePath)]
+hashAndNameFiles [] = return []
+hashAndNameFiles (x : xs) = do
   hash <- blobToHash x
-  rest <- hashListFiles xs
-  return (hash : rest)
+  rest <- hashAndNameFiles xs
+  return ((hash, x) : rest)

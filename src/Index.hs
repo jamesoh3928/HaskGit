@@ -8,7 +8,7 @@ module Index
     hasFile,
     hasHash,
     removeEntries,
-    getIndexEntryByHash,
+    getIndexEntryByHashAndName,
     blobToIndexEntry,
     extractNameIndex,
     extractHashesIndex,
@@ -190,9 +190,9 @@ extractNameIndex (GitIndex []) = []
 extractNameIndex (GitIndex (x : xs)) = name x : extractNameIndex (GitIndex xs)
 
 -- | Get the index entry by hash value
-getIndexEntryByHash :: GitHash -> GitIndex -> Maybe GitIndexEntry
-getIndexEntryByHash _ (GitIndex []) = Nothing
-getIndexEntryByHash hash (GitIndex (x : xs)) = if hash == sha x then Just x else getIndexEntryByHash hash (GitIndex xs)
+getIndexEntryByHashAndName :: GitHash -> String -> GitIndex -> Maybe GitIndexEntry
+getIndexEntryByHashAndName _ _ (GitIndex []) = Nothing
+getIndexEntryByHashAndName hash iName (GitIndex (x : xs)) = if hash == sha x && iName == name x then Just x else getIndexEntryByHashAndName hash iName (GitIndex xs)
 
 -- | Return a GitINdexEntry with the hash value.
 -- All the metadata is set as 0 and time is set as current time
