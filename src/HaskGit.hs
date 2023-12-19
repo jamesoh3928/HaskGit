@@ -66,7 +66,8 @@ gitWriteTree gitDir = do
     Right gitIndex -> do
       let (GitIndex entries) = gitIndex
       -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
-      let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), name ie, sha ie)])) entries)
+      -- The name in tree must be just a file or directory name
+      let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), takeFileName (name ie), sha ie)])) entries)
       -- Sort the `keys` from longest length to shortest length
       let sortedKeys = sortOn (\x -> -1 * length x) (Map.keys dict)
       -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
