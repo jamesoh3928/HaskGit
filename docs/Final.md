@@ -293,6 +293,8 @@ parseIndexFile = do
 
 2. We were also able to leverage the immutable [`Data.Map`](https://hackage.haskell.org/package/containers-0.4.0.0/docs/Data-Map.html) module, which is based on a size-balanced binary tree. This data structure was useful when creating a tree object from the current index file. Note that we did not delete the current key from the map after each iteration because that would reduce performance in an immutable data structure (and we knew we would never reaccess that key again, so there was no reason to delete it).
 
+Data.Map insertion: O(log(n)), size balanced binary tree
+
 ```haskell
 traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
 traverse [] _ = return Nothing
