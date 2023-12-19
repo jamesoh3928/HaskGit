@@ -771,7 +771,7 @@ gitStatusUntracked gitDir = do
 -- | get deleted files in current working directory
 gitStatusDeleted :: FilePath -> IO [Status]
 gitStatusDeleted gitDir = do
-  entries <- getFullEntries "."
+  entries <- getFullEntries "." gitDir
   ls <- unpackIndex gitDir
   case ls of
     -- Abort if index is not able to unpack
