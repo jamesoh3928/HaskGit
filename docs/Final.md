@@ -16,6 +16,16 @@ HaskGit is a Git implementation crafted in Haskell with the primary objective of
 - A strong type system and functional paradigm help us ensure the correctness of the Git protocol.
 - Pure functions are useful for maintaining data integrity in Git.
 
+### How is HaskGit implemented? ###
+
+How does Git track file versions? Git manages file versions using Git objects stored in `.git/objects`. There are three types of Git objects: *Blob*, representing file content; *Tree*, representing a directory; and *Commit*, which captures a specific snapshot of a project.
+
+In the diagram below, each commit object points to a tree object, and tree objects point to multiple blobs representing the snapshot's directory. Visualize it as a linked list of snapshots, with each commit object serving as a snapshot. Git keeps track of these objects by hashing them and storing them in a directory represented by the hash. All objects are stored in `.git/objects/(first two hash characters)/(rest of the hash characters)`.
+
+![Alt text](image/gitobject.PNG)
+
+While there are more details (such as the *Index* file, which tracks the staging area), this forms the core of how Git operates. HaskGit adheres to this design, utilizing objects and hashes to function as a version control system. 
+
 ## Project Execution Summary
 
 ### Functionalities
@@ -42,8 +52,9 @@ The list of implemented porcelain commands is as follows:
     -- Move the branch pointer to specific commit
     haskgit reset commit-hash
     ```
-  - status: Displays differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git.
-  TODO: update based on our progress
+  - status: Displays differences between the index file and the current HEAD commit, paths that have differences between the working tree and the index file, and paths in the working tree that are not tracked by Git. 
+  
+    Note: Currently, when there is a double nested file, such as *dir1/dir2/file1.txt*, the status function will not be able to detect it as untracked (other statuses such as modified, staged should be detected).
     ```console
     haskgit status
     ```
@@ -141,8 +152,42 @@ HaskGit> Test suite HaskGit-test passed
 
 
 ### How to Use HaskGit
-Because HaskGit does not have an init command, and it is not yet handling when there is no commit, we need to first initialize repository with official git.
-TODO: Jack
+Because HaskGit does not have an init command, and it is not yet handling when there is no commit, we need to first initialize repository with official git. Below is an example how you can set up.
+
+```console
+> stack build
+
+-- Exec might differ based on the operating system
+-- Copy it to where you want to save it.
+> cp .stack-work/dist/x86_64-linux/Cabal-3.8.1.0/build/HaskGit-exe/HaskGit-exe ../some_path_you_want/haskgit
+
+-- Create an empty directory to use as a HaskGit repository
+> mkdir demo
+> cd demo
+
+-- You can also set up alias (recommended)
+> alias haskgit='../some_path/haskgit'
+
+-- HaskGit does not have an 'init' command, so set it up with Git
+-- Need to initiate a single commit with Git to set up the index and other appropriate Git files
+> git init
+> cat >> filename.text
+some text
+> git add filename.txt
+> git commit -m "first commit"
+
+-- Create .haskgit directory
+> cp -r .git .haskgit
+> rm -rf .git
+
+-- Ready for haskgit!
+> haskgit status
+
+On branch master
+
+nothing to commit, working tree clean
+
+```
 
 ## Additional Details
 
