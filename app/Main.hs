@@ -14,7 +14,7 @@ main = do
   processArgs argsRaw gitDir
 
 processArgs :: [String] -> FilePath -> IO ()
-processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add", "commit", "revList", "log"]
+processArgs [] _ = mapM_ (putStrLn . helpMsg) ["show", "updateRef", "add", "commit", "revList", "log", "read-tree", "status", "branch", "checkout", "reset"]
 processArgs args gitDir =
   case head args of
     "show" ->
@@ -101,4 +101,7 @@ helpMsg cmd =
     "log" -> "haskgit log - show commit logs"
     "status" -> "haskgit status - show the working tree status"
     "branch" -> "haskgit branch - list, create, or delete branches"
+    "read-tree" -> "haskgit read-tree - Reads tree information into the index"
+    "checkout" -> "haskgit checkout [branch | commit_hash] - Switch branches or restore working tree files"
+    "reset" -> "haskgit reset [--soft | --mixed | --hard] [commit_hash] - Reset current HEAD to the specified state"
     _ -> "Error: the command `" ++ cmd ++ "` doesn't exist"

@@ -1,0 +1,109 @@
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:06:06
+╰─❯ haskgit branch demo
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:06:45
+╰─❯ haskgit branch
+  demo
+* master
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:06:50
+╰─❯ ls
+text1.txt  text2.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:07:21
+╰─❯ haskgit checkout demo
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:07:29
+╰─❯ haskgit branch
+* demo
+  master
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:07:34
+╰─❯ vim text_branch.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ····························································· 7s  base  system 22:08:11
+╰─❯ haskgit status
+On branch demo
+Untracked Files:
+  (use "haskgit add <file>..." to include in what will be committed)
+        text_branch.txt
+
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:08:16
+╰─❯ haskgit add text_branch.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:08:29
+╰─❯ haskgit commit -m "demo branch text"
+Created commit d90f63545f450c92341bbf0469c01dd258430071
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:08:38
+╰─❯ haskgit log
+commit d90f63545f450c92341bbf0469c01dd258430071
+Author: Jack Oh <jackoh@example.com>
+Date:   Mon Dec 18 22:08:38 2023 -0500
+
+    demo branch text
+
+commit e17a9eb64cb55f948d3be7237b821ceed7ba9477
+Author: Jack Oh <jackoh@example.com>
+Date:   Mon Dec 18 22:05:47 2023 -0500
+
+    text2
+
+commit 0fece157d505e619f48081f22be86654e2cc903f
+Author: Jack Oh <jo8842@g.rit.edu>
+Date:   Mon Dec 18 21:52:34 2023 -0500
+
+    text1
+
+
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:08:44
+╰─❯ haskgit checkout master
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:09:08
+╰─❯ ls
+text1.txt  text2.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:09:09
+╰─❯ vim text3.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ····························································· 7s  base  system 22:09:48
+╰─❯ haskgit add text3.txt
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:10:06
+╰─❯ haskgit commit -m "text3"
+Created commit 0d812e6d9395ec52f53ef0f91acee6d6a94cbc5d
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:10:16
+╰─❯ haskgit log
+commit 0d812e6d9395ec52f53ef0f91acee6d6a94cbc5d
+Author: Jack Oh <jackoh@example.com>
+Date:   Mon Dec 18 22:10:16 2023 -0500
+
+    text3
+
+commit e17a9eb64cb55f948d3be7237b821ceed7ba9477
+Author: Jack Oh <jackoh@example.com>
+Date:   Mon Dec 18 22:05:47 2023 -0500
+
+    text2
+
+commit 0fece157d505e619f48081f22be86654e2cc903f
+Author: Jack Oh <jo8842@g.rit.edu>
+Date:   Mon Dec 18 21:52:34 2023 -0500
+
+    text1
+
+
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:10:18
+╰─❯ haskgit checkout test
+Invalid input given. Please input a valid hash value or branch name.
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:10:37
+╰─❯ haskgit checkout demo
+
+╭─ ~/CSCI541/demo master !30 ?8 ································································  base  system 22:10:41
+╰─❯ ls
+text1.txt  text2.txt  text_branch.txt
