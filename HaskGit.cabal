@@ -25,7 +25,6 @@ library
   exposed-modules:
       GitHash
       GitObject
-      GitParser
       HaskGit
       Index
       Ref

@@ -37,7 +37,6 @@ import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import Data.Time.Format
 import GitHash (GitHash, bsToHash, getHash)
 import GitObject
-import GitParser (parseGitObject, parseIndexFile, readObjectByHash)
 import Index
 import Ref (GitRef)
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, doesPathExist, listDirectory, removeFile)

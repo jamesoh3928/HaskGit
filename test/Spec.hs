@@ -9,9 +9,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.Text as T
 import GitHash
 import GitObject
-import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
-import Index (addOrUpdateEntries, gitIndexSerialize, hasFile, hasHash, saveIndexFile)
+import Index
 import Shelly
 import System.Directory (getCurrentDirectory, removeFile, setCurrentDirectory)
 import System.IO (readFile')

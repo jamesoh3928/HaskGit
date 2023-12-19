@@ -13,19 +13,24 @@ module GitObject
     saveGitObject,
     hashObject,
     hashAndSaveObject,
+    parseGitObject,
+    readObjectByHash,
   )
 where
 
 import Codec.Compression.Zlib (compress, decompress)
 import qualified Crypto.Hash.SHA1 as SHA1
-import Data.ByteString (ByteString)
+import Data.ByteString as BS (ByteString)
+import qualified Data.ByteString as B
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import GitHash (GitHash, bsToHash, getHash)
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath
+import Text.ParserCombinators.Parsec
+import Text.Read (readMaybe)
 import Util (formatUTCTimeWithTimeZone, hashToFilePath, unixToUTCTime)
 
 -- | GitBlob = (byteSize, file content in binary)
@@ -122,3 +127,119 @@ hashAndSaveObject obj gitDir = do
     Just hash -> do
       saveGitObject hash content gitDir
       return hash
+
+-- Given hash value, return corresponding git object
+-- Use maybe type to indicate parse failure
+readObjectByHash :: GitHash -> FilePath -> IO (Maybe GitObjectHash)
+readObjectByHash hash gitdir = do
+  let hashHex = BSC.unpack (getHash hash)
+  let filename = gitdir ++ "/objects/" ++ take 2 hashHex ++ "/" ++ drop 2 hashHex
+  fileExist <- doesFileExist filename
+  if fileExist
+    then do
+      filecontent <- BSLC.readFile filename
+      case parse parseGitObject "" (BSLC.unpack (decompress filecontent)) of
+        Left err -> do
+          Prelude.putStrLn $ "Git parse error: " ++ show err
+          return Nothing
+        Right gitObj -> return (Just (gitObj, hash))
+    else do
+      return Nothing
+
+-------------------------------- Parser --------------------------------
+
+-- | Helper function to get byte size of string
+byteSize :: String -> Int
+byteSize s = B.length (BSC.pack s)
+
+-- | Parse the blob object.
+parseBlob :: Parser GitObject
+parseBlob = do
+  _ <- string "blob "
+  bytesizeString <- manyTill digit (char '\0')
+  case readMaybe bytesizeString of
+    Nothing -> fail "Not a valid byte size in blob file"
+    Just bytesize -> do
+      content <- many anyChar
+      -- data integrity check
+      if bytesize /= byteSize content
+        then fail "Byte size does not match in blob file"
+        else return (Blob (bytesize, content))
+
+-- | Parse the tree object from the binary object (Tree is binary object unlike commit and blob).
+parseTree :: Parser GitObject
+parseTree = do
+  _ <- string "tree "
+  bytesizeString <- manyTill digit (char '\0')
+  case readMaybe bytesizeString of
+    Nothing -> fail "Not a valid byte size in tree file"
+    Just bytesize -> do
+      elems <- manyTill parseGitTreeEntry eof
+      return (Tree (bytesize, elems))
+  where
+    parseGitTreeEntry :: Parser (String, String, GitHash)
+    parseGitTreeEntry = do
+      filemode <- manyTill digit (char ' ') :: Parser String
+      filename <- manyTill anyChar (char '\0')
+      -- Read 20 bytes of SHA-1 hash
+      sha' <- encode . BSC.pack <$> count 20 anyChar
+      return
+        ( case bsToHash sha' of
+            Just sha'' -> (filemode, filename, sha'')
+            Nothing -> error "Invalid hash value in tree object file  found during parsing"
+        )
+
+-- | Parse the commit object.
+parseCommit :: Parser GitObject
+parseCommit = do
+  _ <- string "commit "
+  bytesizeString <- manyTill digit (char '\0')
+  case readMaybe bytesizeString of
+    Nothing -> fail "Not a valid byte size in commit file"
+    Just bytesize -> do
+      rootTree <- string "tree " >> manyTill anyChar (char '\n')
+      -- There can be multiple parents (although merge conflict is not handled in mvp)
+      parent <- many (string "parent " >> manyTill anyChar (char '\n'))
+      authorNameWithSpace <- string "author " >> manyTill (noneOf "<") (char '<')
+      authorEmail <- manyTill (noneOf ">") (char '>')
+      spaces
+      authorTimestamp <- manyTill digit (char ' ')
+      authorTimeZone <- manyTill anyChar newline
+      committerNameWithSpace <- string "committer " >> manyTill (noneOf "<") (char '<')
+      committerEmail <- manyTill (noneOf ">") (char '>')
+      _ <- spaces
+      committerTimestamp <- manyTill digit (char ' ')
+      committerTimeZone <- manyTill anyChar newline
+      _ <- string "\n"
+      message <- manyTill anyChar eof
+      let authorInfo = (init authorNameWithSpace, authorEmail, read authorTimestamp, authorTimeZone)
+          committerInfo = (init committerNameWithSpace, committerEmail, read committerTimestamp, committerTimeZone)
+
+      let parentHashMs = Prelude.map (bsToHash . BSC.pack) parent
+      let rootTreeHashM = bsToHash (BSC.pack rootTree)
+      case (rootTreeHashM, hashesMtoHashes parentHashMs) of
+        (Just rootTreeHash, Just parentHashes) ->
+          return
+            ( Commit
+                ( bytesize,
+                  rootTreeHash,
+                  parentHashes,
+                  authorInfo,
+                  committerInfo,
+                  message
+                )
+            )
+        _ -> fail "Invalid hash value in commit file  found during parsing"
+  where
+    -- If at least one of the hashes in parentHashes or rootTreeHash is invalid, fail
+    hashesMtoHashes :: [Maybe GitHash] -> Maybe [GitHash]
+    hashesMtoHashes [] = Just []
+    hashesMtoHashes (x : xs) = case x of
+      Just x' -> case hashesMtoHashes xs of
+        Just xs' -> Just (x' : xs')
+        Nothing -> Nothing
+      Nothing -> Nothing
+
+-- | Parse the git object.
+parseGitObject :: Parser GitObject
+parseGitObject = parseBlob <|> parseTree <|> parseCommit

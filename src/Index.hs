@@ -13,21 +13,24 @@ module Index
     extractNameIndex,
     extractHashesIndex,
     updateMetaData,
+    parseIndexFile,
   )
 where
 
 import Control.Monad
 import qualified Crypto.Hash.SHA1 as SHA1
+import Data.Bits
 import Data.ByteString (ByteString)
 import Data.ByteString.Base16 as B16 (decode, encode)
 import qualified Data.ByteString.Char8 as BSC
-import Data.Char (chr)
+import Data.Char (chr, ord)
 import Data.Time.Clock
 import Data.Time.Clock.POSIX
-import GitHash (GitHash, getHash)
+import GitHash (GitHash, bsToHash, getHash)
 import GitObject (GitBlob, GitObject (..), GitTree, hashAndSaveObject, hashObject)
 import System.IO (readFile')
 import System.Posix.Files
+import Text.ParserCombinators.Parsec
 
 data GitIndexEntry = GitIndexEntry
   { ctimeS :: Int,
@@ -238,3 +241,101 @@ updateMetaData (GitIndex (x : xs)) repoDir gitDir = do
   (GitIndex rest) <- updateMetaData (GitIndex xs) repoDir gitDir
   -- -- Add the entry to the index
   return $ GitIndex (GitIndexEntry ctimeS ctimeNS mtimeS mtimeNS dev ino mode 0o100644 uid gid fsize sha False 0 (name x) : rest)
+
+--------------------------------- Parser ---------------------------------
+
+-- | Parse n-byte integer in network byte order (big-endian)
+parseInt :: Int -> Parser Int
+parseInt n = do
+  ints <- (ord <$>) <$> count n anyChar
+  -- Loop through int list and get actualy decimal value
+  return (foldl (\v x -> v * 256 + x) 0 ints)
+
+-- | Parse 4-byte integer in network byte order (big-endian)
+parseInt32 :: Parser Int
+parseInt32 = parseInt 4
+
+-- | Parse 2-byte integer in network byte order (big-endian)
+parseInt16 :: Parser Int
+parseInt16 = parseInt 2
+
+-- | Parse a Git index entry (for mvp, assuming version 2)
+-- Followed git index format documentation: https://github.com/git/git/blob/master/Documentation/gitformat-index.txt
+parseGitIndexEntry :: Parser GitIndexEntry
+parseGitIndexEntry = do
+  ctimeS' <- parseInt32
+  ctimeNs' <- parseInt32
+  mtimeS' <- parseInt32
+  mtimeNs' <- parseInt32
+  dev' <- parseInt32
+  ino' <- parseInt32
+  _ <- count 2 (char '\NUL') -- Ignored
+  mode <- parseInt16
+  let modeType' = shiftR mode 12
+      -- 9-bit unix permission. Only 0755 and 0644 are valid for regular files.
+      modePerms' = mode .&. 0x01FF
+  uid' <- parseInt32
+  gid' <- parseInt32
+  fsize' <- parseInt32
+  -- Encode it to hexadecimal representation because index is storing not encoded hash
+  shaBS <- B16.encode . BSC.pack <$> count 20 anyChar
+  let sha' = case bsToHash shaBS of
+        Just sha'' -> sha''
+        Nothing -> error "Invalid hash value in index file found during parsing"
+  flags <- parseInt16
+  let flagAssumeValid' = flags .&. 0x8000 /= 0
+      -- flagExtended, ignoring for mvp
+      _ = flags .&. 0x4000 /= 0
+      flagStage' = flags .&. 0x3000
+      nameLength = flags .&. 0x0FFF
+
+  -- If version > 2, there is another 16 bit but skipping for MVP
+
+  name' <-
+    if nameLength < 0xFFF
+      then do
+        -- _ <- char '\NUL' -- Ensure termination with null character
+        count nameLength anyChar
+      else do
+        -- _ <- string "\NUL\NUL\NUL\NUL" -- Ensure termination with four null characters
+        manyTill anyChar (char '\NUL')
+
+  -- If version == 4, there is extra data but skipping for MVP
+
+  -- Skip padding so we can start at the right bit for next entry
+  -- Data is padded on multiples of eight bytes for pointer
+  -- alignment, so we skip as many bytes as we need for the next
+  -- read to start at the right position
+  let padding = 8 - ((62 + Prelude.length name') `mod` 8)
+  _ <- count padding anyChar
+
+  return $
+    GitIndexEntry
+      ctimeS'
+      ctimeNs'
+      mtimeS'
+      mtimeNs'
+      dev'
+      ino'
+      modeType'
+      modePerms'
+      uid'
+      gid'
+      fsize'
+      sha'
+      flagAssumeValid'
+      flagStage'
+      name'
+
+-- | Parse index file (which is in binary format)
+-- Ignoring the extension data for now
+parseIndexFile :: Parser GitIndex
+parseIndexFile = do
+  -- 4-byte signature (DIRC)
+  _ <- string "DIRC"
+  -- 4-byte version number (our mvp only takes version 2)
+  _ <- string "\0\0\0\2"
+  numEntries <- parseInt32
+  entries <- count numEntries parseGitIndexEntry
+  -- Ignoring the extensions and cache tree
+  return (GitIndex entries)
