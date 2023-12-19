@@ -136,19 +136,19 @@ getEntries dir gitDir = do
   let relPaths = Data.List.nub $ map (makeRelative dir) paths
   return relPaths
 
-fullRecurEntries :: FilePath -> IO [FilePath]
-fullRecurEntries dir = do
+fullRecurEntries :: FilePath -> FilePath -> IO [FilePath]
+fullRecurEntries dir gitDir = do
   isDir <- doesDirectoryExist dir
   if isDir
     then do
       entriesCurrDir <- listDirectory dir
-      entriesCurrDirS <- mapM (appendSlash dir) (filter (/= ".git") entriesCurrDir)
-      concat <$> mapM fullRecurEntries entriesCurrDirS
+      entriesCurrDirS <- mapM (appendSlash dir) (filter (\x -> x /= ".git" && x /= gitDir) entriesCurrDir)
+      concat <$> mapM (`fullRecurEntries` gitDir) entriesCurrDirS
     else return [dir]
 
-getFullEntries :: FilePath -> IO [FilePath]
-getFullEntries dir = do
-  paths <- fullRecurEntries dir
+getFullEntries :: FilePath -> FilePath -> IO [FilePath]
+getFullEntries dir gitDir = do
+  paths <- fullRecurEntries dir gitDir
   return $ map (makeRelative dir) (Data.List.nub paths)
 
 appendSlash :: [Char] -> [Char] -> IO FilePath

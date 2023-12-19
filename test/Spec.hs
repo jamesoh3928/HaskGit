@@ -24,16 +24,16 @@ import Util (removeCorrupts)
 
 -- Some of the test .haskgit directories that are used by tests
 testGitDir :: FilePath
-testGitDir = ".test_haskgit"
+testGitDir = "test/TestData/.test_haskgit"
 
 testGitDirReadTree :: FilePath
-testGitDirReadTree = ".test_readtree/.test_haskgit_readtree"
+testGitDirReadTree = "test/TestData/.test_readtree/.test_haskgit"
 
 testRepoDirStatus :: FilePath
 testRepoDirStatus = "test/TestData/.test_status"
 
 testGitDirStatus :: FilePath
-testGitDirStatus = ".haskgit"
+testGitDirStatus = ".test_haskgit"
 
 testGitDirLog :: FilePath
 testGitDirLog = "test/TestData/.test_log"
@@ -157,7 +157,7 @@ gitUpdateRefTests = do
 
   -- Go back to original ref
   writeFile refMainPath originalMainRef
-  writeFile ".test_haskgit/HEAD" originalHeadRef
+  writeFile (testGitDir ++ "/HEAD") originalHeadRef
 
   return gitUpdateRefTests
 
@@ -324,9 +324,9 @@ gitListBranchTests = do
 addOrUpdateEntriesTests :: IO TestTree
 addOrUpdateEntriesTests = do
   let paths = ["test/TestData/add_test1.txt", "test/TestData/add_test2.txt", "test/TestData/add_test3.txt"]
-  let blobPath1 = ".test_haskgit/objects/07/23bccca901088280aa4713451f8c209c49172f"
-  let blobPath2 = ".test_haskgit/objects/57/85a4e736f26aba8027f1ff87eaa9e7c5d2f785"
-  let blobPath3 = ".test_haskgit/objects/8b/fc9d730d801f5f439e83b895bc0d5cb1b64b14"
+  let blobPath1 = testGitDir ++ "/objects/07/23bccca901088280aa4713451f8c209c49172f"
+  let blobPath2 = testGitDir ++ "/objects/57/85a4e736f26aba8027f1ff87eaa9e7c5d2f785"
+  let blobPath3 = testGitDir ++ "/objects/8b/fc9d730d801f5f439e83b895bc0d5cb1b64b14"
   indexContent <- BSC.readFile (testGitDir ++ "/index")
   newIndex <- case parse parseIndexFile "" (BSC.unpack indexContent) of
     Left err -> assertFailure (show err)
