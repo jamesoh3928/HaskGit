@@ -56,7 +56,7 @@ The list of implemented porcelain commands is as follows:
     -- create new branch
     haskgit branch branch_name
     ```
-  - checkout: Switches branches and restores working tree files of that branch. However, our checkout command does not perform **safety** check before checking out to other branch. I.e. if there are uncommitted changes that can be lost by checking out to different branch, the haskgit will not abort the command and you may lose some of your changes.
+  - checkout: Switches branches and restores working tree files of that branch. However, our checkout command does not perform **safety** check before checking out to other branch. I.e. if there are uncommitted changes that can be lost by checking out to different branch, the haskgit will not abort the command and you may lose some of your changes. Also, if checking out to another branch removes all files in a specific directory, we are not handling the removal of those directories (not handling empty directories).
     ```console
     haskgit checkout branch-name
 
@@ -138,6 +138,9 @@ HaskGit> Test suite HaskGit-test passed
 
 The output of testing for `git checkout` and `git reset` can be found in `test/TestData/test_checkout.txt` and `test/TestData/test_resent.txt`.
 
+### How to Use HaskGit
+Because HaskGit does not have an init command, and it is not yet handling when there is no commit, we need to first initialize repository with official git.
+TODO: Jack
 
 ## Additional Details
 
@@ -203,7 +206,12 @@ Merge branch 'main' of git.cs.rit.edu:psh2231/project/HaskGit into main
 
 Decompressed Tree Object Files
 ```console
-x+)JMU0�4`040031Q�K�,I,))�L*-I-f�i���e���쫗Qf�?�-v�@R����_��pcc��s�ݽ�-3Ùra�{0U9�y%z���9���諬�lX�ȕ�>9����
+tree 690100644 .gitattributes�:�P��SFO��Z6��sBh100644 .gitignoreر������ݻ���wD8�100644 .hlint.yaml��7�/$�9��_A
+40000 .vscode�T�z       @+ڔ�?��
+[[100644 CHANGELOG.md��%k���x
+                             1�ڗ���@`100644 HaskGit.cabal�=V�u��KVo�U��N�+�4�100644 README.md��A$ϥ��^Mu��+�100644 Set��Xk�D�e�ۧC�40000 assets��Mxa�瀴ayp�Hʈ�،40000 docs�CC^�yM��J�1S|�R�40000 experiments�$F�&"`{�?��100644 newfile�⛲��CK�)�wZ���S�100644 original_index�l��˸t��|}�xU�>�100644 out.outZ
+                                                             l5�;1���5��W��j100644 package.yamlC<.����
+                                                                                                      ^���      $�40000 srcP�!�V_>�U�$�q�N%�]@100644 stack.yamlK���+�3$��c���i40000 test�o�<z4vL�2i���t�?
 ```
 
 You can see commit objects store hash values in a readable hexadecimal format, while tree objects do not.
@@ -299,7 +307,7 @@ traverse (k : ks) dict = do
       if Map.member parentDir dict
         then do
           let (Just entries) = Map.lookup parentDir dict
-          let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), k, treeHash) : entries
+          let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), takeFileName k, treeHash) : entries
           -- Add the new tree object to the dict
           let newDict' = Map.insert parentDir newEntries dict
           traverse ks newDict'
