@@ -16,9 +16,9 @@ HaskGit is a Git implementation crafted in Haskell with the primary objective of
 - A strong type system and functional paradigm help us ensure the correctness of the Git protocol.
 - Pure functions are useful for maintaining data integrity in Git.
 
-### How is HaskGit implemented? ###
+### How Does Git Work? ###
 
-How does Git track file versions? Git manages file versions using Git objects stored in `.git/objects`. There are three types of Git objects: *Blob*, representing file content; *Tree*, representing a directory; and *Commit*, which captures a specific snapshot of a project.
+How does Git track versions of the files? Git manages versions using Git objects stored in `.git/objects`. There are three types of Git objects: *Blob*, representing file content; *Tree*, representing a directory; and *Commit*, which captures a specific snapshot of a project.
 
 In the diagram below, each commit object points to a tree object, and tree objects point to multiple blobs representing the snapshot's directory. Visualize it as a linked list of snapshots, with each commit object serving as a snapshot. Git keeps track of these objects by hashing them and storing them in a directory represented by the hash. All objects are stored in `.git/objects/(first two hash characters)/(rest of the hash characters)`.
 
@@ -236,6 +236,28 @@ app/
 ```
 
 We structured our code to follow the logical abstraction of the Git protocol.
+
+Some of our GitObject types look like:
+
+```haskell
+-- | GitBlob = (byteSize, file content in binary)
+type GitBlob = (Int, String)
+
+-- | GitTree = (byteSize, [(filemode bits, name of file/directory, sha1 hash)])
+-- Filemode bits are stored in octal ASCII representation for the tree.
+type GitTree = (Int, [(String, String, GitHash)])
+
+-- | GitAuthor = (name, email, date - unix time in seconds, timezone string)
+type GitAuthor = (String, String, Int, String)
+
+-- | GitCommitter = (name, email, date - unix time in seconds, timezone string)
+type GitCommitter = (String, String, Int, String)
+
+-- | GitCommit = (bytesize, tree hash, parent hashes, author, committer, message)
+type GitCommit = (Int, GitHash, [GitHash], GitAuthor, GitCommitter, String)
+
+data GitObject = Tree GitTree | Commit GitCommit | Blob GitBlob
+```
 
 ### Challenges/Lessons
 
