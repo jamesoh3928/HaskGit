@@ -7,8 +7,8 @@ import Codec.Compression.Zlib (compress, decompress)
 import Data.ByteString.Base16 (encode)
 import qualified Data.ByteString.Lazy as LBS
 import Data.ByteString.Lazy.Char8 as BSLC
-import GitParser (parseGitObject, parseIndexFile)
 import HaskGit
+import GitObject
 import Index
 import Text.Parsec (parse)
 
