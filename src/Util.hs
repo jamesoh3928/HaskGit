@@ -226,7 +226,6 @@ listFilesRecursively path gitDir = do
               xs <- listDirectory path
               -- Exclude gitdir
               let files = filter (/= gitDir) xs
-              -- putStrLn ("isDirectory" ++ show files)
               listFilesOfDirectories files path
             else return []
   where
