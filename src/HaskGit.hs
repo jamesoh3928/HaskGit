@@ -97,7 +97,7 @@ gitWriteTree gitDir = do
               -- Add the tree object to the parent directory
               let (Just entries) = Map.lookup parentDir dict
               -- Directory mode is 040000, permissions is rwxr-xr-x
-              let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), parentDir, treeHash) : entries
+              let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), k, treeHash) : entries
               -- Add the new tree object to the dict
               let newDict' = Map.insert parentDir newEntries dict
               -- Recurse with the rest of the keys
