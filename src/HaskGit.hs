@@ -574,13 +574,13 @@ gitStatus gitDir = do
     putStrLn ""
 
   Control.Monad.unless (null untracked) $ do
-    putStrLn "Untracked Files: "
+    putStrLn "Untracked Files:"
     putStrLn "  (use \"haskgit add <file>...\" to include in what will be committed)"
     mapM_ printStatusInfo untracked
     putStrLn ""
 
   Control.Monad.unless (null staged) $ do
-    putStrLn "Staged, changes to be committed: "
+    putStrLn "Staged, changes to be committed:"
     mapM_ printStatusInfo staged
     putStrLn ""
 
@@ -627,16 +627,16 @@ hash2CommitObj hash gitdir = do
 -- GitIndexEntry
 unpackIndex :: FilePath -> IO (Maybe GitIndex)
 unpackIndex gitDir = do
-  content <- BSLC.readFile $ gitDir </> "index"
-  case parse parseIndexFile "" (BSLC.unpack content) of
+  content <- BSC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSC.unpack content) of
     Left err -> return Nothing
     Right ls -> return $ Just ls
 
 -- | List files in the index with the actual working directory list
 gitListFiles :: FilePath -> IO ()
 gitListFiles gitDir = do
-  content <- BSLC.readFile $ gitDir </> "index"
-  case parse parseIndexFile "" (BSLC.unpack content) of
+  content <- BSC.readFile $ gitDir </> "index"
+  case parse parseIndexFile "" (BSC.unpack content) of
     Left err -> Prelude.putStrLn $ "Parse error: " ++ show err
     Right (GitIndex ls) -> mapM_ (putStrLn . name) ls
 
@@ -778,7 +778,7 @@ gitStatusDeleted gitDir = do
     Nothing -> error "Error: the index is unable to unpack during git status"
     Just (GitIndex ls) -> do
       let deleted = filter (\d -> all (\e -> name d /= e) entries) ls
-      mapM (\p -> return $ Untracked (name p, sha p)) deleted
+      mapM (\p -> return $ Deleted (name p, sha p)) deleted
 
 gitFlatTree :: FilePath -> IO [(String, FilePath, GitHash)]
 gitFlatTree gitDir =
@@ -882,9 +882,9 @@ gitStatusStaged gitDir = do
 printStatusInfo :: Status -> IO ()
 printStatusInfo s =
   case s of
-    Modified (f, _) -> putStrLn $ "\tmodified: " ++ f
-    Added (f, _) -> putStrLn $ "\tnew file: " ++ f
-    Deleted (f, _) -> putStrLn $ "\tdeleted:  " ++ f
+    Modified (f, _) -> putStrLn $ "    modified: " ++ f
+    Added (f, _) -> putStrLn $ "    new file: " ++ f
+    Deleted (f, _) -> putStrLn $ "    deleted:  " ++ f
     -- In git, it uses two colors (red and green) of "M"
     --  in this case, use "U".
-    Untracked (f, _) -> putStrLn $ "\t\t" ++ f
+    Untracked (f, _) -> putStrLn $ "        " ++ f

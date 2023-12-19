@@ -1,0 +1,12 @@
+On branch master
+
+Untracked Files:
+  (use "haskgit add <file>..." to include in what will be committed)
+        text3.txt
+
+Staged, changes to be committed:
+    new file: text2.txt
+
+Changes not staged for commit:
+    deleted:  text1.txt
+

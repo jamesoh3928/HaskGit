@@ -33,7 +33,7 @@ testRepoDirStatus :: FilePath
 testRepoDirStatus = "test/TestData/.test_status"
 
 testGitDirStatus :: FilePath
-testGitDirStatus = ".haskgit_status"
+testGitDirStatus = ".haskgit"
 
 testGitDirLog :: FilePath
 testGitDirLog = "test/TestData/.test_log"
@@ -59,8 +59,8 @@ tests =
         gitListBranchTests,
         addOrUpdateEntriesTests,
         gitReadTreeTests,
-        gitCommitTests
-        -- gitStatusTest
+        gitCommitTests,
+        gitStatusTest
       ]
 
 -- Make sure if haskgit show produces expected output
@@ -465,45 +465,17 @@ gitStatusTest = do
   setCurrentDirectory testRepoDirStatus
 
   -- Case1: No branch
-  expected1 <- readFile "../expectedStatus1.dat"
-  (actual1, ()) <- capture $ gitStatus testGitDirStatus
+  expected <- readFile' "../expectedStatus.dat"
+  (actual, ()) <- capture $ gitStatus testGitDirStatus
 
-  -- -- Case2: Untracked File
-  -- writeFile "case2.txt" "case2"
-  -- expected2 <- readFile' "../expectedStatus2.dat"
-  -- (actual2, ()) <- capture $ gitStatus testGitDirStatus
-
-  -- -- Case3: Staged
-  -- gitAdd ["case2.txt"] testGitDirStatus
-  -- expected3 <- readFile' "../expectedStatus3.dat"
-  -- (actual3, ()) <- capture $ gitStatus testGitDirStatus
-
-  -- -- Case4: After commit
-  -- gitCommit "status test" testGitDirStatus
-  -- expected4 <- readFile' "../expectedStatus1.dat"
-  -- (actual4, ()) <- capture $ gitStatus testGitDirStatus
-
-  -- -- Case5: Modify
-  -- writeFile "case.txt" "case2 changed"
-  -- expected5 <- readFile' "../expectedStatus4.dat"
-  -- (actual5, ()) <- capture $ gitStatus testGitDirStatus
-
-  -- removeFile "case2.txt"
+  -- Go back to original directory
   setCurrentDirectory initialDirectory
 
   let statusTest =
         testGroup
           "gitStatus"
           [ testCase "Working tree clean" $
-              actual1 @?= expected1
-              -- testCase "Untracked file" $
-              --   actual2 @?= expected2
-              -- testCase "Stage" $
-              --   actual3 @?= expected3,
-              -- testCase "After commit" $
-              --   actual4 @?= expected4,
-              -- testCase "Modified" $
-              --   actual5 @?= expected5
+              actual @?= expected
           ]
   return statusTest
 
