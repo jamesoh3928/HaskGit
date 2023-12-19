@@ -31,6 +31,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.Graph (path)
 import Data.List (find, isPrefixOf, nub, sort, sortOn, stripPrefix)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Time (getCurrentTimeZone)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
@@ -68,8 +69,8 @@ gitWriteTree gitDir = do
       -- Transcode the mode: the entry stores it as integers, but need an octal ASCII representation for tree
       -- The name in tree must be just a file or directory name
       let dict = Map.fromListWith (++) (map (\ie -> (takeDirectory (name ie), [(printf "%02o%04o" (modeType ie) (modePerms ie), takeFileName (name ie), sha ie)])) entries)
-      -- Sort the `keys` from longest length to shortest length
-      let sortedKeys = sortOn (\x -> -1 * length x) (Map.keys dict)
+      -- Store 'keys' in a set which is sorted.
+      let sortedKeys = Set.fromList (map (\s -> (length s, s)) (Map.keys dict))
       -- Traverse the sorted keys, create and save the tree object and if the parent directory is in the dict, add the tree object to the parent directory
       res <- traverse sortedKeys dict
       case res of
@@ -78,32 +79,37 @@ gitWriteTree gitDir = do
         Just hash -> return (Just hash)
   where
     -- Given a list of keys, and the dict, create and save the tree object and add to dict if the parent directory is in the dict
-    traverse :: [String] -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
-    traverse [] _ = return Nothing
-    traverse (k : ks) dict = do
-      -- Create the tree object (bytesize is placeholder since it will be calculated in serialize function)
-      -- Also sort the entries based on the name
-      let tree = Tree (0, sortOn (\(_, name, _) -> name) (dict Map.! k))
-      -- Save the tree object
-      treeHash <- hashAndSaveObject tree gitDir
-      -- If the parent directory is in the dict
-      let parentDir = takeDirectory k
-      case k of
-        -- Finished traversing the keys, return the hash of the root tree object (base case)
-        "." -> return $ Just treeHash
-        _ ->
-          if Map.member parentDir dict
-            then do
-              -- Add the tree object to the parent directory
-              let (Just entries) = Map.lookup parentDir dict
+    traverse :: Set.Set (Int, [Char]) -> Map.Map FilePath [(String, FilePath, GitHash)] -> IO (Maybe GitHash)
+    traverse ks dict = do
+      -- O(log(n))
+      case Set.maxView ks of
+        Nothing -> return Nothing
+        Just ((_, k), lks) -> do
+          -- Create the tree object (bytesize is placeholder since it will be calculated in serialize function)
+          -- Also sort the entries based on the name (tree object file stores entries in sorted order)
+          let tree = Tree (0, sortOn (\(_, name, _) -> name) (dict Map.! k))
+          -- Save the tree object
+          treeHash <- hashAndSaveObject tree gitDir
+          -- If the parent directory is in the dict
+          let parentDir = takeDirectory k
+          case k of
+            -- Finished traversing the keys, return the hash of the root tree object (base case)
+            "." -> return $ Just treeHash
+            _ -> do
+              entries <-
+                if Map.member parentDir dict
+                  then do
+                    let (Just entries) = Map.lookup parentDir dict
+                    return entries
+                  else return []
               -- Directory mode is 040000, permissions is rwxr-xr-x
-              let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), k, treeHash) : entries
-              -- Add the new tree object to the dict
+              let newEntries = (printf "%02o%04o" (0o040000 :: Int) (0o0755 :: Int), takeFileName k, treeHash) : entries
+
+              -- Add the new tree object to the dict and new key to the set (both O(log(n)))
               let newDict' = Map.insert parentDir newEntries dict
-              -- Recurse with the rest of the keys
-              traverse ks newDict'
-            else -- Recurse with the rest of the keys
-              traverse ks dict
+              let newKs = Set.insert (length parentDir, parentDir) lks
+              -- Recurse with the new keys and new dict
+              traverse newKs newDict'
 
 -- | This command Reads tree information into the index.
 gitReadTree :: ByteString -> FilePath -> IO ()
