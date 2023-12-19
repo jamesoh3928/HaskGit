@@ -34,7 +34,7 @@ The list of implemented porcelain commands is as follows:
     -- '-m' flag is required for MVP
     haskgit commit -m "Some commit message"
     ```
-  - reset: Resets the current HEAD to the specified state. HaskGit impelements different types of resets (soft, mixed, hard).
+  - reset: Resets the current HEAD to the specified state. HaskGit impelements different types of resets (soft, mixed, hard). 
     ```console
     -- this will unstage all changes
     haskgit reset
@@ -56,12 +56,14 @@ The list of implemented porcelain commands is as follows:
     -- create new branch
     haskgit branch branch_name
     ```
-  - checkout: Switches branches and restores working tree files of that branch. However, our checkout command does not perform **safety** check before checking out to other branch. I.e. if there are uncommitted changes that can be lost by checking out to different branch, the haskgit will not abort the command and you may lose some of your changes. Also, if checking out to another branch removes all files in a specific directory, we are not handling the removal of those directories (not handling empty directories).
+  - checkout: Switches branches and restores working tree files of that branch. However, our checkout command does not perform **safety** check before checking out to other branch. I.e. if there are uncommitted changes that can be lost by checking out to different branch, the haskgit will not abort the command and you may lose some of your changes.
     ```console
     haskgit checkout branch-name
 
     haskgit checkout commit-hash  
     ```
+
+    *Note: if checking out to another branch removes all files in a specific directory, we are not handling the removal of those directories (not handling empty directories). For example, if there was a file dir1/test.txt, and a user checks out to a branch that does not include this file, there will be an empty directory, dir1/. This also holds true for a --hard reset, as the working directory could be updated.* 
 
 - Inspection and Comparison
   - show: Shows a git object. In the standard 'git show' behavior, it includes the specified commit and the differences. However, for the project's scope, the diff part will be not displayed.
@@ -80,13 +82,15 @@ The list of implemented porcelain commands is as follows:
 
 Of course, there are tons of options and flags available in the official Git client that are not present in HaskGit due to the project's scope. Additionally, there are many edge cases that HaskGit cannot cover (e.g., no merge conflicts, so we assume there is either one or zero parent commits, etc.). However, it does contain all the minimal features necessary for users to control the version of files locally. (Note: While `haskgit init` has not been implemented yet, you can set up a `.haskgit` repository using the official Git implementation. Check out the **How to Use HaskGit** section if you are interested in using it.) Please be aware that HaskGit assumes that the user is employing a Unix-like operating system. In the future, we may add compatibility for other operating systems, but, for now, you may not be able to run the program on certain platforms. Also, note that HaskGit does not currently support any configuration setup. Therefore, when you make a commit, it will assume your name and email to be 'Codey Devinson' and 'codey@example.com'.
 
-[Demo](https://youtu.be/tznLdkqjtC4)
+[Demo](https://youtu.be/tznLdkqjtC4) : Quick demo showing basic functionality of haskgit
 
 ### Testing
 
 Due to the nature of the many side effects that Git has, it was very challenging to build a robust set of unit tests. We were able to create unit tests for most of the core functionalities. We attempted to use the `tasty-golden` library to compare the output with the expected output stored in a golden file. However, for some reason, we encountered unexpected behaviors as we added more tests - sometimes the tests passed, and sometimes they did not. We could not pinpoint the exact reason for this issue, but we assumed that when multiple tests output to the stdout, the output could be captured by other test cases (although we could not confirm this). Instead of using the `tasty-golden` library, we reverted to manually reading expected output from files. All of the test data, such as expected output and test Git directories used in `Spec.hs`, can be found under the `test/TestData` directory.
 
-Most of the porcelain commands have unit tests, while the `git add` command is tested by testing the `parseIndex`, `saveIndex`, and `addOrUpdateEntries` functions to avoid issues with file metadata. If these three functions are working correctly, `git add` should exhibit the correct behavior as well. The only porcelain commands that do not have direct unit tests are `git checkout` and `git reset` because these commands involve manipulating the working directory. Recently, we discovered that the `System.Directory` module contains a `setCurrentDirectory` function, meaning that we can set up separate directories just for `git checkout` and `git reset` testing. However, this setup would still require tedious work, and we discovered this a bit late. We still performed thorough manual testing on these features to ensure they are working correctly. We believe this is a reasonable accommodation based on the timeline of the project and the nature of Git software.
+Most of the porcelain commands have unit tests, while the `git add` command is tested by testing the `parseIndex`, `saveIndex`, and `addOrUpdateEntries` functions to avoid issues with file metadata. If these three functions are working correctly, `git add` should exhibit the correct behavior as well. The only porcelain commands that do not have direct unit tests are `git checkout` and `git reset` because these commands involve manipulating the working directory. Recently, we discovered that the `System.Directory` module contains a `setCurrentDirectory` function, meaning that we can set up separate directories just for `git checkout` and `git reset` testing. However, this setup would still require tedious work, and we discovered this a bit late. We still performed thorough manual testing on these features to ensure they are working correctly. We believe this is a reasonable accommodation based on the timeline of the project and the nature of Git software. 
+
+The output of testing for `git checkout` and `git reset` can be found in `test/TestData/test_checkout.txt` and `test/TestData/test_resent.txt`.
 
 The test can be ran using `stack test` command. The expected outputs are:
 
@@ -135,8 +139,6 @@ HaskGit> Test suite HaskGit-test passed
 ```
 
 
-
-The output of testing for `git checkout` and `git reset` can be found in `test/TestData/test_checkout.txt` and `test/TestData/test_resent.txt`.
 
 ### How to Use HaskGit
 Because HaskGit does not have an init command, and it is not yet handling when there is no commit, we need to first initialize repository with official git.
@@ -259,7 +261,7 @@ The reason why this happens is due to lazy evaluation in combination with shadow
 
 When working on tests, there were cases where we needed to read and write to the same file to preserve the original content (e.g., after `gitUpdateRef` changes the ref file, we want to revert to the original so that the next test remains valid). However, due to lazy evaluation in Haskell, errors occurred because the file was being accessed while still in the process of being updated. For this reason, we opted to use strict IO in these cases. More information can be found on [this page](https://stackoverflow.com/questions/5053135/resource-busy-file-is-locked-error-in-haskell).
 
-We used the [`readFile'`](https://hackage.haskell.org/package/base-4.19.0.0/docs/System-IO.html#:~:text=The%20readFile%27-,function,-reads%20a%20file) function, which reads a file strictly.
+We used the [`readFile'`](https://hackage.haskell.org/package/base-4.19.0.0/docs/System-IO.html#:~:text=The%20readFile%27-,function,-reads%20a%20file) function, which reads a file strictly. Also, to compress and decompress, we used the zlib library, which takes lazy bytestrings (Data.ByteString.Lazy.Char8) as input. This also caused a similar issue during testing, so the files were first read using strict bytestrings (Data.ByteString.Char8) and then converted to lazy bytestrings.
 
 #### Other challenges
 

@@ -352,7 +352,7 @@ gitReadTreeTests = do
   -- Case 1: tree dc1a169e2bd287931839c35eaec477be39d5d855
   -- Should contain text1.txt, text2.txt, dir1/text3.txt
   let treeHash1 = "dc1a169e2bd287931839c35eaec477be39d5d855"
-  let path1 = ["text1.txt", "text2.txt", "/dir1/text3.txt"]
+  let path1 = ["text1.txt", "text2.txt", "dir1/text3.txt"]
   let hashes1 = case (bsToHash (BSC.pack "1664584d9a5168247c12877b7fdd2f5549d1d1dd"), bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4"), bsToHash (BSC.pack "f483c776c42f8ef2aa00d827805dfeaf7d9ce02b")) of
         (Just x, Just y, Just z) -> [x, y, z]
         _ -> error "Failed to convert valid hash. Check the test file."
@@ -379,7 +379,7 @@ gitReadTreeTests = do
 
   -- Case 3: go back to original index
   let originalTree = "c49122098fd599325d3eb2b688819990dcbae382"
-  let originalPath = ["text1.txt", "test.txt", "/dir1/dir2/text4.txt"]
+  let originalPath = ["text1.txt", "test.txt", "dir1/dir2/text4.txt"]
   let originalHash = case (bsToHash (BSC.pack "9e9d6c3d83f973a03c508b354af0d383aca94cb5"), bsToHash (BSC.pack "94a6a0a6bd8087721ec594f304cb881f20d61345"), bsToHash (BSC.pack "ad1a4f341d4f1cd0f5ad1da45e17e1ee03d1bac4")) of
         (Just x, Just y, Just z) -> [x, y, z]
         _ -> error "Failed to convert valid hash. Check the test file."
